@@ -57,12 +57,10 @@ const getFallbackPosts = unstable_cache(
         title: true,
         slug: true,
         excerpt: true,
-        content: true,
         image: true,
         publishedAt: true,
         type: true,
         videoUrl: true,
-        gallery: true,
         category: {
           select: { name: true, slug: true }
         },
@@ -378,14 +376,12 @@ async function getData() {
     subtitle: true,
     slug: true,
     excerpt: true,
-    content: true,
     image: true,
     publishedAt: true,
     createdAt: true,
     updatedAt: true,
     type: true,
     videoUrl: true,
-    gallery: true,
     category: {
       select: { name: true, slug: true },
     },

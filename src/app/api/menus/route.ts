@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 
 const db = prisma as any;
@@ -53,6 +54,7 @@ export async function POST(request: Request) {
       data: { name },
     });
 
+    revalidateTag("menus");
     return NextResponse.json(menu, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
