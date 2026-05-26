@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { storage } from "@/lib/storage";
 import { v4 as uuidv4 } from "uuid";
+import { assertRateLimit } from "@/lib/api-guards";
 
 export async function POST(request: Request) {
   try {
@@ -12,6 +13,14 @@ export async function POST(request: Request) {
     const user = verifyToken(token || "");
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const rl = assertRateLimit(request, `upload:${user.id}`, { windowMs: 60_000, max: 30 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
+    }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;

@@ -163,7 +163,7 @@ export function usePageBuilder(location: PageLocation = "home") {
         const [resCat, resTags, resGlobal] = await Promise.all([
           fetch("/api/categories"),
           fetch("/api/tags"),
-          fetch("/api/settings"),
+          fetch("/api/admin/settings"),
         ]);
 
         const [catsData, tagsData, globalData] = await Promise.all([
@@ -179,7 +179,7 @@ export function usePageBuilder(location: PageLocation = "home") {
         setActiveTheme(currentTheme);
 
         const [resThemeConfig, resBlocks] = await Promise.all([
-          fetch(`/api/settings?themeId=${currentTheme}`),
+          fetch(`/api/admin/settings?themeId=${currentTheme}`),
           fetch(`/api/homepage?location=${location}&themeId=${currentTheme}`),
         ]);
 
@@ -941,7 +941,7 @@ export function usePageBuilder(location: PageLocation = "home") {
           [`${prefix}GlobalPaddingRight`]: globalPaddingRight
       };
 
-      const resSettings = await fetch("/api/settings", {
+      const resSettings = await fetch("/api/admin/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(settingsPayload),

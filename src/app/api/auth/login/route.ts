@@ -3,10 +3,30 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword, createToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { logActivity } from "@/lib/audit";
+import { assertRateLimit } from "@/lib/api-guards";
 
 export async function POST(request: Request) {
   try {
     const { email, password } = await request.json();
+
+    const rlGeneric = assertRateLimit(request, "auth:login", { windowMs: 60_000, max: 15 });
+    if (!rlGeneric.ok) {
+      return NextResponse.json(
+        { error: "Terlalu banyak percobaan login. Coba lagi nanti." },
+        { status: 429, headers: { "Retry-After": String(rlGeneric.retryAfterSeconds) } },
+      );
+    }
+
+    const emailKey = typeof email === "string" ? email.trim().toLowerCase() : "";
+    if (emailKey) {
+      const rlEmail = assertRateLimit(request, `auth:login:${emailKey}`, { windowMs: 60_000, max: 8 });
+      if (!rlEmail.ok) {
+        return NextResponse.json(
+          { error: "Terlalu banyak percobaan login untuk email ini. Coba lagi nanti." },
+          { status: 429, headers: { "Retry-After": String(rlEmail.retryAfterSeconds) } },
+        );
+      }
+    }
 
     // 1. Cari user di database
     const user = await prisma.user.findUnique({
@@ -39,6 +59,7 @@ export async function POST(request: Request) {
     cookieStore.set("auth_token", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24, // 1 hari
       path: "/", // Berlaku di seluruh website
     });

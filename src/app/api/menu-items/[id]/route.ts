@@ -49,8 +49,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     await prisma.menuItem.delete({ where: { id } });
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("DELETE /api/menu-items/[id] error:", error);
     return NextResponse.json({ error: "Gagal menghapus item menu" }, { status: 500 });
   }
 }
-

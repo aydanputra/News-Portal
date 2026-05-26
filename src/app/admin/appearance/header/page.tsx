@@ -4,7 +4,7 @@ import { Monitor, Redo2, RotateCcw, Save, Smartphone, Tablet, Undo2 } from "luci
 import EditChildModal from "../../homepage/components/EditChildModal";
 import EditSectionModal from "../../homepage/components/EditSectionModal";
 import PreviewPanel from "../../homepage/components/PreviewPanel";
-import SectionPicker from "../../homepage/components/SectionPicker";
+import SectionPicker from "@/components/admin/page-builder/SectionPicker";
 import { useHeaderBuilder } from "./useHeaderBuilder";
 
 export default function HeaderAppearancePage() {

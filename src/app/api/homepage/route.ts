@@ -23,7 +23,8 @@ export async function GET(request: Request) {
       orderBy: { order: "asc" },
     });
     return NextResponse.json(normalizeHomepageBlocks(blocks));
-  } catch {
+  } catch (error) {
+    console.error("GET /api/homepage error:", error);
     return NextResponse.json({ error: "Gagal mengambil konfigurasi" }, { status: 500 });
   }
 }

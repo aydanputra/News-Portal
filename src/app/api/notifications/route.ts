@@ -21,7 +21,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ data: notifications });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/notifications error:", error);
     return NextResponse.json({ data: [] });
   }
 }

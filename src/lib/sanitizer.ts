@@ -92,3 +92,61 @@ export const sanitizeContent = (html: string): string => {
     }
   });
 };
+
+export const sanitizePageContent = (html: string): string => {
+  if (!html) return "";
+
+  return sanitizeHtml(html, {
+    allowedTags: [
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "h5",
+      "h6",
+      "blockquote",
+      "p",
+      "a",
+      "ul",
+      "ol",
+      "li",
+      "b",
+      "i",
+      "strong",
+      "em",
+      "strike",
+      "code",
+      "hr",
+      "br",
+      "div",
+      "pre",
+      "figure",
+      "figcaption",
+      "img",
+      "span",
+    ],
+    disallowedTagsMode: "discard",
+    allowedAttributes: {
+      a: ["href", "target", "rel", "title"],
+      img: ["src", "alt", "title", "width", "height", "loading"],
+    },
+    allowedSchemes: ["http", "https", "mailto"],
+    allowedSchemesByTag: {
+      a: ["http", "https", "mailto"],
+      img: ["http", "https"],
+    },
+    allowProtocolRelative: false,
+    transformTags: {
+      a: (tagName, attribs) => {
+        const newAttribs: { [key: string]: string } = {
+          ...attribs,
+          rel: "noopener noreferrer",
+        };
+        if (newAttribs.href && !newAttribs.href.startsWith("/") && !newAttribs.href.startsWith("#")) {
+          newAttribs.target = "_blank";
+        }
+        return { tagName, attribs: newAttribs };
+      },
+    },
+  });
+};

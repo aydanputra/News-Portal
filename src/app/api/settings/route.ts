@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
 import { revalidateTag, revalidatePath } from "next/cache";
 import crypto from "crypto";
+import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
 
 function deriveKey(masterKey: string) {
   return crypto.scryptSync(masterKey, "news-portal-ai-openai", 32);
@@ -21,6 +20,11 @@ function encryptSecret(plaintext: string, masterKey: string) {
 // GET: Ambil Settings (Global + Theme Specific)
 export async function GET(request: Request) {
   try {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
     const requestedThemeId = searchParams.get("themeId");
 
@@ -251,18 +255,23 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-
-    if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    const admin = await requireAdmin();
+    if (!admin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rl = assertRateLimit(request, "settings:write", { windowMs: 60_000, max: 20 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
     }
 
     const { themeId, ...data } = await request.json();
 
     const wantsToUpdateAiKey = "aiOpenAiApiKey" in data || "aiApiKey" in data;
-    if (wantsToUpdateAiKey && !["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    if (wantsToUpdateAiKey && !["ADMIN", "SUPER_ADMIN"].includes(admin.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const rawAiKey =

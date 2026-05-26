@@ -1,6 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { unstable_cache } from "next/cache";
 
+function stripSecrets(setting: any) {
+  if (!setting || typeof setting !== "object") return setting;
+
+  const {
+    notificationTelegramBotToken: _notificationTelegramBotToken,
+    notificationTelegramChatId: _notificationTelegramChatId,
+    notificationEmailTo: _notificationEmailTo,
+    notificationSmtpHost: _notificationSmtpHost,
+    notificationSmtpPort: _notificationSmtpPort,
+    notificationSmtpUser: _notificationSmtpUser,
+    notificationSmtpPass: _notificationSmtpPass,
+    notificationSmtpSecure: _notificationSmtpSecure,
+    aiOpenAiApiKeyEnc: _aiOpenAiApiKeyEnc,
+    ...rest
+  } = setting as any;
+
+  return rest;
+}
+
 export const getSettings = unstable_cache(
   async () => {
     try {
@@ -12,8 +31,7 @@ export const getSettings = unstable_cache(
       }
 
       const activeTheme = setting.activeTheme || "modern";
-      // @ts-ignore
-      const themeConfig = await prisma.themeConfig.findUnique({
+      const themeConfig = await (prisma as any).themeConfig.findUnique({
           where: { themeId: activeTheme }
       });
 
@@ -48,7 +66,7 @@ export const getSettings = unstable_cache(
           };
       }
 
-      return setting;
+      return stripSecrets(setting);
     } catch (error) {
       console.error("Failed to fetch settings:", error);
       return {};

@@ -33,7 +33,8 @@ export function createToken(payload: object): string {
 export function verifyToken(token: string): any {
   try {
     return jwt.verify(token, ACTUAL_SECRET);
-  } catch {
+  } catch (error) {
+    void error;
     return null; // Tiket palsu/expired
   }
 }

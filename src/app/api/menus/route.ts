@@ -30,7 +30,8 @@ export async function GET() {
     });
 
     return NextResponse.json(menus);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/menus error:", error);
     return NextResponse.json({ error: "Gagal mengambil menu" }, { status: 500 });
   }
 }

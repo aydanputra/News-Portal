@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { storage } from "@/lib/storage";
+import { assertRateLimit } from "@/lib/api-guards";
 
 export async function POST(request: Request) {
   try {
@@ -16,6 +17,14 @@ export async function POST(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rl = assertRateLimit(request, `media:upload:${user.id}`, { windowMs: 60_000, max: 20 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
     }
 
     // Verify user exists in DB
@@ -134,7 +143,8 @@ export async function POST(request: Request) {
         console.error("Database save failed:", dbError);
         try {
           await storage.delete(key);
-        } catch {
+        } catch (error) {
+          console.error("Cleanup uploaded file failed:", error);
         }
         return NextResponse.json({ error: "Gagal menyimpan data ke database: " + dbError.message }, { status: 500 });
     }

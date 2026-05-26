@@ -134,7 +134,8 @@ export async function POST(request: Request) {
       try {
         apiKey = decryptSecret(enc, master);
         keySource = apiKey ? "db" : "db_invalid";
-      } catch {
+      } catch (error) {
+        void error;
         apiKey = null;
         keySource = "db_invalid";
       }

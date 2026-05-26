@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import PrintArticleClient from "@/components/print/PrintArticleClient";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -52,7 +53,7 @@ export default async function PrintPostPage({
   const { categorySlug, postSlug } = await params;
 
   const [settingRaw, post] = await Promise.all([
-    prisma.setting.findUnique({ where: { id: "default" } }),
+    getSettings(),
     prisma.post.findFirst({
       where: {
         slug: postSlug,

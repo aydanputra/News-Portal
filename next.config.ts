@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
@@ -44,7 +45,8 @@ const nextConfig: NextConfig = {
         try {
           const u = new URL(publicBase);
           patterns.push({ protocol: u.protocol.replace(":", ""), hostname: u.hostname });
-        } catch {
+        } catch (error) {
+          console.warn("[next.config] Invalid S3_PUBLIC_URL, skipping remotePattern:", error);
         }
       }
 
@@ -65,6 +67,11 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+const configToExport =
+  typeof process.env.SENTRY_AUTH_TOKEN === "string" && process.env.SENTRY_AUTH_TOKEN.trim() !== ""
+    ? withSentryConfig(nextConfig, { silent: true })
+    : nextConfig;
+
+export default configToExport;
 
 // Trigger restart: 2026-03-05 3

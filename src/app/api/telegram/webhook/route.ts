@@ -352,7 +352,7 @@ async function rejectPostById(postId: string, reason: string, actor: any) {
     postId: postId,
     authorId: post.authorId,
     editorIds,
-  }).catch(() => {});
+  }).catch((error) => console.error("[Notification] notifyWorkflowUpdate error:", error));
 
   return { ok: true, message: "Berhasil mengirim revisi.", post };
 }
@@ -365,7 +365,9 @@ async function updateCategoryBySlug(postId: string, categorySlug: string) {
   await prisma.post.update({ where: { id: postId }, data: { category: { connect: { id: category.id } } } });
   try {
     await (prisma.postCategory as any).create({ data: { postId, categoryId: category.id } });
-  } catch {}
+  } catch (error) {
+    console.error("[PostCategory] create error:", error);
+  }
   return { ok: true, message: `Kategori diubah ke: ${category.name}` };
 }
 

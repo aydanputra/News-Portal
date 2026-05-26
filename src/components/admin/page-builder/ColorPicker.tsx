@@ -7,13 +7,23 @@ interface ColorPickerProps {
     value?: string;
     onChange: (value: string | undefined) => void;
     globalDefault?: string;
+    containerClassName?: string;
+    labelClassName?: string;
+    triggerClassName?: string;
+    swatchClassName?: string;
+    inputClassName?: string;
 }
 
 export default function CustomColorPicker({
     label,
     value,
     onChange,
-    globalDefault
+    globalDefault,
+    containerClassName,
+    labelClassName,
+    triggerClassName,
+    swatchClassName,
+    inputClassName
 }: ColorPickerProps) {
     const [isOpen, setIsOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -44,16 +54,16 @@ export default function CustomColorPicker({
     };
 
     return (
-        <div ref={containerRef} className="relative">
+        <div ref={containerRef} className={`relative ${containerClassName || ""}`.trim()}>
             {label && (
-                <label className="text-[10px] text-[var(--fg-primary)] font-bold block mb-1.5 text-left uppercase tracking-wider">
+                <label className={`text-[10px] text-[var(--fg-primary)] font-bold block mb-1.5 text-left uppercase tracking-wider ${labelClassName || ""}`.trim()}>
                     {label}
                 </label>
             )}
 
-             <div className="flex items-center gap-2">
+             <div className={`flex items-center gap-2 ${triggerClassName || ""}`.trim()}>
                 <div 
-                    className="w-8 h-8 rounded-lg border border-[var(--border)] cursor-pointer shadow-sm relative overflow-hidden group hover:border-[var(--accent)] transition-all ring-0 focus:ring-2 ring-[var(--accent)]/20"
+                    className={`w-8 h-8 rounded-lg border border-[var(--border)] cursor-pointer shadow-sm relative overflow-hidden group hover:border-[var(--accent)] transition-all ring-0 focus:ring-2 ring-[var(--accent)]/20 ${swatchClassName || ""}`.trim()}
                     onClick={() => setIsOpen(!isOpen)}
                     title={label || "Pilih Warna"}
                 >
@@ -74,7 +84,7 @@ export default function CustomColorPicker({
                         value={value || ""}
                         placeholder={globalDefault ? `Auto (${globalDefault})` : "Auto"}
                         onChange={(e) => onChange(e.target.value)}
-                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-md py-1.5 px-2 text-xs outline-none focus:border-[var(--accent)] font-mono text-[var(--fg-primary)] uppercase"
+                        className={`w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-md py-1.5 px-2 text-xs outline-none focus:border-[var(--accent)] font-mono text-[var(--fg-primary)] uppercase ${inputClassName || ""}`.trim()}
                     />
                 </div>
             </div>

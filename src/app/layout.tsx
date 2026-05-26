@@ -71,8 +71,14 @@ function renderInsertCodeHead(snippet: unknown) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSettings();
+  const siteUrl =
+    typeof process.env.NEXT_PUBLIC_SITE_URL === "string" && process.env.NEXT_PUBLIC_SITE_URL.trim() !== ""
+      ? process.env.NEXT_PUBLIC_SITE_URL.trim()
+      : "http://localhost:3000";
   
   return {
+    metadataBase: new URL(siteUrl),
+    alternates: { canonical: "/" },
     title: settings.siteName || "CMS Portal Berita",
     description: settings.siteDescription || "Portal berita modern",
     icons: settings.faviconUrl ? {

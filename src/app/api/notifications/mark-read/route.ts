@@ -28,7 +28,8 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ success: true });
-  } catch {
+  } catch (error) {
+    console.error("POST /api/notifications/mark-read error:", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

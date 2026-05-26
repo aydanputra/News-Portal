@@ -87,18 +87,21 @@ export async function GET(
         reviewEditorIds = Array.isArray(targetRows)
           ? targetRows.map((r) => String((r as any)?.editorId || "").trim()).filter(Boolean)
           : [];
-      } catch {
+      } catch (error) {
+        console.error("GET /api/posts/[id] reviewTargets query error:", error);
         reviewEditorIds = [];
       }
       return NextResponse.json({ ...(post as any), viewsBase, reviewEditorIds });
-    } catch {
+    } catch (error) {
+      console.error("GET /api/posts/[id] viewsBase query error:", error);
       let reviewEditorIds: string[] = [];
       try {
         const targetRows = await prisma.$queryRaw<{ editorId: string }[]>`SELECT "editorId" FROM "PostReviewTarget" WHERE "postId" = ${id}`;
         reviewEditorIds = Array.isArray(targetRows)
           ? targetRows.map((r) => String((r as any)?.editorId || "").trim()).filter(Boolean)
           : [];
-      } catch {
+      } catch (error) {
+        console.error("GET /api/posts/[id] reviewTargets fallback query error:", error);
         reviewEditorIds = [];
       }
       return NextResponse.json({ ...(post as any), reviewEditorIds });
@@ -375,11 +378,13 @@ export async function PUT(
 
           try {
             await tx.$executeRaw`UPDATE "Post" SET "viewsBase" = ${normalizedViewsBase} WHERE "id" = ${baseUpdatedPost.id}`;
-          } catch {
+          } catch (error) {
+            console.error("PUT /api/posts/[id] update viewsBase error:", error);
             try {
               await tx.$executeRaw`ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "viewsBase" INTEGER NOT NULL DEFAULT 0`;
               await tx.$executeRaw`UPDATE "Post" SET "viewsBase" = ${normalizedViewsBase} WHERE "id" = ${baseUpdatedPost.id}`;
-            } catch {
+            } catch (error) {
+              console.error("PUT /api/posts/[id] viewsBase repair error:", error);
             }
           }
         }
@@ -447,7 +452,8 @@ export async function PUT(
               )
             : [];
           if (targetIds.length > 0) editorIdsForNotif = targetIds;
-        } catch {
+        } catch (error) {
+          console.error("PUT /api/posts/[id] read reviewTargets error:", error);
         }
       }
 

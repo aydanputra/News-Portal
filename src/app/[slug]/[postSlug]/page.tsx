@@ -4,13 +4,13 @@ import ClassicSinglePost from "@/themes/classic/templates/SinglePost";
 import PranalaSinglePost from "@/themes/pranala/templates/SinglePost";
 import { notFound } from "next/navigation";
 import { Metadata, ResolvingMetadata } from "next";
-import { headers } from "next/headers";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
+import { getSettings } from "@/lib/settings";
+import TrackView from "@/components/TrackView";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 600;
 
 // Direct Post Fetch (No Cache)
 const getPostBySlug = async (slug: string, categorySlug: string) => {
@@ -94,7 +94,7 @@ const collectWidgetsRecursive = (blocks: any[]): any[] => {
 async function getData(slug: string, categorySlug: string) {
   const [postRaw, setting, categories] = await Promise.all([
       getPostBySlug(slug, categorySlug),
-      prisma.setting.findUnique({ where: { id: "default" } }), 
+      getSettings(),
       prisma.category.findMany({ orderBy: { name: "asc" }, take: 5 })
   ]);
   const activeTheme = (setting as any)?.activeTheme || "classic";
@@ -128,39 +128,20 @@ async function getData(slug: string, categorySlug: string) {
   let post = postRaw;
 
   try {
-    const h = await headers();
-    const purpose = String(h.get("purpose") || h.get("sec-purpose") || "").toLowerCase();
-    const isPrefetch =
-      String(h.get("next-router-prefetch") || "") === "1" ||
-      String(h.get("x-middleware-prefetch") || "") === "1" ||
-      purpose.includes("prefetch");
-    const ua = String(h.get("user-agent") || "").toLowerCase();
-    const isBot = ua.includes("bot") || ua.includes("crawler") || ua.includes("spider") || ua.includes("preview");
-    const shouldCountView = !isPrefetch && !isBot;
-
-    if (shouldCountView) {
-      await prisma.post.update({
-        where: { id: post.id },
-        data: { views: { increment: 1 } },
-      });
-      post = { ...post, views: (typeof post.views === "number" ? post.views : 0) + 1 };
-    }
-  } catch {
-  }
-
-  try {
     const approvedCommentCount = await prisma.comment.count({
       where: { postId: post.id, isApproved: true },
     });
     post = { ...post, commentCount: approvedCommentCount } as any;
-  } catch {
+  } catch (error) {
+    console.error("[comments] Failed to count approved comments:", error);
   }
 
   try {
     const rows = await prisma.$queryRaw<{ viewsBase: number }[]>`SELECT "viewsBase" FROM "Post" WHERE "id" = ${post.id} LIMIT 1`;
     const viewsBase = typeof rows?.[0]?.viewsBase === "number" && Number.isFinite(rows[0].viewsBase) ? rows[0].viewsBase : 0;
     post = { ...post, viewsBase };
-  } catch {
+  } catch (error) {
+    console.error("[viewsBase] Failed to load viewsBase:", error);
   }
 
   // Fetch Block Data (Popular Posts, etc)
@@ -515,9 +496,74 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
     notFound();
   }
 
-  if (activeTheme === "pranala" && blocks && blocks.length > 0) {
-    return <PranalaSinglePost post={post} setting={setting} categories={categories} blocks={blocks} blockData={blockData} inlineRelatedPosts={inlineRelatedPosts} sourceBlocksByLocation={sourceBlocksByLocation} menusByLocation={menusByLocation} headerConfig={headerConfig} footerConfig={footerConfig} />;
-  }
+  const siteUrl =
+    typeof process.env.NEXT_PUBLIC_SITE_URL === "string" && process.env.NEXT_PUBLIC_SITE_URL.trim() !== ""
+      ? process.env.NEXT_PUBLIC_SITE_URL.trim().replace(/\/+$/, "")
+      : "http://localhost:3000";
+  const postUrl = `${siteUrl}/${categorySlug}/${post.slug}`;
 
-  return <ClassicSinglePost post={post} setting={setting} categories={categories} footerConfig={footerConfig} menusByLocation={menusByLocation} />;
+  const toAbsoluteUrl = (maybeUrl: unknown) => {
+    const raw = typeof maybeUrl === "string" ? maybeUrl.trim() : "";
+    if (!raw) return "";
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    if (raw.startsWith("/")) return `${siteUrl}${raw}`;
+    return `${siteUrl}/${raw}`;
+  };
+
+  const imageUrl = toAbsoluteUrl(post.image || post.featuredImage?.fileUrl);
+  const logoUrl = toAbsoluteUrl((setting as any)?.logoUrl);
+  const descriptionRaw =
+    String(post.metaDesc || post.subtitle || "").trim() ||
+    (typeof post.content === "string" ? post.content.replace(/<[^>]*>?/gm, "").slice(0, 200).trim() : "");
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
+    headline: post.title,
+    description: descriptionRaw,
+    image: imageUrl ? [imageUrl] : undefined,
+    datePublished: post.publishedAt ? post.publishedAt.toISOString() : undefined,
+    dateModified: post.updatedAt ? post.updatedAt.toISOString() : undefined,
+    author: { "@type": "Person", name: post.author?.name || "Redaksi" },
+    publisher: {
+      "@type": "Organization",
+      name: (setting as any)?.siteName || "Portal Berita",
+      logo: logoUrl ? { "@type": "ImageObject", url: logoUrl } : undefined,
+    },
+    articleSection: post.category?.name,
+    keywords: Array.isArray(post.tags) ? post.tags.map((t: any) => t.name).filter(Boolean).join(", ") : undefined,
+  };
+
+  const body =
+    activeTheme === "pranala" && blocks && blocks.length > 0 ? (
+      <PranalaSinglePost
+        post={post}
+        setting={setting}
+        categories={categories}
+        blocks={blocks}
+        blockData={blockData}
+        inlineRelatedPosts={inlineRelatedPosts}
+        sourceBlocksByLocation={sourceBlocksByLocation}
+        menusByLocation={menusByLocation}
+        headerConfig={headerConfig}
+        footerConfig={footerConfig}
+      />
+    ) : (
+      <ClassicSinglePost
+        post={post}
+        setting={setting}
+        categories={categories}
+        footerConfig={footerConfig}
+        menusByLocation={menusByLocation}
+      />
+    );
+
+  return (
+    <>
+      <TrackView postId={post.id} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      {body}
+    </>
+  );
 }

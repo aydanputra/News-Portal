@@ -38,7 +38,8 @@ export async function GET(request: Request) {
         allowedTransitions: allowed 
     });
 
-  } catch {
+  } catch (error) {
+    console.error("GET /api/posts/transitions error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }

@@ -31,7 +31,7 @@ export default function PreviewPostPage() {
 
     // 2. Fetch dependencies (Settings, Categories)
     Promise.all([
-        fetch("/api/settings").then(res => res.json()),
+        fetch("/api/public/settings").then(res => res.json()),
         fetch("/api/categories").then(res => res.json()),
     ]).then(async ([settingsData, categoriesData]) => {
         setSettings(settingsData);
@@ -46,7 +46,8 @@ export default function PreviewPostPage() {
                 ? blocksData
                 : getThemeDefaultPostBlocks(currentTheme);
             setBlocks(normalizedBlocks);
-        } catch {
+        } catch (error) {
+            console.error("Failed to load post blocks for preview:", error);
             setBlocks(getThemeDefaultPostBlocks(currentTheme));
         }
 

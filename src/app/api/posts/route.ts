@@ -129,7 +129,8 @@ export async function GET(request: Request) {
           viewsBase: typeof map.get(p.id) === "number" && Number.isFinite(map.get(p.id) as number) ? (map.get(p.id) as number) : 0,
         }));
       }
-    } catch {
+    } catch (error) {
+      console.error("GET /api/posts viewsBase query error:", error);
     }
 
     return NextResponse.json({
@@ -148,7 +149,8 @@ export async function GET(request: Request) {
         trash: trashCount,
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/posts error:", error);
     return NextResponse.json({ error: "Gagal mengambil data" }, { status: 500 });
   }
 }
@@ -409,7 +411,8 @@ export async function POST(request: Request) {
     if (normalizedViewsBase > 0) {
       try {
         await prisma.$executeRaw`UPDATE "Post" SET "viewsBase" = ${normalizedViewsBase} WHERE "id" = ${post.id}`;
-      } catch {
+      } catch (error) {
+        console.error("POST /api/posts update viewsBase error:", error);
       }
     }
 

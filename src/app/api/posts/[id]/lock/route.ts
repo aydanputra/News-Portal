@@ -60,7 +60,12 @@ export async function POST(
     
     // Check for override flag in body
     let body: any = {};
-    try { body = await request.json(); } catch {}
+    try {
+      body = await request.json();
+    } catch (error) {
+      void error;
+      body = {};
+    }
     const { force } = body;
 
     // Hardened Override Logic

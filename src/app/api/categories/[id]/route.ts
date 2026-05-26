@@ -45,7 +45,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     });
 
     return NextResponse.json(category);
-  } catch {
+  } catch (error) {
+    console.error("PUT /api/categories/[id] error:", error);
     return NextResponse.json({ error: "Gagal update kategori" }, { status: 500 });
   }
 }
@@ -85,7 +86,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     await prisma.category.delete({ where: { id } });
 
     return NextResponse.json({ message: "Kategori berhasil dihapus" });
-  } catch {
+  } catch (error) {
+    console.error("DELETE /api/categories/[id] error:", error);
     return NextResponse.json({ error: "Gagal menghapus kategori" }, { status: 500 });
   }
 }

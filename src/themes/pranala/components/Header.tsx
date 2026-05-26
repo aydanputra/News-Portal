@@ -685,10 +685,14 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
             document.documentElement.classList.toggle("public-dark", nextTheme === "dark");
             try {
               localStorage.setItem("public-theme", nextTheme);
-            } catch {}
+            } catch (error) {
+              void error;
+            }
             try {
               document.cookie = `public-theme=${encodeURIComponent(nextTheme)}; Max-Age=31536000; Path=/; SameSite=Lax`;
-            } catch {}
+            } catch (error) {
+              void error;
+            }
           }}
           className="p-2 text-gray-500 hover:text-indigo-600 transition-colors"
           aria-label={isLight ? "Aktifkan mode gelap" : "Aktifkan mode terang"}
@@ -884,10 +888,14 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
             document.documentElement.classList.toggle("public-dark", nextTheme === "dark");
             try {
               localStorage.setItem("public-theme", nextTheme);
-            } catch {}
+            } catch (error) {
+              void error;
+            }
             try {
               document.cookie = `public-theme=${encodeURIComponent(nextTheme)}; Max-Age=31536000; Path=/; SameSite=Lax`;
-            } catch {}
+            } catch (error) {
+              void error;
+            }
           }}
           className="hb-theme-btn"
           style={
@@ -1337,8 +1345,8 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
           const desktopMarRight = numPx(getResponsive(cfg, "marginRight", "desktop"), 0);
           const tabletMarTop = numPx(getResponsive(cfg, "marginTop", "tablet"), parseInt(desktopMarTop, 10) || 0);
           const tabletMarBottom = numPx(getResponsive(cfg, "marginBottom", "tablet"), parseInt(desktopMarBottom, 10) || 0);
-          const tabletMarLeft = numPx(getResponsive(cfg, "marginLeft", "tablet"), parseInt(desktopMarLeft, 10) || 0);
-          const tabletMarRight = numPx(getResponsive(cfg, "marginRight", "tablet"), parseInt(desktopMarRight, 10) || 0);
+          const _tabletMarLeft = numPx(getResponsive(cfg, "marginLeft", "tablet"), parseInt(desktopMarLeft, 10) || 0);
+          const _tabletMarRight = numPx(getResponsive(cfg, "marginRight", "tablet"), parseInt(desktopMarRight, 10) || 0);
           const mobileMarTop = numPx(getResponsive(cfg, "marginTop", "mobile"), parseInt(desktopMarTop, 10) || 0);
           const mobileMarBottom = numPx(getResponsive(cfg, "marginBottom", "mobile"), parseInt(desktopMarBottom, 10) || 0);
           const mobileMarLeft = numPx(getResponsive(cfg, "marginLeft", "mobile"), parseInt(desktopMarLeft, 10) || 0);
