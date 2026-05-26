@@ -34,10 +34,14 @@ export default function AdminLayout({
         if (!r.ok) return null;
         return r.json();
       })
-      .then((data) => {
+      .then(async (data) => {
         if (!active) return;
         if ((data as any)?.__unauthorized) {
           setRole(null);
+          try {
+            await fetch("/api/auth/logout", { method: "POST" });
+          } catch {
+          }
           router.replace("/admin/login");
           return;
         }
@@ -46,6 +50,7 @@ export default function AdminLayout({
       .catch(() => {
         if (!active) return;
         setRole(null);
+        fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
         router.replace("/admin/login");
       });
     return () => {

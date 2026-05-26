@@ -35,6 +35,14 @@ export default function DashboardPage() {
         const res = await fetch("/api/dashboard");
 
         if (res.status === 401) {
+          try {
+            await fetch("/api/auth/logout", { method: "POST" });
+          } catch {
+          }
+          if (!cancelled) {
+            setError("Sesi login sudah habis. Silakan login ulang.");
+            setLoading(false);
+          }
           router.replace("/admin/login");
           return;
         }
