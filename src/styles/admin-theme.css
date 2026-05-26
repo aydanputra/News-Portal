@@ -1,0 +1,482 @@
+/* Admin Theme - NewsCMS Editorial Dashboard Style (Ref: referensi-dashboard.html) */
+
+.admin-theme {
+  /* Light Mode (Default) */
+  --bg-base: #f4f4f5;       /* Zinc 100 */
+  --bg-elevated: #ffffff;   /* White */
+  --bg-surface: #e4e4e7;    /* Zinc 200 */
+  
+  --fg-primary: #18181b;    /* Zinc 900 */
+  --fg-secondary: #52525b;  /* Zinc 600 */
+  --fg-muted: #a1a1aa;      /* Zinc 400 */
+
+  --accent: #d97706;        /* Amber 600 - More readable on white */
+  --accent-hover: #b45309;  /* Amber 700 */
+  --accent-text: #ffffff;
+  --accent-subtle: rgba(245, 158, 11, 0.1); /* Amber with opacity */
+
+  --border: #d4d4d8;        /* Zinc 300 */
+  --border-strong: #a1a1aa;
+  
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 4px 20px rgba(0,0,0,0.03);
+  --shadow-card-hover: 0 4px 20px rgba(0,0,0,0.08);
+  
+  /* Dimensions & Spacing */
+  --sidebar-width: 260px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-full: 9999px;
+  
+  /* Typography */
+  --font-display: 'Sora', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  /* Base Styles applied to container */
+  background-color: var(--bg-base);
+  color: var(--fg-primary);
+  font-family: var(--font-body);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Dark Mode Variables - Scoped to .dark .admin-theme OR .admin-theme.dark */
+:root.dark .admin-theme, .admin-theme.dark {
+  --bg-base: #09090b;        /* Zinc 950 */
+  --bg-elevated: #18181b;    /* Zinc 900 */
+  --bg-surface: #27272a;     /* Zinc 800 */
+  
+  --fg-primary: #fafafa;     /* Zinc 50 */
+  --fg-secondary: #a1a1aa;   /* Zinc 400 */
+  --fg-muted: #71717a;       /* Zinc 500 */
+
+  --accent: #fbbf24;         /* Amber 400 */
+  --accent-hover: #f59e0b;   /* Amber 500 */
+  --accent-text: #09090b;
+  --accent-subtle: rgba(251, 191, 36, 0.1);
+
+  --border: #3f3f46;         /* Zinc 600 */
+  --border-strong: #52525b;
+}
+
+/* Component: Card */
+.card {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+  border-color: var(--fg-muted);
+  box-shadow: var(--shadow-card);
+}
+
+.dark .card:hover {
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+/* Component: Button */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  cursor: pointer;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.1);
+}
+
+.btn-primary:hover {
+  background-color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background-color: transparent;
+  color: var(--fg-secondary);
+  border-color: var(--border);
+}
+
+.btn-ghost:hover {
+  background-color: var(--bg-surface);
+  color: var(--fg-primary);
+  border-color: var(--fg-muted);
+}
+
+/* Component: Input */
+.input {
+  width: 100%;
+  padding: 12px 16px;
+  background-color: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--fg-primary);
+  font-size: 14px;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background-color: var(--bg-elevated);
+}
+
+/* Input variant for search with icon inside */
+.input-search {
+  padding-left: 2.75rem !important; /* match left icon at left-4 */
+  padding-right: 1rem !important;
+  height: auto;
+}
+
+.input::placeholder {
+  color: var(--fg-muted);
+}
+
+/* Component: Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-display);
+}
+
+/* Component: Navigation Item */
+.nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  margin: 2px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-weight: 600;
+  font-size: 14px;
+  font-family: var(--font-body);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.nav-item:hover {
+  background-color: var(--bg-surface);
+  color: var(--fg-primary);
+}
+
+.nav-item.active {
+  background-color: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.nav-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0px;
+  background-color: var(--accent);
+  border-radius: 0 4px 4px 0;
+  transition: height 0.2s;
+}
+
+.nav-item.active::before {
+  height: 24px;
+}
+
+/* Topbar Styles */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  /* Use solid background to avoid alpha issues with CSS variables */
+  background-color: var(--bg-base);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 0;
+  height: 64px;
+}
+
+/* Bottom Navigation */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* Glass background with robust fallback */
+  background-color: rgba(244, 244, 245, 0.8) !important; /* light fallback */
+  background-color: color-mix(in oklab, var(--bg-base) 80%, transparent) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  border-top: 1px solid var(--border);
+  padding: 0;
+  z-index: 100;
+  height: 64px;
+}
+.bottom-nav::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    color-mix(in oklab, var(--bg-base) 8%, transparent),
+    color-mix(in oklab, var(--bg-base) 14%, transparent)
+  );
+  pointer-events: none;
+}
+.dark .bottom-nav {
+  background-color: rgba(9, 9, 11, 0.55) !important; /* dark fallback */
+  background-color: color-mix(in oklab, var(--bg-base) 60%, transparent) !important;
+}
+
+/* Ensure main shell offsets sidebar on desktop exactly like the reference */
+.main-shell {
+  margin-left: 0;
+}
+@media (min-width: 768px) {
+  .main-shell {
+    margin-left: var(--sidebar-width);
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  :root {
+    --sidebar-width: 100%;
+  }
+  
+  .card {
+    margin-bottom: 0.5rem;
+  }
+}
+
+/* Utility: Font Classes */
+.font-display { font-family: var(--font-display); }
+.font-body { font-family: var(--font-body); }
+.text-accent { color: var(--accent); }
+.bg-accent { background-color: var(--accent); }
+
+/* Responsive helpers like in reference */
+@media (max-width: 767px) {
+  .hide-mobile { display: none !important; }
+}
+@media (min-width: 768px) {
+  .hide-desktop { display: none !important; }
+}
+
+/* Publishing page alignment helper */
+.admin-form .bg-white { background-color: var(--bg-elevated) !important; }
+.admin-form .bg-gray-50 { background-color: var(--bg-surface) !important; }
+.admin-form .bg-gray-100 { background-color: var(--bg-surface) !important; }
+.admin-form .text-gray-900, 
+.admin-form .text-gray-800, 
+.admin-form .text-blue-900 { color: var(--fg-primary) !important; }
+.admin-form .text-gray-700, 
+.admin-form .text-gray-600, 
+.admin-form .text-gray-500 { color: var(--fg-secondary) !important; }
+.admin-form .border-gray-50 { border-color: var(--border) !important; }
+.admin-form .border-gray-200, 
+.admin-form .border-gray-300, 
+.admin-form .border-gray-100 { border-color: var(--border) !important; }
+.admin-form .shadow-sm { box-shadow: var(--shadow-sm) !important; }
+
+/* Page Builder theming to keep consistent surfaces and borders */
+.page-builder .bg-white { background-color: var(--bg-elevated) !important; }
+.page-builder .bg-gray-50,
+.page-builder .bg-gray-100,
+.page-builder .bg-gray-200 { background-color: var(--bg-surface) !important; }
+.page-builder .text-gray-900,
+.page-builder .text-gray-800 { color: var(--fg-primary) !important; }
+.page-builder .text-gray-700,
+.page-builder .text-gray-600,
+.page-builder .text-gray-500 { color: var(--fg-secondary) !important; }
+.page-builder .border-gray-100,
+.page-builder .border-gray-200,
+.page-builder .border-gray-300 { border-color: var(--border) !important; }
+/* Interactive and blue → accent remap inside builder */
+.page-builder .hover\:bg-gray-50:hover { background-color: var(--bg-surface) !important; }
+.page-builder .hover\:text-blue-600:hover { color: var(--accent) !important; }
+.page-builder .group:hover .group-hover\:text-blue-600 { color: var(--accent) !important; }
+.page-builder .hover\:border-blue-400:hover,
+.page-builder .hover\:border-blue-500:hover { border-color: var(--accent) !important; }
+.page-builder .bg-blue-500,
+.page-builder .bg-blue-600 { background-color: var(--accent) !important; }
+.page-builder .text-blue-600 { color: var(--accent) !important; }
+.page-builder .focus\:border-blue-500:focus { border-color: var(--accent) !important; }
+
+/* Typography (Tailwind Prose) overrides inside builder for readability on dark canvas */
+.page-builder .prose {
+  --tw-prose-body: var(--fg-secondary);
+  --tw-prose-headings: var(--fg-primary);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--fg-primary);
+  --tw-prose-counters: var(--fg-muted);
+  --tw-prose-bullets: var(--fg-muted);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--fg-primary);
+  --tw-prose-quote-borders: var(--border);
+  --tw-prose-captions: var(--fg-muted);
+  --tw-prose-code: var(--fg-primary);
+  --tw-prose-pre-code: var(--fg-primary);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+  color: var(--fg-secondary);
+}
+.page-builder .prose :where(h1,h2,h3,h4,h5,h6){ color: var(--fg-primary) !important; }
+.page-builder .prose a { color: var(--accent) !important; }
+.page-builder .prose strong { color: var(--fg-primary) !important; }
+.page-builder .prose blockquote { color: var(--fg-primary) !important; }
+
+/* Ensure all headings in preview canvas are readable in dark mode */
+.page-builder h1,
+.page-builder h2,
+.page-builder h3,
+.page-builder h4,
+.page-builder h5,
+.page-builder h6 {
+  color: var(--fg-primary) !important;
+}
+
+/* Comment form inputs in preview canvas follow admin theme */
+.page-builder textarea,
+.page-builder input[type="text"],
+.page-builder input[type="search"] {
+  background-color: var(--bg-elevated) !important;
+  color: var(--fg-primary) !important;
+  border: 1px solid var(--border) !important;
+}
+.page-builder textarea::placeholder,
+.page-builder input::placeholder {
+  color: var(--fg-muted) !important;
+}
+
+/* Admin form controls to follow theme (light/dark) */
+.admin-form input[type="text"],
+.admin-form input[type="email"],
+.admin-form input[type="url"],
+.admin-form input[type="datetime-local"],
+.admin-form input[type="date"],
+.admin-form input[type="time"],
+.admin-form input[type="number"],
+.admin-form input[type="search"],
+.admin-form select,
+.admin-form textarea {
+  background-color: var(--bg-base) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--fg-primary) !important;
+  border-radius: var(--radius-sm) !important;
+}
+.admin-form input::placeholder,
+.admin-form textarea::placeholder {
+  color: var(--fg-muted) !important;
+}
+.admin-form input:focus,
+.admin-form select:focus,
+.admin-form textarea:focus {
+  outline: 0 !important;
+  border-color: var(--accent) !important;
+  background-color: var(--bg-elevated) !important;
+}
+
+/* CKEditor theming */
+.admin-form .ck-toolbar {
+  background: var(--bg-surface) !important;
+  border-color: var(--border) !important;
+}
+.admin-form .ck-editor__editable {
+  background: var(--bg-elevated) !important;
+  color: var(--fg-primary) !important;
+  border-color: var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+.admin-form .ck.ck-button .ck-button__label,
+.admin-form .ck.ck-button svg {
+  color: var(--fg-secondary) !important;
+  fill: currentColor !important;
+}
+
+/* Header glassmorphism (mobile) */
+.header-glass {
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+}
+@media (max-width: 767px) {
+  .header-glass {
+    background-color: color-mix(in oklab, var(--bg-base) 85%, transparent);
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+/* Icon buttons in header */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  color: var(--fg-muted);
+  border: 1px solid transparent;
+  transition: background-color .2s, color .2s, border-color .2s, transform .15s;
+}
+.icon-btn:hover {
+  background-color: var(--bg-surface);
+  color: var(--accent);
+  border-color: var(--border);
+}
+.icon-btn:active { transform: scale(0.98); }
+
+/* Enhanced glassmorphism for header */
+.admin-glass, header.admin-glass {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--border);
+  /* Robust fallback: explicit rgba for light/dark to ensure translucency */
+  background-color: rgba(244, 244, 245, 0.8) !important; /* default (light) */
+  /* Prefer color-mix when supported */
+  background-color: color-mix(in oklab, var(--bg-base) 80%, transparent) !important;
+  backdrop-filter: blur(16px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+  will-change: backdrop-filter, background-color;
+}
+.dark .admin-glass, .dark header.admin-glass {
+  background-color: rgba(9, 9, 11, 0.55) !important; /* dark fallback */
+  background-color: color-mix(in oklab, var(--bg-base) 60%, transparent) !important;
+}
+.admin-glass::before, header.admin-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in oklab, var(--bg-base) 8%, transparent),
+    color-mix(in oklab, var(--bg-base) 14%, transparent)
+  );
+  pointer-events: none;
+}
+@media (max-width: 767px) {
+  .admin-glass, header.admin-glass {
+    background-color: color-mix(in oklab, var(--bg-base) 60%, transparent) !important;
+    backdrop-filter: blur(18px) saturate(170%) !important;
+    -webkit-backdrop-filter: blur(18px) saturate(170%) !important;
+  }
+}

@@ -1,0 +1,657 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  EDITOR
+  WRITER
+}
+
+enum PostType {
+  ARTICLE
+  VIDEO
+  GALLERY
+  INFOGRAPHIC
+}
+
+enum PostStatus {
+  DRAFT
+  IN_REVIEW
+  REJECTED
+  PUBLISHED
+  ARCHIVED
+  SCHEDULED
+}
+
+enum AdType {
+  IMAGE
+  SCRIPT
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum MenuLocation {
+  PRIMARY
+  SECONDARY
+  FOOTER
+  MOBILE
+}
+
+enum MenuItemType {
+  CUSTOM
+  CATEGORY
+  TAG
+  PAGE
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  name          String
+  role          Role     @default(WRITER)
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+  lastLoginAt   DateTime?
+  
+  // Profile Fields
+  username      String?  @unique
+  bio           String?
+  avatar        String?
+  banner        String?
+  socialAccounts Json?
+  telegramChatId String? // New: For personal notifications
+
+  // Relations
+  uploadedMedia Media[]
+  posts         Post[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  approvedPosts Post[]   @relation("ApprovedBy")
+  lockedPosts   Post[]   @relation("PostLockedBy")
+  reviewTargets PostReviewTarget[]
+}
+
+model Post {
+  id              String    @id @default(cuid())
+  title           String
+  subtitle        String?
+  slug            String    @unique
+  content         String
+  excerpt         String?
+  image           String?
+  featuredImageId String?
+  imageCaption    String?
+  
+  published       Boolean    @default(false)
+  status          PostStatus @default(DRAFT)
+  rejectionReason String?
+  publishedAt     DateTime?
+  submittedForReviewAt DateTime?
+  
+  metaTitle       String?
+  metaDesc        String?
+
+  views           Int       @default(0)
+  viewsBase       Int       @default(0)
+  
+  authorId        String
+  categoryId      String
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime? // Soft Delete
+  
+  // Governance
+  approvedById    String?
+  approvedAt      DateTime?
+  lockedBy        String?
+  lockedAt        DateTime?
+
+  type            PostType  @default(ARTICLE)
+  videoUrl        String?
+  gallery         Json? // Array of image URLs
+
+  // Relations
+  author          User      @relation(fields: [authorId], references: [id])
+  approvedBy      User?     @relation("ApprovedBy", fields: [approvedById], references: [id])
+  lockedUser      User?     @relation("PostLockedBy", fields: [lockedBy], references: [id])
+  category        Category  @relation(fields: [categoryId], references: [id])
+  featuredImage   Media?    @relation("PostFeaturedImage", fields: [featuredImageId], references: [id])
+  tags            Tag[]     @relation("PostToTag")
+  reviewTargets   PostReviewTarget[]
+  postCategories  PostCategory[]
+  metricSnapshots PostMetricSnapshot[]
+  revisions       PostRevision[]
+  slugHistory     PostSlugHistory[]
+  comments        Comment[]
+
+  @@index([slug])
+  @@index([published])
+  @@index([status])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model PostReviewTarget {
+  postId    String
+  editorId  String
+  createdAt DateTime @default(now())
+
+  post      Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  editor    User   @relation(fields: [editorId], references: [id], onDelete: Cascade)
+
+  @@id([postId, editorId])
+  @@index([editorId])
+  @@index([postId])
+}
+
+model PostMetricSnapshot {
+  id        String   @id @default(cuid())
+  postId    String
+  day       DateTime
+  views     Int
+  viewsBase Int
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, day])
+  @@index([day])
+  @@index([postId])
+}
+
+model PostCategory {
+  postId     String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([postId, categoryId])
+  @@index([categoryId])
+  @@index([postId])
+}
+
+model PostSlugHistory {
+  id        String   @id @default(cuid())
+  postId    String
+  oldSlug   String   @unique
+  createdAt DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([oldSlug])
+  @@index([postId])
+}
+
+model PostRevision {
+  id              String    @id @default(cuid())
+  postId          String
+  post            Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  
+  // Snapshot Data
+  title           String
+  content         String
+  status          PostStatus
+  
+  // Metadata
+  authorId        String    // User who made this change
+  createdAt       DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  posts     Post[]   @relation("PostToTag")
+  menuItems MenuItem[]
+}
+
+model Media {
+  id           String          @id @default(cuid())
+  fileName     String
+  fileUrl      String
+  fileType     String
+  size         Int
+  width        Int?
+  height       Int?
+  uploadedById String
+  createdAt    DateTime        @default(now())
+  
+  ads          Advertisement[]
+  uploadedBy   User            @relation(fields: [uploadedById], references: [id])
+  posts        Post[]          @relation("PostFeaturedImage")
+}
+
+model Advertisement {
+  id         String    @id @default(cuid())
+  name       String
+  type       AdType
+  mediaId    String?
+  scriptCode String?
+  position   String
+  linkUrl    String?
+  isActive   Boolean   @default(true)
+  startDate  DateTime?
+  endDate    DateTime?
+  targetPageTypes     String[] @default([])
+  targetCategorySlugs String[] @default([])
+  targetTagSlugs      String[] @default([])
+  targetPageSlugs     String[] @default([])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime? // Soft Delete
+
+  media      Media?    @relation(fields: [mediaId], references: [id])
+
+  @@index([isActive])
+  @@index([position])
+}
+
+model Category {
+  id        String     @id @default(cuid())
+  name      String
+  slug      String     @unique
+  parentId  String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @default(now()) @updatedAt
+  deletedAt DateTime? // Soft Delete
+
+  parent    Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children  Category[] @relation("CategoryTree")
+  posts     Post[]
+  postCategories PostCategory[]
+  menuItems MenuItem[]
+}
+
+model ThemeConfig {
+  id        String   @id @default(cuid())
+  themeId   String   @unique // 'modern', 'classic', etc.
+  config    Json     // Zod Validated Config
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id                            String   @id @default("default")
+  siteName                      String   @default("My News Portal")
+  siteDescription               String?
+  logoUrl                       String?
+  faviconUrl                    String?
+  activeTheme                   String   @default("classic")
+  
+  // Global Styles (Legacy/Fallback)
+  primaryColor                  String   @default("#2563eb")
+  secondaryColor                String   @default("#64748b")
+  accentColor                   String   @default("#f59e0b")
+  backgroundColor               String   @default("#f8fafc")
+  headingColor                  String   @default("#1e293b")
+  excerptColor                  String   @default("#64748b")
+  metaColor                     String   @default("#94a3b8")
+  headingFont                   String   @default("Inter")
+  bodyFont                      String   @default("Inter")
+  baseFontSize                  Int      @default(16)
+  globalBorderRadius            String   @default("0.5rem")
+  
+  globalContainerWidth          String   @default("boxed")
+  globalCustomContainerWidth    String   @default("1200")
+
+  // Layout Defaults
+  homeLayout                    String   @default("right_sidebar")
+  homeSidebarWidth              String   @default("w-1/3")
+  homeContainerWidth            String   @default("boxed")
+  homeCustomContainerWidth      String   @default("1200")
+  homeMainColumnBox             Boolean  @default(false)
+  homeSidebarColumnBox          Boolean  @default(false)
+  homeMainColumnBorderRadius    String   @default("xl")
+  homeSidebarColumnBorderRadius String   @default("xl")
+  homeMainColumnColor           String   @default("#ffffff")
+  homeSidebarColumnColor        String   @default("#ffffff")
+  homeTitleFontSize             String   @default("24px")
+  homeTitleFontWeight           String   @default("700")
+  // Homepage Colors
+  homeWidgetTitleColor          String   @default("#1e293b")
+  homeNewsTitleColor            String   @default("#111827")
+  homeHoverColor                String   @default("#2563eb")
+  homeExcerptColor              String   @default("#4b5563")
+  homeMetaColor                 String   @default("#9ca3af")
+
+  // Single Post Colors
+  postWidgetTitleColor          String   @default("#1e293b")
+  postContentColor              String   @default("#374151")
+  postLinkColor                 String   @default("#2563eb")
+  postLinkHoverColor            String   @default("#1d4ed8")
+  postBadgeTextColor            String   @default("#374151")
+  postBadgeBgColor              String   @default("#f3f4f6")
+  
+  // Global Colors
+  globalPrimaryColor            String   @default("#2563eb")
+  globalSecondaryColor          String   @default("#64748b")
+  globalAccentColor             String   @default("#f59e0b")
+  globalBackgroundColor         String   @default("#ffffff")
+  globalBackgroundImage         String?
+  globalBackgroundRepeat        String   @default("no-repeat")
+  globalBackgroundSize          String   @default("cover")
+  globalBackgroundPosition      String   @default("center")
+  globalBackgroundAttachment    String   @default("scroll")
+
+  // Legacy Fields (Keep for now to avoid break)
+  homeTitleColor                String   @default("#1e293b")
+  mobileTitleFontSize           String   @default("18px")
+  tabletTitleFontSize           String   @default("20px")
+  
+  homeGlobalMarginTop           String   @default("32")
+  homeGlobalMarginBottom        String   @default("32")
+  homeGlobalPaddingTop          String   @default("0")
+  homeGlobalPaddingBottom       String   @default("0")
+  homeGlobalPaddingLeft         String   @default("0")
+  homeGlobalPaddingRight        String   @default("0")
+  
+  // Post Defaults
+  postLayout                    String   @default("right_sidebar")
+  postSidebarWidth              String   @default("w-1/3")
+  postContainerWidth            String   @default("boxed")
+  postCustomContainerWidth      String   @default("1200")
+  postMainColumnBox             Boolean  @default(true)
+  postSidebarColumnBox          Boolean  @default(false)
+  postMainColumnBorderRadius    String   @default("xl")
+  postSidebarColumnBorderRadius String   @default("xl")
+  postMainColumnColor           String   @default("#ffffff")
+  postSidebarColumnColor        String   @default("#ffffff")
+  postPrimaryColor              String   @default("#2563eb")
+  postSecondaryColor            String   @default("#64748b")
+  postAccentColor               String   @default("#f59e0b")
+  postBackgroundColor           String   @default("#f8fafc")
+  postHeadingColor              String   @default("#1e293b")
+  postExcerptColor              String   @default("#64748b")
+  postMetaColor                 String   @default("#94a3b8")
+  postHeadingFont               String   @default("Inter")
+  postBodyFont                  String   @default("Inter")
+  postGlobalBorderRadius        String   @default("0.5rem")
+  postShowFeaturedImage         Boolean  @default(true)
+  postShowAuthor                Boolean  @default(true)
+  postShowDate                  Boolean  @default(true)
+  postShowCategory              Boolean  @default(true)
+  postShowTags                  Boolean  @default(true)
+  postShowShare                 Boolean  @default(true)
+  postTitleFontSize             String   @default("32px")
+  postBodyFontSize              String   @default("18px")
+  postGlobalMarginTop           String   @default("32")
+  postGlobalMarginBottom        String   @default("32")
+  postGlobalPaddingTop          String   @default("0")
+  postGlobalPaddingBottom       String   @default("0")
+  postGlobalPaddingLeft         String   @default("0")
+  postGlobalPaddingRight        String   @default("0")
+
+  // Single Post Features
+  postInlineRelated             Boolean  @default(false)
+  postRelatedCount              Int      @default(2)
+  postRelatedPosition           Int      @default(2)
+  postRelatedPositions          String   @default("2") // New field for multiple positions
+  postInlineRelatedFilterType   String   @default("category") // 'category', 'tag'
+  postInlineRelatedDateRange    String   @default("all")      // 'week', 'month', 'year', 'all'
+  postInlineRelatedLayout       String   @default("list")     // 'list', 'grid', 'card'
+  postInlineRelatedGridColumns  Int      @default(2)
+  postInlineRelatedCardColumns  Int      @default(1)
+  postInlineRelatedTitleFontSize Int      @default(16)
+  postInlineRelatedTitleFontWeight String @default("700")
+  postInlineRelatedTitleLineHeight String @default("1.35")
+  postInlineRelatedFontSize     Int      @default(14)
+  postInlineRelatedBgColor      String   @default("#f9fafb")
+  postInlineRelatedHeaderBgColor String   @default("#f9fafb") // Add this
+  postInlineRelatedTitleColor   String   @default("#1e293b")
+  postInlineRelatedTextColor    String   @default("#1f2937")
+  postInlineRelatedHoverColor   String   @default("#2563eb")
+  postInlineAds                 Boolean  @default(false)
+  postInlineAdPositions         String   @default("3")
+  postBottomRelated             Boolean  @default(true)
+  postAuthorBox                 Boolean  @default(true)
+  postNavigation                Boolean  @default(true)
+  
+  // Related Post Advanced Settings
+  postRelatedFilterType         String   @default("category") // 'category', 'tag'
+  postRelatedLayout             String   @default("grid") // 'grid', 'list'
+  postRelatedLimit              Int      @default(3)
+
+  // Gallery Settings
+  galleryLayout                 String   @default("slider") // slider, grid, feed
+  galleryEnableLightbox         Boolean  @default(true)
+  galleryShowExif               Boolean  @default(false)
+  galleryAutoPlay               Boolean  @default(false)
+
+  // Typography - Homepage
+  homeWidgetTitleFontSize       String   @default("24px")
+  homeWidgetTitleFontWeight     String   @default("700")
+  homeWidgetTitleFont           String   @default("Inter")
+  homeNewsTitleFontSize         String   @default("18px")
+  homeNewsTitleFontWeight       String   @default("600")
+  homeNewsTitleFont             String   @default("Inter")
+  homeExcerptFontSize           String   @default("14px")
+  homeExcerptFontWeight         String   @default("400")
+  homeExcerptFont               String   @default("Inter")
+  homeMetaFontSize              String   @default("12px")
+  homeMetaFontWeight            String   @default("500")
+  homeMetaFont                  String   @default("Inter")
+
+  // Typography - Single Post
+  postTitleFontWeight           String   @default("700")
+  postTitleFont                 String   @default("Inter")
+  postSubtitleFontSize          String   @default("18px")
+  postSubtitleFontWeight        String   @default("500")
+  postSubtitleFont              String   @default("Inter")
+  postContentFontSize           String   @default("18px")
+  postContentFontWeight         String   @default("400")
+  postContentFont               String   @default("Inter")
+  postWidgetTitleFontSize       String   @default("20px")
+  postWidgetTitleFontWeight     String   @default("600")
+  postWidgetTitleFont           String   @default("Inter")
+
+  // Typography - Archive
+  archiveTitleFontSize          String   @default("24px")
+  archiveTitleFontWeight        String   @default("700")
+  archiveTitleFont              String   @default("Inter")
+  archiveExcerptFontSize        String   @default("14px")
+  archiveExcerptFontWeight      String   @default("400")
+  archiveExcerptFont            String   @default("Inter")
+  archiveMetaFontSize           String   @default("12px")
+  archiveMetaFontWeight         String   @default("500")
+  archiveMetaFont               String   @default("Inter")
+  
+  // Typography - Global (Fallback)
+  globalWidgetTitleFontSize     String   @default("20px")
+  globalWidgetTitleFontWeight   String   @default("600")
+  globalWidgetTitleFont         String   @default("Inter")
+  globalNewsTitleFontSize       String   @default("18px")
+  globalNewsTitleFontWeight     String   @default("600")
+  globalNewsTitleFont           String   @default("Inter")
+  globalMetaFontSize            String   @default("12px")
+  globalMetaFontWeight          String   @default("500")
+  globalMetaFont                String   @default("Inter")
+  globalExcerptFontSize         String   @default("14px")
+  globalExcerptFontWeight       String   @default("400")
+  globalExcerptFont             String   @default("Inter")
+  globalContentFontSize         String   @default("16px")
+  globalContentFontWeight       String   @default("400")
+  globalContentFont             String   @default("Inter")
+
+  insertCodeHead                String?  @db.Text
+  insertCodeBody                String?  @db.Text
+  insertCodeFooter              String?  @db.Text
+
+  // Notification Settings
+  notificationTelegramEnabled   Boolean  @default(false)
+  notificationTelegramBotToken  String?
+  notificationTelegramChatId    String?
+  notificationEmailEnabled      Boolean  @default(false)
+  notificationEmailFrom         String?
+  notificationEmailTo           String?  // New: Default target email for notifications
+  notificationSmtpHost          String?
+  notificationSmtpPort          Int?
+  notificationSmtpUser          String?
+  notificationSmtpPass          String?
+  notificationSmtpSecure        Boolean  @default(true)
+  notificationEvents            Json?    // e.g. { "onNewPost": true, "onPostRejected": true, "onPostPublished": true }
+  printSettings                 Json?
+  aiOpenAiApiKeyEnc             String?  @db.Text
+
+  createdAt                     DateTime @default(now())
+  updatedAt                     DateTime @default(now()) @updatedAt
+}
+
+model HomepageBlock {
+  id        String   @id @default(cuid())
+  type      String
+  title     String?
+  order     Int
+  config    Json     // Zod Validated Config
+  isActive  Boolean  @default(true)
+  sectionId String?
+  columnId  String?
+  placement String   @default("main")
+  location  String   @default("home")
+  themeId   String   @default("classic")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([themeId])
+  @@index([location])
+  @@index([order])
+}
+
+// Governance
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // CREATE, UPDATE, DELETE, PUBLISH, LOGIN
+  resource    String   // Post, Setting, User
+  resourceId  String?
+  details     Json?    // Store diff or details
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([resource])
+  @@index([createdAt])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String   @db.Text
+  name      String
+  email     String
+  website   String?
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  
+  isApproved Boolean @default(true)
+  ipAddress  String?
+  userAgent  String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
+  @@index([parentId])
+  @@index([createdAt])
+}
+
+model Page {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  content     String?  @db.Text // HTML Content (Rich Text)
+  blocks      Json?    // Untuk Page Builder (Array of Blocks)
+  featuredImage String? // URL Featured Image
+  template    String   @default("default") // default, full-width, landing
+  
+  published   Boolean  @default(false)
+  metaTitle   String?
+  metaDesc    String?
+  menuItems   MenuItem[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([slug])
+}
+
+model Menu {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  items     MenuItem[]
+  locations MenuLocationAssignment[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model MenuItem {
+  id           String        @id @default(cuid())
+  menuId       String
+  menu         Menu          @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  parentId     String?
+  parent       MenuItem?     @relation("MenuItemChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  children     MenuItem[]    @relation("MenuItemChildren")
+  type         MenuItemType
+  label        String
+  customUrl    String?
+  openInNewTab Boolean       @default(false)
+  order        Int           @default(0)
+
+  categoryId   String?
+  category     Category?     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  tagId        String?
+  tag          Tag?          @relation(fields: [tagId], references: [id], onDelete: SetNull)
+  pageId       String?
+  page         Page?         @relation(fields: [pageId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([menuId])
+  @@index([parentId])
+  @@index([order])
+}
+
+model MenuLocationAssignment {
+  id        String       @id @default(cuid())
+  location  MenuLocation @unique
+  menuId    String
+  menu      Menu         @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}

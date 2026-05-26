@@ -1,0 +1,5 @@
+ALTER TABLE "public"."Setting"
+ADD COLUMN "postLinkColor" TEXT NOT NULL DEFAULT '#2563eb',
+ADD COLUMN "postLinkHoverColor" TEXT NOT NULL DEFAULT '#1d4ed8',
+ADD COLUMN "postBadgeTextColor" TEXT NOT NULL DEFAULT '#374151',
+ADD COLUMN "postBadgeBgColor" TEXT NOT NULL DEFAULT '#f3f4f6';
