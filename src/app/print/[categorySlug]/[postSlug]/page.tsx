@@ -2,9 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import PrintArticleClient from "@/components/print/PrintArticleClient";
 import { getSettings } from "@/lib/settings";
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 600;
 
 function normalizePrintSettings(input: any) {
   const defaults = {
@@ -45,6 +46,33 @@ function parseInlinePositions(value: unknown): number[] {
   return parsed.length > 0 ? parsed : [2];
 }
 
+const getPostForPrint = cache(async (postSlug: string, categorySlug: string) => {
+  const cached = unstable_cache(
+    async () => {
+      const post = await prisma.post.findFirst({
+        where: {
+          slug: postSlug,
+          published: true,
+          status: { not: "ARCHIVED" },
+        },
+        include: {
+          category: true,
+          author: { select: { name: true } },
+          approvedBy: { select: { name: true } },
+          tags: true,
+          featuredImage: true,
+        },
+      });
+      if (!post) return null;
+      if (post.category?.slug !== categorySlug) return null;
+      return post;
+    },
+    [`print-post:${categorySlug}:${postSlug}`],
+    { tags: [`article-${postSlug}`, "posts"], revalidate },
+  );
+  return cached();
+});
+
 export default async function PrintPostPage({
   params,
 }: {
@@ -52,24 +80,7 @@ export default async function PrintPostPage({
 }) {
   const { categorySlug, postSlug } = await params;
 
-  const [settingRaw, post] = await Promise.all([
-    getSettings(),
-    prisma.post.findFirst({
-      where: {
-        slug: postSlug,
-        category: { slug: categorySlug },
-        published: true,
-        status: { not: "ARCHIVED" },
-      },
-      include: {
-        category: true,
-        author: { select: { name: true } },
-        approvedBy: { select: { name: true } },
-        tags: true,
-        featuredImage: true,
-      },
-    }),
-  ]);
+  const [settingRaw, post] = await Promise.all([getSettings(), getPostForPrint(postSlug, categorySlug)]);
 
   if (!post) return notFound();
 

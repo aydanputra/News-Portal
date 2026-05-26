@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
+import { unstable_cache } from "next/cache";
 
 function stripTrailingSlash(url: string) {
   return String(url || "").replace(/\/+$/, "");
@@ -8,27 +9,36 @@ function stripTrailingSlash(url: string) {
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const siteUrl = stripTrailingSlash(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
 
-  const [categories, tags, pages, posts] = await Promise.all([
-    prisma.category.findMany({
-      where: { deletedAt: null },
-      select: { slug: true, updatedAt: true },
-    }),
-    prisma.tag.findMany({
-      select: { slug: true, createdAt: true },
-    }),
-    prisma.page.findMany({
-      where: { published: true },
-      select: { slug: true, updatedAt: true },
-    }),
-    prisma.post.findMany({
-      where: { status: "PUBLISHED", deletedAt: null },
-      select: {
-        slug: true,
-        updatedAt: true,
-        category: { select: { slug: true } },
-      },
-    }),
-  ]);
+  const cached = unstable_cache(
+    async () => {
+      const [categories, tags, pages, posts] = await Promise.all([
+        prisma.category.findMany({
+          where: { deletedAt: null },
+          select: { slug: true, updatedAt: true },
+        }),
+        prisma.tag.findMany({
+          select: { slug: true, createdAt: true },
+        }),
+        prisma.page.findMany({
+          where: { published: true },
+          select: { slug: true, updatedAt: true },
+        }),
+        prisma.post.findMany({
+          where: { status: "PUBLISHED", deletedAt: null },
+          select: {
+            slug: true,
+            updatedAt: true,
+            category: { select: { slug: true } },
+          },
+        }),
+      ]);
+      return { categories, tags, pages, posts };
+    },
+    ["sitemap:data"],
+    { tags: ["posts", "categories", "pages"], revalidate: 3600 },
+  );
+
+  const { categories, tags, pages, posts } = await cached();
 
   const items: MetadataRoute.Sitemap = [
     {
