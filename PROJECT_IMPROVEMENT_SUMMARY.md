@@ -59,20 +59,20 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [ ] Gunakan `z.infer` untuk DTO.
 - [x] Repo hygiene dasar:
   - [x] Ignore `*.backup` agar dump DB tidak ikut repo.
-  - [ ] Bersihkan `.DS_Store` / `._*` yang sempat ikut ter-commit, dan pastikan ter-ignore.
+  - [x] Bersihkan `.DS_Store` / `._*` yang sempat ikut ter-commit, dan pastikan ter-ignore.
 
 ## Phase 5 — SEO Readiness (Medium)
-- [ ] Tambahkan:
-  - [ ] `app/sitemap.ts`
-  - [ ] `app/robots.ts`
-- [ ] Tambahkan canonical URL + `metadataBase`.
+- [x] Tambahkan:
+  - [x] `app/sitemap.ts`
+  - [x] `app/robots.ts`
+- [x] Tambahkan canonical URL + `metadataBase`.
 - [ ] Tambahkan structured data JSON-LD (Article) untuk post.
 
 ## Phase 6 — DevOps & Release (Medium)
-- [ ] CI minimal (GitHub Actions):
-  - [ ] `npm ci`
-  - [ ] `npm run lint`
-  - [ ] `npm run build`
+- [x] CI minimal (GitHub Actions):
+  - [x] `npm ci`
+  - [x] `npm run lint`
+  - [x] `npm run build`
 - [ ] Migration safety:
   - [ ] Pastikan `prisma migrate deploy` konsisten di staging sebelum promote ke production.
 - [ ] Backup & rollback:
