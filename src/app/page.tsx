@@ -116,8 +116,7 @@ async function getData() {
   const footerConfig = footerRows ?? null;
 
   // 2. Fetch Blocks based on Theme
-  // @ts-ignore
-  const sourceBlocksByLocation = await getBuilderSourceBlocks(activeTheme);
+  const sourceBlocksByLocation = await getBuilderSourceBlocks(activeTheme as any);
   const blocks = sourceBlocksByLocation.home || [];
 
   // 3. Fallback: Jika tidak ada blocks, ambil default posts

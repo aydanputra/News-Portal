@@ -31,8 +31,7 @@ export const getSettings = unstable_cache(
       }
 
       const activeTheme = setting.activeTheme || "modern";
-      // @ts-ignore
-      const themeConfig = await prisma.themeConfig.findUnique({
+      const themeConfig = await (prisma as any).themeConfig.findUnique({
           where: { themeId: activeTheme }
       });
 

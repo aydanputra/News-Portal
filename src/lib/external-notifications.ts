@@ -280,14 +280,14 @@ export async function notifyWorkflowUpdate({
   const safeEditorName = escapeHtml(dbPost?.approvedBy?.name || "");
   const safeCategoryName = escapeHtml(dbPost?.category?.name || "");
   const plainContent = htmlToPlainText(String(dbPost?.content || ""));
-  const contentChunksPlain = splitPlainTextToChunksByParagraph(plainContent, 3200);
+  const _contentChunksPlain = splitPlainTextToChunksByParagraph(plainContent, 3200);
   const { text: summaryText, truncated: summaryTruncated } = truncateTextByChars(plainContent, 650);
   const safeSummaryText = escapeHtml(summaryText);
   const safeTags = Array.isArray(dbPost?.tags) ? dbPost.tags.map((t: any) => String(t?.name || "").trim()).filter(Boolean) : [];
-  const safeTagLine = safeTags.length ? escapeHtml(safeTags.join(", ")) : "";
-  const safeImageCaption = escapeHtml(String(dbPost?.imageCaption || "").trim());
+  const _safeTagLine = safeTags.length ? escapeHtml(safeTags.join(", ")) : "";
+  const _safeImageCaption = escapeHtml(String(dbPost?.imageCaption || "").trim());
   const photoCandidate = String(dbPost?.featuredImage?.fileUrl || dbPost?.image || "").trim();
-  const photoUrl = photoCandidate ? toAbsoluteUrl(siteUrl, photoCandidate) : "";
+  const _photoUrl = photoCandidate ? toAbsoluteUrl(siteUrl, photoCandidate) : "";
   const postSlug = typeof dbPost?.slug === "string" ? dbPost.slug : "";
   const categorySlug = typeof dbPost?.category?.slug === "string" ? dbPost.category.slug : "";
   const publicUrl =

@@ -201,7 +201,7 @@ const toFontWeight = (value: unknown, fallback: string) => {
   return fallback;
 };
 
-const toBool = (value: unknown, fallback: boolean) => {
+const _toBool = (value: unknown, fallback: boolean) => {
   if (typeof value === "boolean") return value;
   if (typeof value === "string") {
     const v = value.trim().toLowerCase();

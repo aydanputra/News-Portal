@@ -31,8 +31,7 @@ export async function GET(request: Request) {
     }
 
     const activeTheme = requestedThemeId || setting.activeTheme || "classic";
-    // @ts-ignore
-    const themeConfig = await prisma.themeConfig.findUnique({
+    const themeConfig = await (prisma as any).themeConfig.findUnique({
       where: { themeId: activeTheme },
     });
 
