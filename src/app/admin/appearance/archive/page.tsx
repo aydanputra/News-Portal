@@ -4,7 +4,7 @@ import { Monitor, Redo2, RotateCcw, Save, Smartphone, Tablet, Undo2 } from "luci
 import EditChildModal from "@/app/admin/homepage/components/EditChildModal";
 import EditSectionModal from "@/app/admin/homepage/components/EditSectionModal";
 import PreviewPanel from "@/app/admin/homepage/components/PreviewPanel";
-import SectionPicker from "@/app/admin/homepage/components/SectionPicker";
+import SectionPicker from "@/components/admin/page-builder/SectionPicker";
 import { useArchiveBuilder } from "./useArchiveBuilder";
 import { useSidebarSourceBlocks } from "@/hooks/useSidebarSourceBlocks";
 
