@@ -1,0 +1,87 @@
+# MD Summary — Project Perbaikan Lanjutan (Next.js News Portal)
+
+Dokumen ini adalah checklist kerja perbaikan lanjutan berdasarkan audit internal sebelum website rilis publik.  
+Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan dan terverifikasi (minimal build + smoke check).
+
+## Status Saat Ini
+- Branch kerja: `dev`
+- Branch release: `main`
+
+## Phase 0 — Freeze & Safety Net
+- [x] Pisahkan workflow branch `dev` (development) dan `main` (release/production).
+- [ ] Rotasi semua secret yang pernah terekspos (Neon/SMTP/Telegram/JWT) lalu update ke Vercel.
+- [ ] Samakan dan pastikan env production Vercel lengkap: `JWT_SECRET`, `DATABASE_URL`, `DIRECT_URL`, `CRON_SECRET`, `MASTER_KEY`.
+
+## Phase 1 — Security Hotfix (Critical)
+- [x] Implement helper auth reusable (`requireUser`, `requireAdmin`) untuk API routes.
+- [x] Kunci endpoint Pages (CRUD) dengan auth + role:
+  - `/api/pages`
+  - `/api/pages/[id]`
+- [x] Kunci endpoint revalidate (wajib secret/auth):
+  - `/api/revalidate`
+- [ ] Split settings menjadi:
+  - [ ] `GET /api/public/settings` (aman untuk publik/theme)
+  - [ ] `GET /api/admin/settings` (lengkap, wajib admin)
+  - [x] Kunci `/api/settings` agar hanya admin (menghentikan leakage ke publik).
+- [ ] Tutup XSS untuk Page:
+  - [x] Sanitasi `page.content` saat `POST/PUT` pages (server-side).
+  - [ ] Defense-in-depth: pastikan render Page tidak mem-passthrough HTML mentah tanpa sanitasi.
+- [ ] Tambahkan rate limit minimal untuk endpoint rawan:
+  - [x] `/api/auth/login`
+  - [x] `/api/media/upload` dan `/api/upload`
+  - [x] `/api/revalidate`
+
+## Phase 2 — Stabilitas & Observability (High)
+- [ ] Rapikan error handling:
+  - [ ] Hilangkan `catch {}` kosong (minimal log error + context).
+  - [ ] Standarisasi bentuk response error API (`{ error, details? }`).
+- [ ] Tambahkan error monitoring (contoh: Sentry) server + client.
+- [ ] Hardening session/cookie:
+  - [x] Set `sameSite` eksplisit pada `auth_token`.
+  - [x] Pastikan logout invalidasi cookie berjalan konsisten.
+
+## Phase 3 — Performance & Scalability (High)
+- [ ] Cabut `force-dynamic` / `revalidate=0` untuk halaman publik:
+  - [ ] Homepage → ISR (contoh 60–300 detik) + revalidate tag saat publish.
+  - [ ] Post page → ISR (contoh 300–900 detik) + revalidate tag saat update.
+- [ ] Pindahkan view counting keluar dari SSR render path:
+  - [ ] Endpoint `/api/track-view` (debounce + bot/prefetch filtering + rate limit).
+  - [ ] Update UI/client agar memanggil tracking setelah page benar-benar dilihat user.
+- [ ] Kurangi waterfall/N+1 pada Page Builder:
+  - [ ] Audit query per widget.
+  - [ ] Batch query & caching per tag/blok.
+
+## Phase 4 — Maintainability (Medium)
+- [ ] Deduplicate komponen Page Builder:
+  - [ ] Satukan `src/app/admin/homepage/components/*` dan `src/components/admin/page-builder/*`.
+- [ ] Tingkatkan type-safety:
+  - [ ] Kurangi `any` dan `@ts-ignore` bertahap (mulai dari request/response API).
+  - [ ] Gunakan `z.infer` untuk DTO.
+- [x] Repo hygiene dasar:
+  - [x] Ignore `*.backup` agar dump DB tidak ikut repo.
+  - [ ] Bersihkan `.DS_Store` / `._*` yang sempat ikut ter-commit, dan pastikan ter-ignore.
+
+## Phase 5 — SEO Readiness (Medium)
+- [ ] Tambahkan:
+  - [ ] `app/sitemap.ts`
+  - [ ] `app/robots.ts`
+- [ ] Tambahkan canonical URL + `metadataBase`.
+- [ ] Tambahkan structured data JSON-LD (Article) untuk post.
+
+## Phase 6 — DevOps & Release (Medium)
+- [ ] CI minimal (GitHub Actions):
+  - [ ] `npm ci`
+  - [ ] `npm run lint`
+  - [ ] `npm run build`
+- [ ] Migration safety:
+  - [ ] Pastikan `prisma migrate deploy` konsisten di staging sebelum promote ke production.
+- [ ] Backup & rollback:
+  - [ ] Neon backup schedule + prosedur restore.
+  - [ ] Rencana VPS: pg_dump harian + offsite + retention.
+
+## Catatan Implementasi
+- Setiap item ditandai selesai hanya setelah:
+  - perubahan sudah di-push ke branch terkait,
+  - deploy/staging tidak error,
+  - smoke test lulus (admin login, CRUD post, load homepage & post).
+

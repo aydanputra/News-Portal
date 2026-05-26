@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/api-guards";
+import { sanitizePageContent } from "@/lib/sanitizer";
 
 const updatePageSchema = z.object({
   title: z.string().min(1, "Judul wajib diisi").optional(),
@@ -40,6 +42,11 @@ const RESERVED_SLUGS = new Set([
 ]);
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
   try {
     const page = await prisma.page.findUnique({
@@ -57,6 +64,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
   try {
     const body = await request.json();
@@ -90,7 +102,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const page = await prisma.page.update({
       where: { id },
-      data: validatedData,
+      data: {
+        ...validatedData,
+        content:
+          typeof validatedData.content === "string" ? sanitizePageContent(validatedData.content) : validatedData.content,
+      },
     });
 
     return NextResponse.json(page);
@@ -103,6 +119,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { id } = await params;
   try {
     await prisma.page.delete({

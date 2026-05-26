@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireAdmin } from "@/lib/api-guards";
+import { sanitizePageContent } from "@/lib/sanitizer";
 
 const createPageSchema = z.object({
   title: z.string().min(1, "Judul wajib diisi"),
@@ -40,6 +42,11 @@ const RESERVED_SLUGS = new Set([
 ]);
 
 export async function GET(request: Request) {
+  const admin = await requireAdmin();
+  if (!admin) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const publishedOnly = searchParams.get("published") === "true";
 
@@ -56,6 +63,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
+    const admin = await requireAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const validatedData = createPageSchema.parse(body);
     const normalizedSlug = normalizeSlug(validatedData.slug);
@@ -76,7 +88,11 @@ export async function POST(request: Request) {
     }
 
     const page = await prisma.page.create({
-      data: { ...validatedData, slug: normalizedSlug },
+      data: {
+        ...validatedData,
+        slug: normalizedSlug,
+        content: typeof validatedData.content === "string" ? sanitizePageContent(validatedData.content) : undefined,
+      },
     });
 
     return NextResponse.json(page, { status: 201 });
