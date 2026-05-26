@@ -19,14 +19,14 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - `/api/pages/[id]`
 - [x] Kunci endpoint revalidate (wajib secret/auth):
   - `/api/revalidate`
-- [ ] Split settings menjadi:
+- [x] Split settings menjadi:
   - [x] `GET /api/public/settings` (aman untuk publik/theme)
   - [x] `GET /api/admin/settings` (lengkap, wajib admin)
   - [x] Kunci `/api/settings` agar hanya admin (menghentikan leakage ke publik).
-- [ ] Tutup XSS untuk Page:
+- [x] Tutup XSS untuk Page:
   - [x] Sanitasi `page.content` saat `POST/PUT` pages (server-side).
   - [x] Defense-in-depth: pastikan render Page tidak mem-passthrough HTML mentah tanpa sanitasi.
-- [ ] Tambahkan rate limit minimal untuk endpoint rawan:
+- [x] Tambahkan rate limit minimal untuk endpoint rawan:
   - [x] `/api/auth/login`
   - [x] `/api/media/upload` dan `/api/upload`
   - [x] `/api/revalidate`
@@ -47,13 +47,15 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
 - [x] Pindahkan view counting keluar dari SSR render path:
   - [x] Endpoint `/api/track-view` (debounce + bot/prefetch filtering + rate limit).
   - [x] Update UI/client agar memanggil tracking setelah page benar-benar dilihat user.
-- [ ] Kurangi waterfall/N+1 pada Page Builder:
+- [x] Kurangi waterfall/N+1 pada Page Builder:
   - [x] Audit query per widget.
   - [x] Batch query & caching per tag/blok.
 
 ## Phase 4 — Maintainability (Medium)
 - [ ] Deduplicate komponen Page Builder:
   - [ ] Satukan `src/app/admin/homepage/components/*` dan `src/components/admin/page-builder/*`.
+  - [x] Dedup types (homepage → re-export ke shared).
+  - [x] Dedup komponen yang identik (ColorPicker, SectionPicker, LegacyBlock) via re-export.
 - [ ] Tingkatkan type-safety:
   - [ ] Kurangi `any` dan `@ts-ignore` bertahap (mulai dari request/response API).
   - [ ] Gunakan `z.infer` untuk DTO.
