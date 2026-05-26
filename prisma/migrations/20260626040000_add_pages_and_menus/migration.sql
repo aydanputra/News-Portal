@@ -66,24 +66,52 @@ CREATE INDEX IF NOT EXISTS "MenuItem_parentId_idx" ON "MenuItem"("parentId");
 CREATE INDEX IF NOT EXISTS "MenuItem_order_idx" ON "MenuItem"("order");
 
 ALTER TABLE "MenuItem"
-  ADD CONSTRAINT IF NOT EXISTS "MenuItem_menuId_fkey"
-  FOREIGN KEY ("menuId") REFERENCES "Menu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD COLUMN IF NOT EXISTS "menuId" TEXT;
 
-ALTER TABLE "MenuItem"
-  ADD CONSTRAINT IF NOT EXISTS "MenuItem_parentId_fkey"
-  FOREIGN KEY ("parentId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MenuItem_menuId_fkey') THEN
+    ALTER TABLE "MenuItem"
+      ADD CONSTRAINT "MenuItem_menuId_fkey"
+      FOREIGN KEY ("menuId") REFERENCES "Menu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "MenuItem"
-  ADD CONSTRAINT IF NOT EXISTS "MenuItem_categoryId_fkey"
-  FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MenuItem_parentId_fkey') THEN
+    ALTER TABLE "MenuItem"
+      ADD CONSTRAINT "MenuItem_parentId_fkey"
+      FOREIGN KEY ("parentId") REFERENCES "MenuItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "MenuItem"
-  ADD CONSTRAINT IF NOT EXISTS "MenuItem_tagId_fkey"
-  FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MenuItem_categoryId_fkey') THEN
+    ALTER TABLE "MenuItem"
+      ADD CONSTRAINT "MenuItem_categoryId_fkey"
+      FOREIGN KEY ("categoryId") REFERENCES "Category"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
-ALTER TABLE "MenuItem"
-  ADD CONSTRAINT IF NOT EXISTS "MenuItem_pageId_fkey"
-  FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MenuItem_tagId_fkey') THEN
+    ALTER TABLE "MenuItem"
+      ADD CONSTRAINT "MenuItem_tagId_fkey"
+      FOREIGN KEY ("tagId") REFERENCES "Tag"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MenuItem_pageId_fkey') THEN
+    ALTER TABLE "MenuItem"
+      ADD CONSTRAINT "MenuItem_pageId_fkey"
+      FOREIGN KEY ("pageId") REFERENCES "Page"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS "MenuLocationAssignment" (
   "id" TEXT NOT NULL,
@@ -97,5 +125,13 @@ CREATE TABLE IF NOT EXISTS "MenuLocationAssignment" (
 CREATE UNIQUE INDEX IF NOT EXISTS "MenuLocationAssignment_location_key" ON "MenuLocationAssignment"("location");
 
 ALTER TABLE "MenuLocationAssignment"
-  ADD CONSTRAINT IF NOT EXISTS "MenuLocationAssignment_menuId_fkey"
-  FOREIGN KEY ("menuId") REFERENCES "Menu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  ADD COLUMN IF NOT EXISTS "menuId" TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'MenuLocationAssignment_menuId_fkey') THEN
+    ALTER TABLE "MenuLocationAssignment"
+      ADD CONSTRAINT "MenuLocationAssignment_menuId_fkey"
+      FOREIGN KEY ("menuId") REFERENCES "Menu"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
