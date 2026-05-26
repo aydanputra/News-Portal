@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { unstable_cache } from "next/cache";
 
 export type PublicMenuItem = {
   id: string;
@@ -73,51 +74,59 @@ const resolveHref = (item: RawMenuItem): string => {
 };
 
 export async function getPublicMenusByLocation(locations: MenuLocation[] = ["PRIMARY", "SECONDARY", "FOOTER", "MOBILE"]): Promise<PublicMenusByLocation> {
-  try {
-    if (!db?.menuLocationAssignment?.findMany || !db?.menu?.findMany) return {};
+  const key = [...locations].sort().join(",");
+  const cached = unstable_cache(
+    async () => {
+      try {
+        if (!db?.menuLocationAssignment?.findMany || !db?.menu?.findMany) return {};
 
-    const assignments = (await db.menuLocationAssignment.findMany({
-      where: { location: { in: locations as any } },
-      select: { location: true, menuId: true },
-    })) as Array<{ location: MenuLocation; menuId: string }>;
+        const assignments = (await db.menuLocationAssignment.findMany({
+          where: { location: { in: locations as any } },
+          select: { location: true, menuId: true },
+        })) as Array<{ location: MenuLocation; menuId: string }>;
 
-    const menuIds = Array.from(new Set(assignments.map((a) => a.menuId)));
-    if (menuIds.length === 0) return {};
+        const menuIds = Array.from(new Set(assignments.map((a) => a.menuId)));
+        if (menuIds.length === 0) return {};
 
-    const menus = (await db.menu.findMany({
-      where: { id: { in: menuIds } },
-      include: {
-        items: {
+        const menus = (await db.menu.findMany({
+          where: { id: { in: menuIds } },
           include: {
-            category: { select: { slug: true } },
-            tag: { select: { slug: true } },
-            page: { select: { slug: true, published: true } },
+            items: {
+              include: {
+                category: { select: { slug: true } },
+                tag: { select: { slug: true } },
+                page: { select: { slug: true, published: true } },
+              },
+            },
           },
-        },
-      },
-    })) as Array<{ id: string; items: RawMenuItem[] }>;
+        })) as Array<{ id: string; items: RawMenuItem[] }>;
 
-    const menuMap = new Map<string, { id: string; items: RawMenuItem[] }>(menus.map((m) => [m.id, m]));
-    const result: PublicMenusByLocation = {};
+        const menuMap = new Map<string, { id: string; items: RawMenuItem[] }>(menus.map((m) => [m.id, m]));
+        const result: PublicMenusByLocation = {};
 
-    for (const assignment of assignments) {
-      const menu = menuMap.get(assignment.menuId);
-      if (!menu) continue;
-      const rows: MenuItemRow[] = (menu.items || [])
-        .filter((it) => it.type !== "PAGE" || !!it.page?.published)
-        .map((it) => ({
-          id: it.id,
-          parentId: it.parentId ?? null,
-          label: it.label,
-          href: resolveHref(it),
-          openInNewTab: !!it.openInNewTab,
-          order: typeof it.order === "number" ? it.order : Number(it.order || 0),
-        }));
-      result[assignment.location] = buildTree(rows);
-    }
+        for (const assignment of assignments) {
+          const menu = menuMap.get(assignment.menuId);
+          if (!menu) continue;
+          const rows: MenuItemRow[] = (menu.items || [])
+            .filter((it) => it.type !== "PAGE" || !!it.page?.published)
+            .map((it) => ({
+              id: it.id,
+              parentId: it.parentId ?? null,
+              label: it.label,
+              href: resolveHref(it),
+              openInNewTab: !!it.openInNewTab,
+              order: typeof it.order === "number" ? it.order : Number(it.order || 0),
+            }));
+          result[assignment.location] = buildTree(rows);
+        }
 
-    return result;
-  } catch {
-    return {};
-  }
+        return result;
+      } catch {
+        return {};
+      }
+    },
+    [`public-menus:${key}`],
+    { tags: ["menus"], revalidate: 300 },
+  );
+  return cached();
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { verifyToken } from "@/lib/auth";
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 
 const db = prisma as any;
@@ -69,6 +70,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       data: validated,
     });
 
+    revalidateTag("menus");
     return NextResponse.json(menu);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -86,6 +88,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     const { id } = await params;
     await db.menu.delete({ where: { id } });
 
+    revalidateTag("menus");
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("DELETE /api/menus/[id] error:", error);
