@@ -66,7 +66,7 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [x] `app/sitemap.ts`
   - [x] `app/robots.ts`
 - [x] Tambahkan canonical URL + `metadataBase`.
-- [ ] Tambahkan structured data JSON-LD (Article) untuk post.
+- [x] Tambahkan structured data JSON-LD (Article) untuk post.
 
 ## Phase 6 — DevOps & Release (Medium)
 - [x] CI minimal (GitHub Actions):

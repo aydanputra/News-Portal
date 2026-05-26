@@ -19,7 +19,7 @@ export default async function CustomPage(props: { params: Promise<{ slug: string
 
   if (page) {
     const [setting, categories, menusByLocation] = await Promise.all([
-      prisma.setting.findUnique({ where: { id: "default" } }),
+      getSettings(),
       prisma.category.findMany({ orderBy: { name: "asc" }, take: 5 }),
       getPublicMenusByLocation(),
     ]);

@@ -1,29 +1,9 @@
 
-import { prisma } from "@/lib/prisma";
+import { getSettings } from "@/lib/settings";
 
 export default async function DebugFontPage() {
-  // 1. Ambil Setting Global
-  let setting: any = await prisma.setting.findUnique({ where: { id: "default" } });
-  let activeTheme = "unknown";
-  let themeConfig = null;
-
-  if (setting) {
-      activeTheme = setting.activeTheme || "modern";
-      
-      // 2. Ambil Theme Config
-      // @ts-ignore
-      themeConfig = await prisma.themeConfig.findUnique({
-          where: { themeId: activeTheme }
-      });
-
-      // 3. Merge
-      if (themeConfig && themeConfig.config) {
-          setting = {
-              ...setting,
-              ...(themeConfig.config as object)
-          };
-      }
-  }
+  const setting: any = await getSettings();
+  const activeTheme = setting?.activeTheme || "unknown";
 
   return (
     <div className="p-10 font-sans">
@@ -37,8 +17,7 @@ export default async function DebugFontPage() {
               activeTheme,
               headingFont: setting?.headingFont,
               bodyFont: setting?.bodyFont,
-              themeConfigFound: !!themeConfig,
-              themeConfigData: themeConfig?.config
+              themeConfigFound: true
             }, null, 2)}
           </pre>
         </div>
