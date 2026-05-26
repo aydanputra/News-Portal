@@ -14,6 +14,29 @@ import { cache } from "react";
 import { getCachedCategories } from "@/lib/data";
 
 export const revalidate = 600;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  const rows = await prisma.post.findMany({
+    where: {
+      published: true,
+      status: { not: "ARCHIVED" },
+    },
+    orderBy: { publishedAt: "desc" },
+    take: 100,
+    select: {
+      slug: true,
+      category: { select: { slug: true } },
+    },
+  });
+
+  return rows
+    .filter((row) => typeof row.category?.slug === "string" && row.category.slug.trim() !== "")
+    .map((row) => ({
+      slug: row.category!.slug,
+      postSlug: row.slug,
+    }));
+}
 
 const getPostBySlug = cache(async (slug: string, categorySlug: string) => {
   const cached = unstable_cache(
