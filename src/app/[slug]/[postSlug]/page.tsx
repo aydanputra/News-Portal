@@ -146,7 +146,8 @@ async function getData(slug: string, categorySlug: string) {
       });
       post = { ...post, views: (typeof post.views === "number" ? post.views : 0) + 1 };
     }
-  } catch {
+  } catch (error) {
+    console.error("[views] Failed to increment post view:", error);
   }
 
   try {
@@ -154,14 +155,16 @@ async function getData(slug: string, categorySlug: string) {
       where: { postId: post.id, isApproved: true },
     });
     post = { ...post, commentCount: approvedCommentCount } as any;
-  } catch {
+  } catch (error) {
+    console.error("[comments] Failed to count approved comments:", error);
   }
 
   try {
     const rows = await prisma.$queryRaw<{ viewsBase: number }[]>`SELECT "viewsBase" FROM "Post" WHERE "id" = ${post.id} LIMIT 1`;
     const viewsBase = typeof rows?.[0]?.viewsBase === "number" && Number.isFinite(rows[0].viewsBase) ? rows[0].viewsBase : 0;
     post = { ...post, viewsBase };
-  } catch {
+  } catch (error) {
+    console.error("[viewsBase] Failed to load viewsBase:", error);
   }
 
   // Fetch Block Data (Popular Posts, etc)

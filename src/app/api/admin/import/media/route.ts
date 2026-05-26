@@ -76,7 +76,9 @@ export async function GET(req: NextRequest) {
                         try {
                             const domain = new URL(src).hostname;
                             externalDomains.add(domain);
-                        } catch {}
+                        } catch (error) {
+                            console.warn("[import/media] Failed to parse image URL:", error);
+                        }
                     }
                 }
 
@@ -87,7 +89,9 @@ export async function GET(req: NextRequest) {
                     try {
                         const domain = new URL(post.image).hostname;
                         externalDomains.add(domain);
-                    } catch {}
+                    } catch (error) {
+                        console.warn("[import/media] Failed to parse featured image URL:", error);
+                    }
                 }
 
                 if (hasExternal) postsWithImages++;
@@ -174,7 +178,9 @@ export async function POST(req: NextRequest) {
                                     uploadedById: uploaderId
                                 }
                             });
-                        } catch {}
+                        } catch (error) {
+                            console.error("[import/media] Failed to save media record:", error);
+                        }
                     }
                 }
 
@@ -204,7 +210,9 @@ export async function POST(req: NextRequest) {
                             // Optional: Link media to post via featuredImageId if using that relation
                             // await prisma.post.update({ where: { id: post.id }, data: { featuredImageId: media.id } });
                             
-                        } catch {}
+                        } catch (error) {
+                            console.error("[import/media] Failed to save featured media record:", error);
+                        }
                     }
                 }
 

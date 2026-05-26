@@ -25,7 +25,8 @@ function escapeHtml(input: string) {
 function formatInt(n: number) {
   try {
     return n.toLocaleString("id-ID");
-  } catch {
+  } catch (error) {
+    void error;
     return String(n);
   }
 }
@@ -151,7 +152,8 @@ async function generateAiInsight({
     const json = (await res.json()) as any;
     const text = String(json?.choices?.[0]?.message?.content || "").trim();
     return text ? text : null;
-  } catch {
+  } catch (error) {
+    console.error("[PerformanceAI] generateAiInsight error:", error);
     return null;
   }
 }
@@ -323,7 +325,8 @@ export async function POST(request: Request) {
         try {
           aiApiKey = decryptSecret(enc, master);
           aiKeySource = aiApiKey ? "db" : "db_invalid";
-        } catch {
+        } catch (error) {
+          void error;
           aiApiKey = null;
           aiKeySource = "db_invalid";
         }

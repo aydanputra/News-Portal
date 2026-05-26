@@ -77,7 +77,8 @@ export async function GET(request: Request) {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/media error:", error);
     return NextResponse.json({ error: "Gagal mengambil media" }, { status: 500 });
   }
 }
@@ -119,15 +120,16 @@ export async function DELETE(request: Request) {
     try {
       const filePath = path.join(process.cwd(), "public", media.fileUrl);
       await unlink(filePath);
-    } catch {
-      console.warn("File fisik tidak ditemukan atau gagal dihapus, lanjut hapus DB.");
+    } catch (error) {
+      console.warn("File fisik tidak ditemukan atau gagal dihapus, lanjut hapus DB:", error);
     }
 
     // Hapus dari DB
     await prisma.media.delete({ where: { id } });
 
     return NextResponse.json({ message: "Media berhasil dihapus" });
-  } catch {
+  } catch (error) {
+    console.error("DELETE /api/media error:", error);
     return NextResponse.json({ error: "Gagal menghapus media" }, { status: 500 });
   }
 }

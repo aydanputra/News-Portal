@@ -20,7 +20,8 @@ export async function GET() {
     });
 
     return NextResponse.json({ count });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/notifications/unread-count error:", error);
     return NextResponse.json({ count: 0 });
   }
 }

@@ -56,7 +56,8 @@ export async function GET(request: Request) {
       orderBy: { updatedAt: "desc" },
     });
     return NextResponse.json(pages);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/pages error:", error);
     return NextResponse.json({ error: "Gagal mengambil halaman" }, { status: 500 });
   }
 }
@@ -98,8 +99,9 @@ export async function POST(request: Request) {
     return NextResponse.json(page, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "ValidationError", details: error.errors }, { status: 400 });
     }
+    console.error("POST /api/pages error:", error);
     return NextResponse.json({ error: "Gagal membuat halaman" }, { status: 500 });
   }
 }

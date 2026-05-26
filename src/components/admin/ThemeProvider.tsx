@@ -33,7 +33,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('admin-theme', theme);
     try {
       document.cookie = `admin-theme=${encodeURIComponent(theme)}; Max-Age=31536000; Path=/; SameSite=Lax`;
-    } catch {}
+    } catch (error) {
+      void error;
+    }
   }, [theme, mounted]);
 
   const toggleTheme = () => {

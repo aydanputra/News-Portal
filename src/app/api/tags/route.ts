@@ -9,7 +9,8 @@ export async function GET() {
     });
 
     return NextResponse.json(tags);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/tags error:", error);
     return NextResponse.json({ error: "Gagal mengambil tags" }, { status: 500 });
   }
 }

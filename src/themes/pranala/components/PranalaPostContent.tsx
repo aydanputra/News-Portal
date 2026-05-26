@@ -70,7 +70,9 @@ const getEmbedSrc = (url: string): string | null => {
       const id = parts.find((part) => /^\d+$/.test(part));
       if (id) return `https://player.vimeo.com/video/${id}`;
     }
-  } catch {}
+  } catch (error) {
+    void error;
+  }
   return null;
 };
 

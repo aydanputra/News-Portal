@@ -46,7 +46,8 @@ export default function PreviewPostPage() {
                 ? blocksData
                 : getThemeDefaultPostBlocks(currentTheme);
             setBlocks(normalizedBlocks);
-        } catch {
+        } catch (error) {
+            console.error("Failed to load post blocks for preview:", error);
             setBlocks(getThemeDefaultPostBlocks(currentTheme));
         }
 

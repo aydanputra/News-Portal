@@ -685,10 +685,14 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
             document.documentElement.classList.toggle("public-dark", nextTheme === "dark");
             try {
               localStorage.setItem("public-theme", nextTheme);
-            } catch {}
+            } catch (error) {
+              void error;
+            }
             try {
               document.cookie = `public-theme=${encodeURIComponent(nextTheme)}; Max-Age=31536000; Path=/; SameSite=Lax`;
-            } catch {}
+            } catch (error) {
+              void error;
+            }
           }}
           className="p-2 text-gray-500 hover:text-indigo-600 transition-colors"
           aria-label={isLight ? "Aktifkan mode gelap" : "Aktifkan mode terang"}
@@ -884,10 +888,14 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
             document.documentElement.classList.toggle("public-dark", nextTheme === "dark");
             try {
               localStorage.setItem("public-theme", nextTheme);
-            } catch {}
+            } catch (error) {
+              void error;
+            }
             try {
               document.cookie = `public-theme=${encodeURIComponent(nextTheme)}; Max-Age=31536000; Path=/; SameSite=Lax`;
-            } catch {}
+            } catch (error) {
+              void error;
+            }
           }}
           className="hb-theme-btn"
           style={

@@ -32,10 +32,10 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [x] `/api/revalidate`
 
 ## Phase 2 — Stabilitas & Observability (High)
-- [ ] Rapikan error handling:
-  - [ ] Hilangkan `catch {}` kosong (minimal log error + context).
-  - [ ] Standarisasi bentuk response error API (`{ error, details? }`).
-- [ ] Tambahkan error monitoring (contoh: Sentry) server + client.
+- [x] Rapikan error handling:
+  - [x] Hilangkan `catch {}` kosong (minimal log error + context).
+  - [x] Standarisasi bentuk response error API (`{ error, details? }`).
+- [x] Tambahkan error monitoring (contoh: Sentry) server + client.
 - [ ] Hardening session/cookie:
   - [x] Set `sameSite` eksplisit pada `auth_token`.
   - [x] Pastikan logout invalidasi cookie berjalan konsisten.

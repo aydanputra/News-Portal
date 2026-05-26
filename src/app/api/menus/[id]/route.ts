@@ -40,7 +40,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     if (!menu) return NextResponse.json({ error: "Menu tidak ditemukan" }, { status: 404 });
 
     return NextResponse.json(menu);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/menus/[id] error:", error);
     return NextResponse.json({ error: "Gagal mengambil menu" }, { status: 500 });
   }
 }
@@ -86,7 +87,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     await db.menu.delete({ where: { id } });
 
     return NextResponse.json({ ok: true });
-  } catch {
+  } catch (error) {
+    console.error("DELETE /api/menus/[id] error:", error);
     return NextResponse.json({ error: "Gagal menghapus menu" }, { status: 500 });
   }
 }

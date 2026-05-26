@@ -143,7 +143,8 @@ export async function POST(request: Request) {
         console.error("Database save failed:", dbError);
         try {
           await storage.delete(key);
-        } catch {
+        } catch (error) {
+          console.error("Cleanup uploaded file failed:", error);
         }
         return NextResponse.json({ error: "Gagal menyimpan data ke database: " + dbError.message }, { status: 500 });
     }

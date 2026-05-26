@@ -33,7 +33,8 @@ export async function GET() {
     });
 
     return NextResponse.json(assignments);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/menu-locations error:", error);
     return NextResponse.json({ error: "Gagal mengambil lokasi menu" }, { status: 500 });
   }
 }

@@ -63,7 +63,8 @@ export async function GET() {
       });
 
     return NextResponse.json(categoryTree);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/categories error:", error);
     return NextResponse.json({ error: "Gagal mengambil kategori" }, { status: 500 });
   }
 }

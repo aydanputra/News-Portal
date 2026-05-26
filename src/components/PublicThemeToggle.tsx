@@ -22,10 +22,14 @@ export default function PublicThemeToggle() {
     document.documentElement.classList.toggle("public-dark", nextTheme === "dark");
     try {
       localStorage.setItem("public-theme", nextTheme);
-    } catch {}
+    } catch (error) {
+      void error;
+    }
     try {
       document.cookie = `public-theme=${encodeURIComponent(nextTheme)}; Max-Age=31536000; Path=/; SameSite=Lax`;
-    } catch {}
+    } catch (error) {
+      void error;
+    }
   };
 
   if (!mounted) return null;

@@ -58,7 +58,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
 
     return NextResponse.json(page);
-  } catch {
+  } catch (error) {
+    console.error("GET /api/pages/[id] error:", error);
     return NextResponse.json({ error: "Gagal mengambil halaman" }, { status: 500 });
   }
 }
@@ -112,8 +113,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json(page);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+      return NextResponse.json({ error: "ValidationError", details: error.errors }, { status: 400 });
     }
+    console.error("PUT /api/pages/[id] error:", error);
     return NextResponse.json({ error: "Gagal mengupdate halaman" }, { status: 500 });
   }
 }
@@ -131,7 +133,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     });
 
     return NextResponse.json({ message: "Halaman berhasil dihapus" });
-  } catch {
+  } catch (error) {
+    console.error("DELETE /api/pages/[id] error:", error);
     return NextResponse.json({ error: "Gagal menghapus halaman" }, { status: 500 });
   }
 }
