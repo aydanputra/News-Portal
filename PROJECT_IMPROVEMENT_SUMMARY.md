@@ -41,12 +41,12 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [x] Pastikan logout invalidasi cookie berjalan konsisten.
 
 ## Phase 3 — Performance & Scalability (High)
-- [ ] Cabut `force-dynamic` / `revalidate=0` untuk halaman publik:
-  - [ ] Homepage → ISR (contoh 60–300 detik) + revalidate tag saat publish.
-  - [ ] Post page → ISR (contoh 300–900 detik) + revalidate tag saat update.
-- [ ] Pindahkan view counting keluar dari SSR render path:
-  - [ ] Endpoint `/api/track-view` (debounce + bot/prefetch filtering + rate limit).
-  - [ ] Update UI/client agar memanggil tracking setelah page benar-benar dilihat user.
+- [x] Cabut `force-dynamic` / `revalidate=0` untuk halaman publik:
+  - [x] Homepage → ISR (contoh 60–300 detik) + revalidate tag saat publish.
+  - [x] Post page → ISR (contoh 300–900 detik) + revalidate tag saat update.
+- [x] Pindahkan view counting keluar dari SSR render path:
+  - [x] Endpoint `/api/track-view` (debounce + bot/prefetch filtering + rate limit).
+  - [x] Update UI/client agar memanggil tracking setelah page benar-benar dilihat user.
 - [ ] Kurangi waterfall/N+1 pada Page Builder:
   - [ ] Audit query per widget.
   - [ ] Batch query & caching per tag/blok.

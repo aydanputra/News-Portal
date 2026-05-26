@@ -6,9 +6,7 @@ import { unstable_cache } from "next/cache";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
 
-// ISR: Revalidate every 0 seconds (force dynamic for debugging)
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
+export const revalidate = 120;
 
 // Cached fetch for fallback posts
 const getFallbackPosts = unstable_cache(

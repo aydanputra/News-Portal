@@ -4,14 +4,13 @@ import ClassicSinglePost from "@/themes/classic/templates/SinglePost";
 import PranalaSinglePost from "@/themes/pranala/templates/SinglePost";
 import { notFound } from "next/navigation";
 import { Metadata, ResolvingMetadata } from "next";
-import { headers } from "next/headers";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
 import { getSettings } from "@/lib/settings";
+import TrackView from "@/components/TrackView";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+export const revalidate = 600;
 
 // Direct Post Fetch (No Cache)
 const getPostBySlug = async (slug: string, categorySlug: string) => {
@@ -127,28 +126,6 @@ async function getData(slug: string, categorySlug: string) {
 
   if (!postRaw) return { post: null, setting, categories, blocks: [], recentPosts: [], relatedPosts: [], inlineRelatedPosts: [], blockData: {}, activeTheme, headerConfig, footerConfig, sourceBlocksByLocation };
   let post = postRaw;
-
-  try {
-    const h = await headers();
-    const purpose = String(h.get("purpose") || h.get("sec-purpose") || "").toLowerCase();
-    const isPrefetch =
-      String(h.get("next-router-prefetch") || "") === "1" ||
-      String(h.get("x-middleware-prefetch") || "") === "1" ||
-      purpose.includes("prefetch");
-    const ua = String(h.get("user-agent") || "").toLowerCase();
-    const isBot = ua.includes("bot") || ua.includes("crawler") || ua.includes("spider") || ua.includes("preview");
-    const shouldCountView = !isPrefetch && !isBot;
-
-    if (shouldCountView) {
-      await prisma.post.update({
-        where: { id: post.id },
-        data: { views: { increment: 1 } },
-      });
-      post = { ...post, views: (typeof post.views === "number" ? post.views : 0) + 1 };
-    }
-  } catch (error) {
-    console.error("[views] Failed to increment post view:", error);
-  }
 
   try {
     const approvedCommentCount = await prisma.comment.count({
@@ -584,6 +561,7 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
 
   return (
     <>
+      <TrackView postId={post.id} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {body}
     </>
