@@ -29,19 +29,29 @@ export default function AdminLayout({
     if (isLoginPage) return;
     let active = true;
     fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
+      .then(async (r) => {
+        if (r.status === 401) return { __unauthorized: true } as any;
+        if (!r.ok) return null;
+        return r.json();
+      })
       .then((data) => {
         if (!active) return;
+        if ((data as any)?.__unauthorized) {
+          setRole(null);
+          router.replace("/admin/login");
+          return;
+        }
         setRole(data?.role || null);
       })
       .catch(() => {
         if (!active) return;
         setRole(null);
+        router.replace("/admin/login");
       });
     return () => {
       active = false;
     };
-  }, [isLoginPage]);
+  }, [isLoginPage, router]);
 
   const forbiddenPrefixes = useMemo(() => {
     if (!role) return [];
