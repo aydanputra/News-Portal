@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidateTag, unstable_cache } from "next/cache";
+import { z } from "zod";
 
 const ALLOWED_PAGE_TYPES = new Set([
   "HOME",
@@ -12,6 +13,46 @@ const ALLOWED_PAGE_TYPES = new Set([
   "STATIC_PAGE",
   "POST_DETAIL",
 ]);
+
+const querySchema = z.object({
+  active: z.enum(["true", "false"]).optional(),
+  id: z.string().trim().optional(),
+  position: z.string().trim().optional(),
+  positions: z.string().trim().optional(),
+  pageType: z.string().trim().optional(),
+  categorySlug: z.string().trim().optional(),
+  tagSlug: z.string().trim().optional(),
+  tagSlugs: z.string().trim().optional(),
+  pageSlug: z.string().trim().optional(),
+});
+
+const adBodySchema = z
+  .object({
+    name: z.string().trim().min(1),
+    type: z.enum(["IMAGE", "SCRIPT"]),
+    mediaId: z.string().trim().optional().nullable(),
+    scriptCode: z.string().optional().nullable(),
+    position: z.string().trim().min(1),
+    linkUrl: z.string().trim().optional().nullable(),
+    isActive: z.boolean().optional(),
+    startDate: z.union([z.string(), z.date()]).optional().nullable(),
+    endDate: z.union([z.string(), z.date()]).optional().nullable(),
+    targetPageTypes: z.array(z.string()).optional(),
+    targetCategorySlugs: z.array(z.string()).optional(),
+    targetTagSlugs: z.array(z.string()).optional(),
+    targetPageSlugs: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const toNullableDate = (value: unknown): Date | null => {
+  if (value === null || value === undefined || value === "") return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
 
 const normalizeStringArray = (value: unknown, toLowercase = false): string[] => {
   if (!Array.isArray(value)) return [];
@@ -82,28 +123,37 @@ const matchesTargeting = (
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const activeOnly = searchParams.get("active") === "true";
-    const id = searchParams.get("id");
-    const position = searchParams.get("position"); // Optional filter by position
-    const positionsParam = searchParams.get("positions");
-    const positions = positionsParam
-      ? positionsParam
+    const parsed = querySchema.parse({
+      active: searchParams.get("active") || undefined,
+      id: searchParams.get("id") || undefined,
+      position: searchParams.get("position") || undefined,
+      positions: searchParams.get("positions") || undefined,
+      pageType: searchParams.get("pageType") || undefined,
+      categorySlug: searchParams.get("categorySlug") || undefined,
+      tagSlug: searchParams.get("tagSlug") || undefined,
+      tagSlugs: searchParams.get("tagSlugs") || undefined,
+      pageSlug: searchParams.get("pageSlug") || undefined,
+    });
+
+    const activeOnly = parsed.active === "true";
+    const id = parsed.id || null;
+    const position = parsed.position || null;
+    const positions = parsed.positions
+      ? parsed.positions
           .split(",")
           .map((item) => item.trim())
           .filter(Boolean)
       : [];
-    const pageTypeRaw = searchParams.get("pageType");
-    const pageType = pageTypeRaw ? pageTypeRaw.toUpperCase() : null;
-    const categorySlug = searchParams.get("categorySlug")?.toLowerCase() || null;
-    const tagSlug = searchParams.get("tagSlug")?.toLowerCase() || null;
-    const tagSlugsParam = searchParams.get("tagSlugs");
-    const tagSlugs = tagSlugsParam
-      ? tagSlugsParam
+    const pageType = parsed.pageType ? parsed.pageType.toUpperCase() : null;
+    const categorySlug = parsed.categorySlug ? parsed.categorySlug.toLowerCase() : null;
+    const tagSlug = parsed.tagSlug ? parsed.tagSlug.toLowerCase() : null;
+    const tagSlugs = parsed.tagSlugs
+      ? parsed.tagSlugs
           .split(",")
           .map((item) => item.trim().toLowerCase())
           .filter(Boolean)
       : [];
-    const pageSlug = searchParams.get("pageSlug")?.toLowerCase() || null;
+    const pageSlug = parsed.pageSlug ? parsed.pageSlug.toLowerCase() : null;
 
     // Jika minta activeOnly, filter logika tanggal & isActive
     if (activeOnly) {
@@ -197,6 +247,9 @@ export async function GET(request: Request) {
     return NextResponse.json(ads);
 
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validasi gagal", details: error.errors }, { status: 400 });
+    }
     console.error("Error fetching ads:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
@@ -213,7 +266,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = adBodySchema.parse(await request.json());
     const { name, type, mediaId, scriptCode, position, linkUrl, isActive, startDate, endDate } = body;
     const targeting = normalizeTargeting(body);
 
@@ -239,15 +292,13 @@ export async function POST(request: Request) {
       position,
       linkUrl: linkUrl || null,
       isActive: isActive ?? true,
-      startDate: startDate ? new Date(startDate) : null,
-      endDate: endDate ? new Date(endDate) : null,
+      startDate: toNullableDate(startDate),
+      endDate: toNullableDate(endDate),
       targetPageTypes: targeting.targetPageTypes,
       targetCategorySlugs: targeting.targetCategorySlugs,
       targetTagSlugs: targeting.targetTagSlugs,
       targetPageSlugs: targeting.targetPageSlugs,
     };
-
-    console.log("Creating Ad with data:", sanitizedData);
 
     try {
         const ad = await prisma.advertisement.create({
@@ -263,6 +314,9 @@ export async function POST(request: Request) {
     }
 
   } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validasi gagal", details: error.errors }, { status: 400 });
+    }
     console.error("Error creating ad:", error);
     return NextResponse.json({ 
         error: `Server Error: ${error.message || "Unknown Error"}` 

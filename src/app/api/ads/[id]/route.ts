@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { revalidateTag } from "next/cache";
+import { z } from "zod";
 
 const ALLOWED_PAGE_TYPES = new Set([
   "HOME",
@@ -28,6 +29,34 @@ const normalizePageTypes = (value: unknown): string[] => {
     .filter((item) => ALLOWED_PAGE_TYPES.has(item));
 };
 
+const adUpdateBodySchema = z
+  .object({
+    name: z.string().trim().min(1).optional(),
+    type: z.enum(["IMAGE", "SCRIPT"]).optional(),
+    mediaId: z.string().trim().optional().nullable(),
+    scriptCode: z.string().optional().nullable(),
+    position: z.string().trim().min(1).optional(),
+    linkUrl: z.string().trim().optional().nullable(),
+    isActive: z.boolean().optional(),
+    startDate: z.union([z.string(), z.date()]).optional().nullable(),
+    endDate: z.union([z.string(), z.date()]).optional().nullable(),
+    targetPageTypes: z.array(z.string()).optional(),
+    targetCategorySlugs: z.array(z.string()).optional(),
+    targetTagSlugs: z.array(z.string()).optional(),
+    targetPageSlugs: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const toNullableDate = (value: unknown): Date | null => {
+  if (value === null || value === undefined || value === "") return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  if (typeof value === "string") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
 // PUT: Update Iklan
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -40,7 +69,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = adUpdateBodySchema.parse(await request.json());
     const { name, type, mediaId, scriptCode, position, linkUrl, isActive, startDate, endDate } = body;
     const targetPageTypes = normalizePageTypes(body?.targetPageTypes);
     const targetCategorySlugs = normalizeStringArray(body?.targetCategorySlugs, true);
@@ -57,8 +86,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         position,
         linkUrl,
         isActive,
-        startDate: startDate ? new Date(startDate) : null,
-        endDate: endDate ? new Date(endDate) : null,
+        startDate: toNullableDate(startDate),
+        endDate: toNullableDate(endDate),
         targetPageTypes,
         targetCategorySlugs,
         targetTagSlugs,
@@ -69,6 +98,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     revalidateTag("ads");
     return NextResponse.json(ad);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Validasi gagal", details: error.errors }, { status: 400 });
+    }
     console.error("Error updating ad:", error);
     return NextResponse.json({ error: "Gagal update iklan" }, { status: 500 });
   }
