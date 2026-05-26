@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Image as ImageIcon, List, FileText, Users, Megaphone, Palette, Wrench } from "lucide-react";
 import DashboardStats from "@/components/admin/dashboard/DashboardStats";
 import DashboardRecentTable from "@/components/admin/dashboard/DashboardRecentTable";
@@ -21,20 +22,50 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/dashboard")
-      .then((res) => res.json())
-      .then((data) => {
-        setData(data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Gagal load dashboard", err);
-        setLoading(false);
-      });
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch("/api/dashboard");
+
+        if (res.status === 401) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        const json = await res.json().catch(() => null);
+        if (!res.ok) {
+          const message = typeof json?.error === "string" && json.error.trim() !== "" ? json.error : "Gagal memuat data dasbor.";
+          throw new Error(message);
+        }
+
+        const looksLikeDashboard = json && typeof json === "object" && json.stats && typeof json.stats.totalPosts === "number";
+        if (!looksLikeDashboard) throw new Error("Data dasbor tidak valid.");
+
+        if (!cancelled) {
+          setData(json as DashboardData);
+          setError(null);
+          setLoading(false);
+        }
+      } catch (e) {
+        const message = e instanceof Error ? e.message : "Gagal memuat data dasbor.";
+        console.error("Gagal load dashboard", e);
+        if (!cancelled) {
+          setError(message);
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (loading) {
@@ -44,6 +75,21 @@ export default function DashboardPage() {
           <div className="w-6 h-6 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin"></div>
           <p className="text-sm font-medium">Memuat dasbor...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 bg-[var(--bg-base)] min-h-screen">
+        <div className="text-red-600 font-semibold">Gagal memuat data.</div>
+        <div className="text-[var(--fg-muted)] mt-2 text-sm">{error}</div>
+        <button
+          className="btn btn-primary mt-4"
+          onClick={() => window.location.reload()}
+        >
+          Muat ulang
+        </button>
       </div>
     );
   }

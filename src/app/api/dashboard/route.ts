@@ -79,7 +79,8 @@ export async function GET() {
       inReviewPosts
     });
 
-  } catch {
+  } catch (error) {
+    console.error("GET /api/dashboard error:", error);
     return NextResponse.json({ error: "Server Error" }, { status: 500 });
   }
 }
