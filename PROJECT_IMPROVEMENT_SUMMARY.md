@@ -36,7 +36,7 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [x] Hilangkan `catch {}` kosong (minimal log error + context).
   - [x] Standarisasi bentuk response error API (`{ error, details? }`).
 - [x] Tambahkan error monitoring (contoh: Sentry) server + client.
-- [ ] Hardening session/cookie:
+- [x] Hardening session/cookie:
   - [x] Set `sameSite` eksplisit pada `auth_token`.
   - [x] Pastikan logout invalidasi cookie berjalan konsisten.
 
@@ -48,8 +48,8 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [x] Endpoint `/api/track-view` (debounce + bot/prefetch filtering + rate limit).
   - [x] Update UI/client agar memanggil tracking setelah page benar-benar dilihat user.
 - [ ] Kurangi waterfall/N+1 pada Page Builder:
-  - [ ] Audit query per widget.
-  - [ ] Batch query & caching per tag/blok.
+  - [x] Audit query per widget.
+  - [x] Batch query & caching per tag/blok.
 
 ## Phase 4 — Maintainability (Medium)
 - [ ] Deduplicate komponen Page Builder:
