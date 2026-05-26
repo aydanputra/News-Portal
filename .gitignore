@@ -16,4 +16,5 @@ pnpm-debug.log*
 Thumbs.db
 Desktop.ini
 
-public/uploads/
+*.backup
+
