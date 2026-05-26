@@ -23,6 +23,17 @@ export default function PostContentWidget({
   const contentFontSize = toPx(getResponsiveConfig("fontSize"));
   const contentFontWeight = toFontWeight(getResponsiveConfig("fontWeight"), "400");
   const contentLineHeight = getResponsiveConfig("lineHeight");
+  const resolvedLineHeight: React.CSSProperties["lineHeight"] = (() => {
+    if (typeof contentLineHeight === "number" && Number.isFinite(contentLineHeight)) return contentLineHeight;
+    if (typeof contentLineHeight === "string") {
+      const trimmed = contentLineHeight.trim();
+      if (!trimmed) return undefined;
+      const asNumber = Number(trimmed);
+      if (Number.isFinite(asNumber)) return asNumber;
+      if (/^\d+(\.\d+)?(px|rem|em|%)$/i.test(trimmed)) return trimmed;
+    }
+    return undefined;
+  })();
   const contentAlign = getResponsiveConfig("textAlign");
   const contentTextAlign = contentAlign === "left" || contentAlign === "center" || contentAlign === "right" || contentAlign === "justify" ? contentAlign : undefined;
   const isContentItalic = getConfigBool("isItalic", false);
@@ -44,7 +55,7 @@ export default function PostContentWidget({
         color: resolvedContentColor,
         fontSize: contentFontSize,
         fontWeight: contentFontWeight,
-        lineHeight: typeof contentLineHeight === "number" ? contentLineHeight : undefined,
+        lineHeight: resolvedLineHeight,
         textAlign: contentTextAlign,
         fontStyle: isContentItalic ? "italic" : "normal",
         ["--post-content-widget-color" as keyof React.CSSProperties]: resolvedContentColor,
@@ -53,6 +64,7 @@ export default function PostContentWidget({
     >
       <PranalaPostContent
         content={post?.content || fallbackContent}
+        style={{ lineHeight: resolvedLineHeight }}
         className="[&_p]:text-inherit [&_li]:text-inherit [&_blockquote]:text-inherit [&_h1]:text-inherit [&_h2]:text-inherit [&_h3]:text-inherit [&_h4]:text-inherit [&_h5]:text-inherit [&_h6]:text-inherit [&_strong]:text-inherit [&_a]:text-inherit [&_p]:leading-[inherit] [&_li]:leading-[inherit] [&_blockquote]:leading-[inherit] [&_p]:font-[inherit] [&_li]:font-[inherit] [&_blockquote]:font-[inherit]"
         inlineRelatedItems={inlineRelatedPosts}
         inlineRelatedConfig={{
