@@ -20,12 +20,12 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
 - [x] Kunci endpoint revalidate (wajib secret/auth):
   - `/api/revalidate`
 - [ ] Split settings menjadi:
-  - [ ] `GET /api/public/settings` (aman untuk publik/theme)
-  - [ ] `GET /api/admin/settings` (lengkap, wajib admin)
+  - [x] `GET /api/public/settings` (aman untuk publik/theme)
+  - [x] `GET /api/admin/settings` (lengkap, wajib admin)
   - [x] Kunci `/api/settings` agar hanya admin (menghentikan leakage ke publik).
 - [ ] Tutup XSS untuk Page:
   - [x] Sanitasi `page.content` saat `POST/PUT` pages (server-side).
-  - [ ] Defense-in-depth: pastikan render Page tidak mem-passthrough HTML mentah tanpa sanitasi.
+  - [x] Defense-in-depth: pastikan render Page tidak mem-passthrough HTML mentah tanpa sanitasi.
 - [ ] Tambahkan rate limit minimal untuk endpoint rawan:
   - [x] `/api/auth/login`
   - [x] `/api/media/upload` dan `/api/upload`

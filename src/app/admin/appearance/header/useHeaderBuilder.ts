@@ -132,7 +132,7 @@ export function useHeaderBuilder() {
     (async () => {
       try {
         setLoading(true);
-        const [resCat, resTags, resGlobal] = await Promise.all([fetch("/api/categories"), fetch("/api/tags"), fetch("/api/settings")]);
+        const [resCat, resTags, resGlobal] = await Promise.all([fetch("/api/categories"), fetch("/api/tags"), fetch("/api/admin/settings")]);
         if (resCat.ok) setCategories(await resCat.json());
         if (resTags.ok) setTags(await resTags.json());
         const globalData = resGlobal.ok ? await resGlobal.json() : {};

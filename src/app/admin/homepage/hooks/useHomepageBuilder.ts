@@ -175,13 +175,13 @@ export function useHomepageBuilder() {
 
             // 2. Fetch Settings
             // Step A: Get Global Settings to find Active Theme
-            const resGlobal = await fetch("/api/settings");
+            const resGlobal = await fetch("/api/admin/settings");
             const globalData = await resGlobal.json();
             const currentTheme = globalData.activeTheme || "modern";
             setActiveTheme(currentTheme);
 
             // Step B: Get Full Theme Config
-            const resThemeConfig = await fetch(`/api/settings?themeId=${currentTheme}`);
+            const resThemeConfig = await fetch(`/api/admin/settings?themeId=${currentTheme}`);
             const settingsData = await resThemeConfig.json();
             
             if(settingsData) {
@@ -1022,7 +1022,7 @@ export function useHomepageBuilder() {
         }),
       });
 
-      const resSettings = await fetch("/api/settings", {
+      const resSettings = await fetch("/api/admin/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 

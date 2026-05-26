@@ -81,7 +81,7 @@ export default function SettingsPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetch("/api/settings")
+    fetch("/api/admin/settings")
       .then((res) => res.json())
       .then((data) => {
         setSiteName(data.siteName || "");
@@ -147,7 +147,7 @@ export default function SettingsPage() {
         payload.aiOpenAiApiKey = aiApiKeyInput.trim();
       }
 
-      const res = await fetch("/api/settings", {
+      const res = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -157,7 +157,7 @@ export default function SettingsPage() {
         setToast({ message: "Pengaturan disimpan!", type: "success" });
         setAiApiKeyInput("");
         setAiApiKeyClear(false);
-        fetch("/api/settings")
+        fetch("/api/admin/settings")
           .then((r) => r.json())
           .then((data) => {
             setAiApiKeyConfigured(Boolean(data.aiApiKeyConfigured));

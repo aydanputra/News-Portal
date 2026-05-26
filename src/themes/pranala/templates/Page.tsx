@@ -2,6 +2,7 @@ import React from "react";
 import Image from "next/image";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { sanitizePageContent } from "@/lib/sanitizer";
 
 interface PranalaPageProps {
   page: {
@@ -22,6 +23,7 @@ export default function PranalaPage({ page, setting, categories, menusByLocation
   const template = page.template || "default";
   const isLanding = template === "landing";
   const isFullWidth = template === "full-width" || isLanding;
+  const safeContent = page.content ? sanitizePageContent(page.content) : "";
 
   const containerMode = setting?.globalContainerWidth || "boxed";
   const customWidth = setting?.globalCustomContainerWidth || "1250";
@@ -77,10 +79,10 @@ export default function PranalaPage({ page, setting, categories, menusByLocation
           <h1 className={`text-3xl md:text-5xl font-bold mb-8 ${isLanding ? "text-center mt-12" : "text-center"}`}>{page.title}</h1>
         )}
 
-        {page.content && (
+        {safeContent && (
           <div
             className={`prose prose-lg max-w-none text-gray-800 leading-relaxed ${isFullWidth ? "container mx-auto px-4 py-12" : ""}`}
-            dangerouslySetInnerHTML={{ __html: page.content }}
+            dangerouslySetInnerHTML={{ __html: safeContent }}
           />
         )}
       </main>

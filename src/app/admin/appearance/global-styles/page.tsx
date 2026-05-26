@@ -21,7 +21,7 @@ export default function GlobalStylesPage() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch("/api/settings");
+      const res = await fetch("/api/admin/settings");
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
@@ -36,7 +36,7 @@ export default function GlobalStylesPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/settings", {
+      const res = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),

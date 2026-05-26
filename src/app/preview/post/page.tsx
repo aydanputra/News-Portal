@@ -31,7 +31,7 @@ export default function PreviewPostPage() {
 
     // 2. Fetch dependencies (Settings, Categories)
     Promise.all([
-        fetch("/api/settings").then(res => res.json()),
+        fetch("/api/public/settings").then(res => res.json()),
         fetch("/api/categories").then(res => res.json()),
     ]).then(async ([settingsData, categoriesData]) => {
         setSettings(settingsData);

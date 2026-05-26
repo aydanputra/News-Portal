@@ -2,6 +2,7 @@ import React from "react";
 import Image from "next/image";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { sanitizePageContent } from "@/lib/sanitizer";
 
 interface PageProps {
   page: {
@@ -19,6 +20,7 @@ interface PageProps {
 export default function ClassicPage({ page, setting, categories, footerConfig, menusByLocation }: PageProps) {
   const siteName = setting?.siteName || "Portal Berita";
   const template = page.template || "default";
+  const safeContent = page.content ? sanitizePageContent(page.content) : "";
 
   // Template: Landing (Minimal Header/Footer or No Header/Footer if desired)
   // For now, let's keep Header/Footer but remove constraints
@@ -68,10 +70,10 @@ export default function ClassicPage({ page, setting, categories, footerConfig, m
          )}
          
          {/* Content */}
-         {page.content && (
+         {safeContent && (
              <div 
                 className={`prose prose-lg prose-blue max-w-none text-gray-800 leading-relaxed ${isFullWidth ? 'container mx-auto px-4 py-12' : ''}`}
-                dangerouslySetInnerHTML={{ __html: page.content }}
+                dangerouslySetInnerHTML={{ __html: safeContent }}
              />
          )}
       </main>
