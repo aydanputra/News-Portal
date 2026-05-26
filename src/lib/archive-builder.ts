@@ -1,15 +1,24 @@
 import { prisma } from "@/lib/prisma";
 import { getThemeDefaultArchiveBlocks } from "@/lib/archive-builder-theme-registry";
+import { unstable_cache } from "next/cache";
 
 export async function getArchiveBuilderBlocks(activeTheme: string) {
-  const blocks = await prisma.homepageBlock.findMany({
-    where: {
-      isActive: true,
-      location: "archive",
-      themeId: activeTheme,
+  const cached = unstable_cache(
+    async () => {
+      return await prisma.homepageBlock.findMany({
+        where: {
+          isActive: true,
+          location: "archive",
+          themeId: activeTheme,
+        },
+        orderBy: { order: "asc" },
+      });
     },
-    orderBy: { order: "asc" },
-  });
+    [`archive-blocks:${activeTheme}`],
+    { tags: ["homepage"], revalidate: 300 },
+  );
+
+  const blocks = await cached();
 
   if (blocks.length > 0) return blocks;
   return getThemeDefaultArchiveBlocks(activeTheme);

@@ -16,6 +16,19 @@ import { getCachedCategories } from "@/lib/data";
 export const revalidate = 600;
 export const dynamicParams = true;
 
+function toIsoString(value: unknown): string | undefined {
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return undefined;
+    return value.toISOString();
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return undefined;
+    return parsed.toISOString();
+  }
+  return undefined;
+}
+
 export async function generateStaticParams() {
   const rows = await prisma.post.findMany({
     where: {
@@ -671,7 +684,7 @@ export async function generateMetadata(
       description: description,
       images: images,
       type: "article",
-      publishedTime: post.publishedAt?.toISOString(),
+      publishedTime: toIsoString((post as any)?.publishedAt),
       authors: [post.author?.name || "Redaksi"],
       tags: post.tags?.map((t: any) => t.name) || [],
     },
@@ -725,8 +738,8 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
     headline: post.title,
     description: descriptionRaw,
     image: imageUrl ? [imageUrl] : undefined,
-    datePublished: post.publishedAt ? post.publishedAt.toISOString() : undefined,
-    dateModified: post.updatedAt ? post.updatedAt.toISOString() : undefined,
+    datePublished: toIsoString((post as any)?.publishedAt),
+    dateModified: toIsoString((post as any)?.updatedAt),
     author: { "@type": "Person", name: post.author?.name || "Redaksi" },
     publisher: {
       "@type": "Organization",
