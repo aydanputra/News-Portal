@@ -9,35 +9,212 @@ import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference
 import { getPublicMenusByLocation } from "@/lib/public-menus";
 import { getSettings } from "@/lib/settings";
 import TrackView from "@/components/TrackView";
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
+import { getCachedCategories } from "@/lib/data";
 
 export const revalidate = 600;
 
-// Direct Post Fetch (No Cache)
-const getPostBySlug = async (slug: string, categorySlug: string) => {
-  return await prisma.post.findFirst({
-    where: { 
-      slug,
-      category: { slug: categorySlug },
-      published: true,
-      status: { not: "ARCHIVED" } // FIX: Exclude trashed posts
+const getPostBySlug = cache(async (slug: string, categorySlug: string) => {
+  const cached = unstable_cache(
+    async () => {
+      const post = await prisma.post.findFirst({
+        where: {
+          slug,
+          published: true,
+          status: { not: "ARCHIVED" },
+        },
+        include: {
+          category: true,
+          author: { select: { name: true, avatar: true, banner: true, bio: true } },
+          approvedBy: { select: { name: true, avatar: true, banner: true, bio: true } },
+          tags: { select: { id: true, name: true, slug: true } },
+          featuredImage: true,
+          _count: { select: { comments: true } },
+        },
+      });
+      if (!post) return null;
+      if (post.category?.slug !== categorySlug) return null;
+      return post;
     },
-    include: {
-      category: true,
-      author: { select: { name: true, avatar: true, banner: true, bio: true } },
-      approvedBy: { select: { name: true, avatar: true, banner: true, bio: true } },
-      tags: true,
-      featuredImage: true, 
-    },
-  });
-};
+    [`post:${categorySlug}:${slug}`],
+    { tags: [`article-${slug}`, "posts"], revalidate },
+  );
+  return cached();
+});
 
-// Direct Blocks Fetch (No Cache)
-const getPostBlocks = async (activeTheme: string) => {
-    return await prisma.homepageBlock.findMany({
-      where: { location: "post", isActive: true, themeId: activeTheme },
-      orderBy: { order: "asc" }
-    });
-};
+const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
+  const cached = unstable_cache(
+    async () => {
+      const [headerRows, footerRows] = await Promise.all([
+        prisma.homepageBlock.findMany({
+          where: { location: "header", isActive: true, themeId: activeTheme as any },
+          orderBy: { order: "asc" },
+        }),
+        prisma.homepageBlock.findMany({
+          where: { location: "footer", themeId: activeTheme as any },
+          orderBy: { order: "asc" },
+        }),
+      ]);
+      return { headerConfig: headerRows ?? null, footerConfig: footerRows ?? null };
+    },
+    [`header-footer:${activeTheme}`],
+    { tags: ["homepage"], revalidate: 300 },
+  );
+  return cached();
+});
+
+const getPopularPosts = cache(async (count: number) => {
+  const take = Math.max(1, Math.min(20, Number.isFinite(count) ? Math.floor(count) : 5));
+  const cached = unstable_cache(
+    async () => {
+      const now = new Date();
+      return await prisma.post.findMany({
+        where: {
+          published: true,
+          status: { not: "ARCHIVED" },
+          OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
+        },
+        orderBy: { views: "desc" },
+        take,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          excerpt: true,
+          image: true,
+          type: true,
+          videoUrl: true,
+          publishedAt: true,
+          createdAt: true,
+          views: true,
+          category: { select: { id: true, name: true, slug: true } },
+          author: { select: { name: true, avatar: true, banner: true } },
+          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+        },
+      });
+    },
+    [`popular-posts:${take}`],
+    { tags: ["posts"], revalidate: 300 },
+  );
+  return cached();
+});
+
+const getRecentPosts = cache(async (count: number, excludePostId?: string) => {
+  const take = Math.max(1, Math.min(20, Number.isFinite(count) ? Math.floor(count) : 5));
+  const excludeId = typeof excludePostId === "string" && excludePostId.trim() !== "" ? excludePostId : "";
+  const cached = unstable_cache(
+    async () => {
+      const where: any = {
+        published: true,
+        status: { not: "ARCHIVED" },
+      };
+      if (excludeId) where.id = { not: excludeId };
+      return await prisma.post.findMany({
+        where,
+        orderBy: { publishedAt: "desc" },
+        take,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          excerpt: true,
+          image: true,
+          type: true,
+          videoUrl: true,
+          publishedAt: true,
+          createdAt: true,
+          views: true,
+          category: { select: { id: true, name: true, slug: true } },
+          author: { select: { name: true, avatar: true, banner: true } },
+          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+        },
+      });
+    },
+    [`recent-posts:${take}:${excludeId}`],
+    { tags: ["posts"], revalidate: 300 },
+  );
+  return cached();
+});
+
+const getTagCloud = cache(async (count: number) => {
+  const take = Math.max(1, Math.min(50, Number.isFinite(count) ? Math.floor(count) : 20));
+  const cached = unstable_cache(
+    async () => {
+      return await prisma.tag.findMany({
+        take,
+        include: { _count: { select: { posts: true } } },
+        orderBy: { posts: { _count: "desc" } },
+      });
+    },
+    [`tag-cloud:${take}`],
+    { tags: ["posts"], revalidate: 3600 },
+  );
+  return cached();
+});
+
+const getCategoryListWithCounts = cache(async (limit: number) => {
+  const take = Math.max(1, Math.min(50, Number.isFinite(limit) ? Math.floor(limit) : 10));
+  const cached = unstable_cache(
+    async () => {
+      const now = new Date();
+      const [cats, allCategories] = await Promise.all([
+        prisma.category.findMany({
+          take,
+          orderBy: { name: "asc" },
+          select: { id: true, name: true, slug: true },
+        }),
+        prisma.category.findMany({
+          select: { id: true, parentId: true },
+        }),
+      ]);
+
+      const allCategoryIds = allCategories.map((c) => c.id);
+      const childrenMap = new Map<string, string[]>();
+      for (const c of allCategories) {
+        if (!c.parentId) continue;
+        const arr = childrenMap.get(c.parentId) || [];
+        arr.push(c.id);
+        childrenMap.set(c.parentId, arr);
+      }
+
+      const postGroups =
+        allCategoryIds.length > 0
+          ? await prisma.post.groupBy({
+              by: ["categoryId"],
+              _count: { _all: true },
+              where: {
+                categoryId: { in: allCategoryIds },
+                published: true,
+                status: { not: "ARCHIVED" },
+                OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
+              },
+            })
+          : [];
+
+      const directCount = new Map<string, number>();
+      postGroups.forEach((g: { categoryId: string | null; _count: { _all: number } }) => {
+        if (g.categoryId) directCount.set(g.categoryId, g._count._all);
+      });
+
+      const memo = new Map<string, number>();
+      const sumDesc = (categoryId: string): number => {
+        const cachedSum = memo.get(categoryId);
+        if (cachedSum !== undefined) return cachedSum;
+        let total = directCount.get(categoryId) ?? 0;
+        const children = childrenMap.get(categoryId) || [];
+        for (const childId of children) total += sumDesc(childId);
+        memo.set(categoryId, total);
+        return total;
+      };
+
+      return cats.map((c) => ({ ...c, postCount: sumDesc(c.id) }));
+    },
+    [`category-list-counts:${take}`],
+    { tags: ["categories", "posts"], revalidate: 3600 },
+  );
+  return cached();
+});
 
 const isVisible = (block: any) => block?.isVisible !== false;
 const getOrder = (block: any) => (typeof block?.order === "number" ? block.order : 0);
@@ -93,24 +270,18 @@ const collectWidgetsRecursive = (blocks: any[]): any[] => {
 
 async function getData(slug: string, categorySlug: string) {
   const [postRaw, setting, categories] = await Promise.all([
-      getPostBySlug(slug, categorySlug),
-      getSettings(),
-      prisma.category.findMany({ orderBy: { name: "asc" }, take: 5 })
+    getPostBySlug(slug, categorySlug),
+    getSettings(),
+    getCachedCategories(),
   ]);
   const activeTheme = (setting as any)?.activeTheme || "classic";
-  const headerRows = await prisma.homepageBlock.findMany({
-    where: { location: "header", isActive: true, themeId: activeTheme as any },
-    orderBy: { order: "asc" },
-  });
-  const headerConfig = headerRows ?? null;
-  const footerRows = await prisma.homepageBlock.findMany({
-    where: { location: "footer", themeId: activeTheme as any },
-    orderBy: { order: "asc" },
-  });
-  const footerConfig = footerRows ?? null;
-  const rawBlocks = await getPostBlocks(activeTheme);
+  const [{ headerConfig, footerConfig }, sourceBlocksByLocation] = await Promise.all([
+    getHeaderFooterBlocks(activeTheme),
+    getBuilderSourceBlocks(activeTheme),
+  ]);
+
+  const rawBlocks = Array.isArray((sourceBlocksByLocation as any)?.post) ? (sourceBlocksByLocation as any).post : [];
   const blocks = rawBlocks.length === 0 ? getThemeDefaultPostBlocks(activeTheme) : rawBlocks;
-  const sourceBlocksByLocation = await getBuilderSourceBlocks(activeTheme);
   const effectiveBlocks = blocks.map((block: any) => {
     if (block?.type !== "section") return block;
     const resolvedChildren = resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, "post");
@@ -125,51 +296,10 @@ async function getData(slug: string, categorySlug: string) {
   });
 
   if (!postRaw) return { post: null, setting, categories, blocks: [], recentPosts: [], relatedPosts: [], inlineRelatedPosts: [], blockData: {}, activeTheme, headerConfig, footerConfig, sourceBlocksByLocation };
-  let post = postRaw;
-
-  try {
-    const approvedCommentCount = await prisma.comment.count({
-      where: { postId: post.id, isApproved: true },
-    });
-    post = { ...post, commentCount: approvedCommentCount } as any;
-  } catch (error) {
-    console.error("[comments] Failed to count approved comments:", error);
-  }
-
-  try {
-    const rows = await prisma.$queryRaw<{ viewsBase: number }[]>`SELECT "viewsBase" FROM "Post" WHERE "id" = ${post.id} LIMIT 1`;
-    const viewsBase = typeof rows?.[0]?.viewsBase === "number" && Number.isFinite(rows[0].viewsBase) ? rows[0].viewsBase : 0;
-    post = { ...post, viewsBase };
-  } catch (error) {
-    console.error("[viewsBase] Failed to load viewsBase:", error);
-  }
+  const post = postRaw;
 
   // Fetch Block Data (Popular Posts, etc)
   const blockData: Record<string, any[]> = {};
-  const listPostSelect = {
-      id: true,
-      title: true,
-      slug: true,
-      excerpt: true,
-      image: true,
-      type: true,
-      videoUrl: true,
-      publishedAt: true,
-      createdAt: true,
-      views: true,
-      category: {
-          select: { id: true, name: true, slug: true }
-      },
-      author: { select: { name: true, avatar: true, banner: true } },
-      featuredImage: {
-          select: {
-              id: true,
-              fileUrl: true,
-              width: true,
-              height: true
-          }
-      }
-  };
   const inlineRelatedEnabled = Boolean((setting as any)?.postInlineRelated);
   const inlineRelatedPositions = parseInlineRelatedPositions((setting as any)?.postRelatedPositions);
   const inlineRelatedCount = Math.max(1, Number.parseInt(String((setting as any)?.postRelatedCount || "2"), 10) || 2);
@@ -189,83 +319,18 @@ async function getData(slug: string, categorySlug: string) {
                        if (widget.type === 'sidebar_widget') {
                            const config = widget.config || {};
                            const count = parseInt(config.limit || config.count) || 5;
-                           const now = new Date();
          
                            if (config.widgetType === 'popular_posts') {
-                               blockData[widget.id] = await prisma.post.findMany({
-                                   where: { 
-                                       published: true,
-                                       status: { not: "ARCHIVED" },
-                                       OR: [{ publishedAt: { lte: now } }, { publishedAt: null }]
-                                   },
-                                   orderBy: { views: 'desc' },
-                                   take: count,
-                                   select: listPostSelect
-                               });
+                               blockData[widget.id] = await getPopularPosts(count);
                            } else if (config.widgetType === 'recent_posts') {
-                               blockData[widget.id] = await prisma.post.findMany({
-                                   where: { 
-                                       published: true,
-                                       status: { not: "ARCHIVED" },
-                                       OR: [{ publishedAt: { lte: now } }, { publishedAt: null }]
-                                   },
-                                   orderBy: { publishedAt: 'desc' },
-                                   take: count,
-                                   select: listPostSelect
-                               });
+                               blockData[widget.id] = await getRecentPosts(count, post.id);
                            } else if (config.widgetType === 'category_list') {
-                               const cats = await prisma.category.findMany({
-                                   orderBy: { name: 'asc' },
-                                   select: { id: true, name: true, slug: true }
-                               });
-                               const allCategories = await prisma.category.findMany({
-                                   select: { id: true, parentId: true }
-                               });
-                               const allCategoryIds = allCategories.map((c: any) => c.id);
-                               const childrenMap = new Map<string, string[]>();
-                               allCategories.forEach((c: any) => {
-                                   if (!c.parentId) return;
-                                   const arr = childrenMap.get(c.parentId) || [];
-                                   arr.push(c.id);
-                                   childrenMap.set(c.parentId, arr);
-                               });
-                               const postGroups = allCategoryIds.length > 0 ? await prisma.post.groupBy({
-                                   by: ["categoryId"],
-                                   _count: { _all: true },
-                                   where: {
-                                       categoryId: { in: allCategoryIds },
-                                       published: true,
-                                       status: { not: "ARCHIVED" },
-                                       OR: [{ publishedAt: { lte: now } }, { publishedAt: null }]
-                                   }
-                               }) : [];
-                               const directCount = new Map<string, number>();
-                               postGroups.forEach((g: { categoryId: string | null; _count: { _all: number } }) => {
-                                   if (g.categoryId) directCount.set(g.categoryId, g._count._all);
-                               });
-                               const memo = new Map<string, number>();
-                               const sumDesc = (categoryId: string): number => {
-                                   const cached = memo.get(categoryId);
-                                   if (cached !== undefined) return cached;
-                                   let total = directCount.get(categoryId) ?? 0;
-                                   const children = childrenMap.get(categoryId) || [];
-                                   for (const childId of children) {
-                                       total += sumDesc(childId);
-                                   }
-                                   memo.set(categoryId, total);
-                                   return total;
-                               };
-                               blockData[widget.id] = cats.map((c: any) => ({ ...c, postCount: sumDesc(c.id) }));
+                               blockData[widget.id] = await getCategoryListWithCounts(count);
                            }
                        } else if (widget.type === 'tag_cloud') {
                            const config = widget.config || {};
                            const count = parseInt(config.count) || 20;
-                           
-                           blockData[widget.id] = await prisma.tag.findMany({
-                               take: count,
-                               include: { _count: { select: { posts: true } } },
-                               orderBy: { posts: { _count: 'desc' } }
-                           });
+                           blockData[widget.id] = await getTagCloud(count);
                        } else if (widget.type === 'post_related_posts' && post) {
                            const config = widget.config || {};
                            const filterType = config.filterType || 'category';
@@ -274,30 +339,72 @@ async function getData(slug: string, categorySlug: string) {
                            let widgetRelatedPosts: any[] = [];
                            if (filterType === 'tag' && post.tags && post.tags.length > 0) {
                                 const tagIds = post.tags.map((t: any) => t.id);
-                                widgetRelatedPosts = await prisma.post.findMany({
-                                     where: {
-                                         published: true,
-                                         status: { not: "ARCHIVED" },
-                                         id: { not: post.id },
-                                         tags: { some: { id: { in: tagIds } } }
-                                     },
-                                     take: limit,
-                                     orderBy: { publishedAt: 'desc' },
-                                     select: listPostSelect
-                                 });
+                                const cached = unstable_cache(
+                                  async () => {
+                                    return await prisma.post.findMany({
+                                      where: {
+                                        published: true,
+                                        status: { not: "ARCHIVED" },
+                                        id: { not: post.id },
+                                        tags: { some: { id: { in: tagIds } } },
+                                      },
+                                      take: limit,
+                                      orderBy: { publishedAt: "desc" },
+                                      select: {
+                                        id: true,
+                                        title: true,
+                                        slug: true,
+                                        excerpt: true,
+                                        image: true,
+                                        type: true,
+                                        videoUrl: true,
+                                        publishedAt: true,
+                                        createdAt: true,
+                                        views: true,
+                                        category: { select: { id: true, name: true, slug: true } },
+                                        author: { select: { name: true, avatar: true, banner: true } },
+                                        featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                                      },
+                                    });
+                                  },
+                                  [`widget-related:${post.id}:tag:${tagIds.join(",")}:limit:${limit}`],
+                                  { tags: [`article-${slug}`, "posts"], revalidate: 600 },
+                                );
+                                widgetRelatedPosts = await cached();
                             } else {
                                  // Category default
-                                 widgetRelatedPosts = await prisma.post.findMany({
-                                     where: {
+                                 const cached = unstable_cache(
+                                   async () => {
+                                     return await prisma.post.findMany({
+                                       where: {
                                          published: true,
                                          status: { not: "ARCHIVED" },
                                          id: { not: post.id },
-                                         categoryId: post.categoryId
-                                     },
-                                     take: limit,
-                                     orderBy: { publishedAt: 'desc' },
-                                     select: listPostSelect
-                                 });
+                                         categoryId: post.categoryId,
+                                       },
+                                       take: limit,
+                                       orderBy: { publishedAt: "desc" },
+                                       select: {
+                                         id: true,
+                                         title: true,
+                                         slug: true,
+                                         excerpt: true,
+                                         image: true,
+                                         type: true,
+                                         videoUrl: true,
+                                         publishedAt: true,
+                                         createdAt: true,
+                                         views: true,
+                                         category: { select: { id: true, name: true, slug: true } },
+                                         author: { select: { name: true, avatar: true, banner: true } },
+                                         featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                                       },
+                                     });
+                                   },
+                                   [`widget-related:${post.id}:cat:${post.categoryId}:limit:${limit}`],
+                                   { tags: [`article-${slug}`, "posts"], revalidate: 600 },
+                                 );
+                                 widgetRelatedPosts = await cached();
                             }
                            blockData[widget.id] = widgetRelatedPosts;
                        }
@@ -315,67 +422,97 @@ async function getData(slug: string, categorySlug: string) {
   // Parallel Fetch for Next/Prev/Recent/Related
   const [nextPost, prevPost, recentPosts, relatedPosts, inlineRelatedPosts] = await Promise.all([
       // Next Post
-      prisma.post.findFirst({
-          where: { 
-              published: true,
-              status: { not: "ARCHIVED" },
-              publishedAt: { gt: post.publishedAt || post.createdAt }
+      (async () => {
+        const cached = unstable_cache(
+          async () => {
+            return await prisma.post.findFirst({
+              where: {
+                published: true,
+                status: { not: "ARCHIVED" },
+                publishedAt: { gt: post.publishedAt || post.createdAt },
+              },
+              orderBy: { publishedAt: "asc" },
+              select: {
+                title: true,
+                slug: true,
+                image: true,
+                type: true,
+                featuredImage: { select: { fileUrl: true } },
+                category: { select: { slug: true } },
+              },
+            });
           },
-          orderBy: { publishedAt: "asc" },
-          select: {
-              title: true,
-              slug: true,
-              image: true,
-              type: true,
-              featuredImage: { select: { fileUrl: true } },
-              category: { select: { slug: true } }
-          }
-      }),
+          [`post-next:${post.id}`],
+          { tags: [`article-${slug}`, "posts"], revalidate: 600 },
+        );
+        return cached();
+      })(),
 
       // Prev Post
-      prisma.post.findFirst({
-          where: { 
-              published: true,
-              status: { not: "ARCHIVED" },
-              publishedAt: { lt: post.publishedAt || post.createdAt }
+      (async () => {
+        const cached = unstable_cache(
+          async () => {
+            return await prisma.post.findFirst({
+              where: {
+                published: true,
+                status: { not: "ARCHIVED" },
+                publishedAt: { lt: post.publishedAt || post.createdAt },
+              },
+              orderBy: { publishedAt: "desc" },
+              select: {
+                title: true,
+                slug: true,
+                image: true,
+                type: true,
+                featuredImage: { select: { fileUrl: true } },
+                category: { select: { slug: true } },
+              },
+            });
           },
-          orderBy: { publishedAt: "desc" },
-          select: {
-              title: true,
-              slug: true,
-              image: true,
-              type: true,
-              featuredImage: { select: { fileUrl: true } },
-              category: { select: { slug: true } }
-          }
-      }),
+          [`post-prev:${post.id}`],
+          { tags: [`article-${slug}`, "posts"], revalidate: 600 },
+        );
+        return cached();
+      })(),
 
       // Recent Posts
-      prisma.post.findMany({
-        where: { 
-            published: true, 
-            status: { not: "ARCHIVED" },
-            id: { not: post.id } 
-        },
-        orderBy: { publishedAt: "desc" },
-        take: 5,
-        select: listPostSelect
-      }),
+      getRecentPosts(5, post.id),
 
       // Related Posts logic
       (async () => {
           const relatedLimit = 3;
-          return await prisma.post.findMany({
-              where: {
+          const cached = unstable_cache(
+            async () => {
+              return await prisma.post.findMany({
+                where: {
                   published: true,
                   status: { not: "ARCHIVED" },
                   id: { not: post.id },
-                  categoryId: post.categoryId
-              },
-              take: relatedLimit,
-              orderBy: { publishedAt: 'desc' },
-              select: listPostSelect
-          });
+                  categoryId: post.categoryId,
+                },
+                take: relatedLimit,
+                orderBy: { publishedAt: "desc" },
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  excerpt: true,
+                  image: true,
+                  type: true,
+                  videoUrl: true,
+                  publishedAt: true,
+                  createdAt: true,
+                  views: true,
+                  category: { select: { id: true, name: true, slug: true } },
+                  author: { select: { name: true, avatar: true, banner: true } },
+                  featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                },
+              });
+            },
+            [`related-posts:${post.id}:${relatedLimit}`],
+            { tags: [`article-${slug}`, "posts"], revalidate: 600 },
+          );
+          return cached();
       })(),
 
       (async () => {
@@ -398,21 +535,63 @@ async function getData(slug: string, categorySlug: string) {
               where.categoryId = post.categoryId;
           }
 
-          const matchedPosts = await prisma.post.findMany({
-              where,
-              take: inlineRelatedLimit,
-              orderBy: { publishedAt: "desc" },
-              select: listPostSelect,
-          });
+          const cachedMatched = unstable_cache(
+            async () => {
+              return await prisma.post.findMany({
+                where,
+                take: inlineRelatedLimit,
+                orderBy: { publishedAt: "desc" },
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  excerpt: true,
+                  image: true,
+                  type: true,
+                  videoUrl: true,
+                  publishedAt: true,
+                  createdAt: true,
+                  views: true,
+                  category: { select: { id: true, name: true, slug: true } },
+                  author: { select: { name: true, avatar: true, banner: true } },
+                  featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                },
+              });
+            },
+            [`inline-related:${post.id}:${filterType}:${inlineRelatedLimit}:${inlineRelatedDateStart ? inlineRelatedDateStart.toISOString().slice(0, 10) : "all"}`],
+            { tags: [`article-${slug}`, "posts"], revalidate: 600 },
+          );
+          const matchedPosts = await cachedMatched();
 
           if (matchedPosts.length > 0) return matchedPosts;
 
-          return await prisma.post.findMany({
-              where: baseWhere,
-              take: inlineRelatedLimit,
-              orderBy: { publishedAt: "desc" },
-              select: listPostSelect,
-          });
+          const cachedFallback = unstable_cache(
+            async () => {
+              return await prisma.post.findMany({
+                where: baseWhere,
+                take: inlineRelatedLimit,
+                orderBy: { publishedAt: "desc" },
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                  excerpt: true,
+                  image: true,
+                  type: true,
+                  videoUrl: true,
+                  publishedAt: true,
+                  createdAt: true,
+                  views: true,
+                  category: { select: { id: true, name: true, slug: true } },
+                  author: { select: { name: true, avatar: true, banner: true } },
+                  featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                },
+              });
+            },
+            [`inline-related:fallback:${post.id}:${inlineRelatedLimit}`],
+            { tags: [`article-${slug}`, "posts"], revalidate: 600 },
+          );
+          return cachedFallback();
       })()
   ]);
 
