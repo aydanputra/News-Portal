@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { revalidateTag } from "next/cache";
 
 const ALLOWED_PAGE_TYPES = new Set([
   "HOME",
@@ -65,6 +66,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       },
     });
 
+    revalidateTag("ads");
     return NextResponse.json(ad);
   } catch (error) {
     console.error("Error updating ad:", error);
@@ -88,6 +90,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
       where: { id },
     });
 
+    revalidateTag("ads");
     return NextResponse.json({ message: "Iklan dihapus" });
   } catch (error) {
     console.error("Error deleting ad:", error);

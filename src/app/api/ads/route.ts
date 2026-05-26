@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { revalidateTag, unstable_cache } from "next/cache";
 
 const ALLOWED_PAGE_TYPES = new Set([
   "HOME",
@@ -133,29 +134,48 @@ export async function GET(request: Request) {
         where.position = position;
       }
 
-      try {
-        const ads = await prisma.advertisement.findMany({
-          where,
-          include: {
-            media: true, // Include data gambar
-          },
-          orderBy: { createdAt: "desc" }
-        });
-        const filteredAds = ads.filter((ad) =>
-          matchesTargeting(ad, {
-            pageType: pageType && ALLOWED_PAGE_TYPES.has(pageType) ? pageType : null,
-            categorySlug,
-            tagSlug,
-            tagSlugs,
-            pageSlug,
-          })
-        );
-        return NextResponse.json(filteredAds);
-      } catch (err) {
-        console.error("Prisma error:", err);
-        // If error (e.g. invalid enum), return empty array instead of 500
-        return NextResponse.json([]);
-      }
+      const safePageType = pageType && ALLOWED_PAGE_TYPES.has(pageType) ? pageType : null;
+      const cacheKey = [
+        "ads:active",
+        `id:${id || ""}`,
+        `position:${position || ""}`,
+        `positions:${positions.join(",")}`,
+        `pageType:${safePageType || ""}`,
+        `categorySlug:${categorySlug || ""}`,
+        `tagSlug:${tagSlug || ""}`,
+        `tagSlugs:${tagSlugs.join(",")}`,
+        `pageSlug:${pageSlug || ""}`,
+      ].join("|");
+
+      const cached = unstable_cache(
+        async () => {
+          try {
+            const ads = await prisma.advertisement.findMany({
+              where,
+              include: {
+                media: true,
+              },
+              orderBy: { createdAt: "desc" },
+            });
+            return ads.filter((ad) =>
+              matchesTargeting(ad, {
+                pageType: safePageType,
+                categorySlug,
+                tagSlug,
+                tagSlugs,
+                pageSlug,
+              })
+            );
+          } catch (err) {
+            console.error("Prisma error:", err);
+            return [];
+          }
+        },
+        [cacheKey],
+        { tags: ["ads"], revalidate: 60 },
+      );
+
+      return NextResponse.json(await cached());
     }
 
     // Jika Admin (tanpa activeOnly), butuh Auth
@@ -233,6 +253,7 @@ export async function POST(request: Request) {
         const ad = await prisma.advertisement.create({
           data: sanitizedData,
         });
+        revalidateTag("ads");
         return NextResponse.json(ad);
     } catch (dbError: any) {
         console.error("Database Error Full:", dbError);

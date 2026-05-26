@@ -50,6 +50,9 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
 - [x] Kurangi waterfall/N+1 pada Page Builder:
   - [x] Audit query per widget.
   - [x] Batch query & caching per tag/blok.
+- [x] Optimasi arsip & search:
+  - [x] Cache + parallel widget fetch untuk `/tag/[slug]`, `/kategori/[slug]`, `/search`.
+  - [x] Tambah index trigram (pg_trgm) untuk mempercepat pencarian `contains/ILIKE`.
 
 ## Phase 4 — Maintainability (Medium)
 - [ ] Deduplicate komponen Page Builder:
@@ -57,6 +60,7 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [x] Dedup types (homepage → re-export ke shared).
   - [x] Dedup komponen yang identik (ColorPicker, SectionPicker, LegacyBlock) via re-export.
 - [ ] Tingkatkan type-safety:
+  - [x] Tambahkan validasi query param untuk endpoint publik `/api/public/posts` (Zod).
   - [ ] Kurangi `any` dan `@ts-ignore` bertahap (mulai dari request/response API).
   - [ ] Gunakan `z.infer` untuk DTO.
 - [x] Repo hygiene dasar:
