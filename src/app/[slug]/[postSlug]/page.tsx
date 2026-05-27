@@ -30,25 +30,29 @@ function toIsoString(value: unknown): string | undefined {
 }
 
 export async function generateStaticParams() {
-  const rows = await prisma.post.findMany({
-    where: {
-      published: true,
-      status: { not: "ARCHIVED" },
-    },
-    orderBy: { publishedAt: "desc" },
-    take: 100,
-    select: {
-      slug: true,
-      category: { select: { slug: true } },
-    },
-  });
+  try {
+    const rows = await prisma.post.findMany({
+      where: {
+        published: true,
+        status: { not: "ARCHIVED" },
+      },
+      orderBy: { publishedAt: "desc" },
+      take: 100,
+      select: {
+        slug: true,
+        category: { select: { slug: true } },
+      },
+    });
 
-  return rows
-    .filter((row) => typeof row.category?.slug === "string" && row.category.slug.trim() !== "")
-    .map((row) => ({
-      slug: row.category!.slug,
-      postSlug: row.slug,
-    }));
+    return rows
+      .filter((row) => typeof row.category?.slug === "string" && row.category.slug.trim() !== "")
+      .map((row) => ({
+        slug: row.category!.slug,
+        postSlug: row.slug,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 const getPostBySlug = cache(async (slug: string, categorySlug: string) => {

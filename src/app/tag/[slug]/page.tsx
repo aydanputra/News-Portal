@@ -16,7 +16,10 @@ export const revalidate = 60;
 const getTagBySlug = cache(async (slug: string) => {
   const cached = unstable_cache(
     async () => {
-      return await prisma.tag.findUnique({ where: { slug } });
+      return await prisma.tag.findUnique({
+        where: { slug },
+        select: { id: true, name: true, slug: true },
+      });
     },
     [`tag:${slug}`],
     { tags: ["posts"], revalidate: 3600 },
@@ -194,10 +197,9 @@ async function getData(slug: string, page: number) {
           views: true,
           type: true,
           videoUrl: true,
-          category: true,
+          category: { select: { name: true, slug: true } },
           author: { select: { name: true } },
-          featuredImage: true,
-          tags: { select: { name: true, slug: true } },
+          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
         },
         orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
         skip: (currentPage - 1) * pageSize,
@@ -284,8 +286,7 @@ export default async function TagPage(props: { params: Promise<{ slug: string }>
   const searchParams = props.searchParams ? await props.searchParams : undefined;
   const slug = decodeURIComponent(params.slug);
   const page = Math.max(1, Number(searchParams?.page) || 1);
-  const data = await getData(slug, page);
-  const menusByLocation = await getPublicMenusByLocation();
+  const [data, menusByLocation] = await Promise.all([getData(slug, page), getPublicMenusByLocation()]);
 
   if (!data) {
     notFound();
