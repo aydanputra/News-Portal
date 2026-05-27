@@ -30,25 +30,29 @@ function toIsoString(value: unknown): string | undefined {
 }
 
 export async function generateStaticParams() {
-  const rows = await prisma.post.findMany({
-    where: {
-      published: true,
-      status: { not: "ARCHIVED" },
-    },
-    orderBy: { publishedAt: "desc" },
-    take: 100,
-    select: {
-      slug: true,
-      category: { select: { slug: true } },
-    },
-  });
+  try {
+    const rows = await prisma.post.findMany({
+      where: {
+        published: true,
+        status: { not: "ARCHIVED" },
+      },
+      orderBy: { publishedAt: "desc" },
+      take: 100,
+      select: {
+        slug: true,
+        category: { select: { slug: true } },
+      },
+    });
 
-  return rows
-    .filter((row) => typeof row.category?.slug === "string" && row.category.slug.trim() !== "")
-    .map((row) => ({
-      slug: row.category!.slug,
-      postSlug: row.slug,
-    }));
+    return rows
+      .filter((row) => typeof row.category?.slug === "string" && row.category.slug.trim() !== "")
+      .map((row) => ({
+        slug: row.category!.slug,
+        postSlug: row.slug,
+      }));
+  } catch {
+    return [];
+  }
 }
 
 const getPostBySlug = cache(async (slug: string, categorySlug: string) => {
@@ -659,6 +663,14 @@ export async function generateMetadata(
   const categorySlug = decodeURIComponent(params.slug);
 
   const post = await getPostBySlug(postSlug, categorySlug);
+  const parentMetadata = await parent;
+  const metadataBase =
+    parentMetadata.metadataBase ||
+    new URL(
+      typeof process.env.NEXT_PUBLIC_SITE_URL === "string" && process.env.NEXT_PUBLIC_SITE_URL.trim() !== ""
+        ? process.env.NEXT_PUBLIC_SITE_URL.trim()
+        : "http://localhost:3000"
+    );
 
   if (!post) {
     return {
@@ -672,16 +684,37 @@ export async function generateMetadata(
   // Use metaDesc if available, otherwise fallback to subtitle or trimmed content
   const description = post.metaDesc || post.subtitle || (post.content ? post.content.replace(/<[^>]*>?/gm, '').substring(0, 160) : "");
 
-  const previousImages = (await parent).openGraph?.images || [];
-  const imageUrl = post.image || post.featuredImage?.fileUrl;
-  const images = imageUrl ? [imageUrl, ...previousImages] : previousImages;
+  const previousImages = parentMetadata.openGraph?.images || [];
+  const toAbsoluteUrl = (value: unknown): string => {
+    const raw = typeof value === "string" ? value.trim() : "";
+    if (!raw) return "";
+    if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
+    if (raw.startsWith("/")) return new URL(raw, metadataBase).toString();
+    return new URL(`/${raw.replace(/^\/+/, "")}`, metadataBase).toString();
+  };
+  const ogImageRaw = post.image || post.featuredImage?.fileUrl;
+  const ogImageUrl = toAbsoluteUrl(ogImageRaw);
+  const ogImageUrl = toAbsoluteUrl(ogImageRaw);
+  const ogImageAlt = typeof post.title === "string" && post.title.trim() ? post.title : "Gambar berita";
+  const ogImage =
+    ogImageUrl
+      ? [{
+          width: typeof (post as any)?.featuredImage?.width === "number" ? (post as any).featuredImage.width : undefined,
+          height: typeof (post as any)?.featuredImage?.height === "number" ? (post as any).featuredImage.height : undefined,
+          alt: ogImageAlt,
+        }]
+      : [];
+  const images = [...ogImage, ...previousImages];
+  const postUrl = new URL(`/${categorySlug}/${post.slug}`, metadataBase).toString();
 
   return {
     title: title,
     description: description,
+    alternates: { canonical: postUrl },
     openGraph: {
       title: title,
       description: description,
+      url: postUrl,
       images: images,
       type: "article",
       publishedTime: toIsoString((post as any)?.publishedAt),

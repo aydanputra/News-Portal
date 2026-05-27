@@ -10,8 +10,7 @@ import { cache } from "react";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import { getCachedCategoriesList } from "@/lib/data";
 
-export const revalidate = 0;
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
   const cached = unstable_cache(
@@ -173,10 +172,9 @@ async function getData(query: string, page: number) {
           views: true,
           type: true,
           videoUrl: true,
-          category: true,
+          category: { select: { name: true, slug: true } },
           author: { select: { name: true } },
-          featuredImage: true,
-          tags: { select: { name: true, slug: true } },
+          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
         },
         orderBy: [{ publishedAt: "desc" }, { updatedAt: "desc" }],
         skip: (currentPage - 1) * pageSize,
