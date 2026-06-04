@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
 
 type NewsGridSliderPost = {
   id?: string;
@@ -533,7 +533,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #news-grid-slider-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; }
             #news-grid-slider-${block.id} .news-grid-slider-inner { padding-top: ${pTopMobile}; padding-right: ${pRightMobile}; padding-bottom: ${pBottomMobile}; padding-left: ${pLeftMobile}; }
             #news-grid-slider-${block.id} .theme-widget-title span { color: ${blockTitleColorMobile}; font-size: ${blockTitleFsMobile}; }
@@ -550,7 +550,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
               #news-grid-slider-${block.id} .theme-widget-title span { color: ${blockTitleColorDesktop}; font-size: ${blockTitleFsDesktop}; }
               #news-grid-slider-${block.id} .theme-widget-title .widget-title-bar { background-color: var(--widget-title-border-color-desktop); }
             }
-          `
+          `)
         }}
       />
       <div className="news-grid-slider-inner">

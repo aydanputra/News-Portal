@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Fragment } from "react";
 import { Facebook, Twitter, Instagram, Youtube, Linkedin } from "lucide-react";
-import { sanitizeContent, sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
+import { safeStyleTagCss, sanitizeContent, sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
 
 interface FooterProps {
   siteName: string;
@@ -263,7 +263,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
           return (
             <style
               dangerouslySetInnerHTML={{
-                __html: `
+                __html: safeStyleTagCss(`
                   .public-theme #footer-widget-${child.id} {
                     text-align: ${alignM} !important;
                     margin-top: ${mtMPos} !important;
@@ -301,7 +301,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                       padding-left: ${plD} !important;
                     }
                   }
-                `,
+                `),
               }}
             />
           );
@@ -466,16 +466,17 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
               style={styleVars}
               className="fb-footer-text max-w-full break-words whitespace-normal [color:var(--fb-ft-color-mobile,var(--fb-ft-color-desktop,#9ca3af))] md:[color:var(--fb-ft-color-tablet,var(--fb-ft-color-desktop,#9ca3af))] lg:[color:var(--fb-ft-color-desktop,#9ca3af)] text-[length:var(--fb-ft-size-mobile,var(--fb-ft-size-desktop,14px))] md:text-[length:var(--fb-ft-size-tablet,var(--fb-ft-size-desktop,14px))] lg:text-[length:var(--fb-ft-size-desktop,14px)] leading-[var(--fb-ft-lh-mobile,var(--fb-ft-lh-desktop,1.625))] md:leading-[var(--fb-ft-lh-tablet,var(--fb-ft-lh-desktop,1.625))] lg:leading-[var(--fb-ft-lh-desktop,1.625)] font-[var(--fb-ft-fw-mobile,var(--fb-ft-fw-desktop,400))] md:font-[var(--fb-ft-fw-tablet,var(--fb-ft-fw-desktop,400))] lg:font-[var(--fb-ft-fw-desktop,400)] [&_*]:max-w-full [&_a]:text-inherit [&_a:hover]:text-white [&_a]:underline-offset-4 [&_a:hover]:underline"
               dangerouslySetInnerHTML={{
-                __html:
+                __html: safeStyleTagCss(
                   `<style>` +
-                  `.fb-footer-text,.fb-footer-text *{max-width:100%;overflow-wrap:anywhere;word-break:break-word;white-space:normal !important;}` +
-                  `.fb-footer-text :where(p,span,div,em,b,i,u,s,small,mark,blockquote,ul,ol,li,h1,h2,h3,h4,h5,h6,a){color:inherit;font-size:inherit;line-height:inherit;}` +
-                  `.fb-footer-text :where(p){margin:0;}` +
-                  `.fb-footer-text :where(b,strong){font-weight:700;}` +
-                  `.fb-footer-text :where(img,video,iframe){max-width:100%;height:auto;}` +
-                  `.fb-footer-text :where(table){max-width:100%;display:block;overflow-x:auto;}` +
-                  `</style>` +
-                  clean,
+                    `.fb-footer-text,.fb-footer-text *{max-width:100%;overflow-wrap:anywhere;word-break:break-word;white-space:normal !important;}` +
+                    `.fb-footer-text :where(p,span,div,em,b,i,u,s,small,mark,blockquote,ul,ol,li,h1,h2,h3,h4,h5,h6,a){color:inherit;font-size:inherit;line-height:inherit;}` +
+                    `.fb-footer-text :where(p){margin:0;}` +
+                    `.fb-footer-text :where(b,strong){font-weight:700;}` +
+                    `.fb-footer-text :where(img,video,iframe){max-width:100%;height:auto;}` +
+                    `.fb-footer-text :where(table){max-width:100%;display:block;overflow-x:auto;}` +
+                    `</style>` +
+                    clean,
+                ),
               }}
             />
           )}
@@ -818,7 +819,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
         <div id={`footer-inner-section-${widget.id}`} className="w-full">
           <style
             dangerouslySetInnerHTML={{
-              __html: `
+              __html: safeStyleTagCss(`
                 .public-theme #footer-inner-section-${widget.id} {
                   --footer-widget-gap: ${blockGapMobile};
                   --footer-column-gap: ${columnGapMobile};
@@ -835,7 +836,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                     --footer-column-gap: ${columnGapDesktop};
                   }
                 }
-              `,
+              `),
             }}
           />
           <div
@@ -934,11 +935,11 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
     <footer className="text-white mt-auto">
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             .fb-logo-dark { display: none !important; }
             html.public-dark .fb-logo-light { display: none !important; }
             html.public-dark .fb-logo-dark { display: inline-block !important; }
-          `,
+          `),
         }}
       />
       <div className="w-full">
@@ -1142,7 +1143,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
             <Fragment key={section.id}>
               <style
                 dangerouslySetInnerHTML={{
-                  __html: `
+                  __html: safeStyleTagCss(`
                     .public-theme #footer-section-${section.id} {
                       margin-top: ${mtM} !important;
                       margin-bottom: ${mbM} !important;
@@ -1248,7 +1249,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                         padding-right: ${boxPXD} !important;
                       }
                     }
-                  `,
+                  `),
                 }}
               />
               <section id={`footer-section-${section.id}`} className="relative w-full" style={sectionStyle}>

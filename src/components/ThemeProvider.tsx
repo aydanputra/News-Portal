@@ -1,5 +1,8 @@
 "use client";
 
+import React from "react";
+import { safeStyleTagCss } from "@/lib/sanitizer";
+
 interface ThemeProviderProps {
   settings: {
     headingFont?: string;
@@ -177,7 +180,7 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
       )}
       
       {/* Inject CSS Variables */}
-      <style dangerouslySetInnerHTML={{ __html: cssVariables }} />
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(cssVariables) }} />
 
       {children}
     </>

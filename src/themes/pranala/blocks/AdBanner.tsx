@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getResponsiveBoolValues, getResponsiveValue, pickResponsiveValue, type ResponsiveDevice } from "./responsive";
 import { resolveWidgetRadius } from "./radius";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 type AdMedia = {
   fileUrl: string;
@@ -411,7 +412,7 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
 
   return (
     <div id={`ad-banner-${block.id}`} className={`ad-banner-wrapper ${visibilityClass}`} style={containerStyle}>
-        <style dangerouslySetInnerHTML={{__html: `
+        <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
           #ad-banner-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${padTopMobile} !important; padding-right: ${padRightMobile} !important; padding-bottom: ${padBottomMobile} !important; padding-left: ${padLeftMobile} !important; }
           #ad-banner-${block.id} .theme-widget-title { font-size: ${blockTitleFsMobile}; color: ${blockTitleColorMobile}; }
           #ad-banner-${block.id} .widget-title-bar { background-color: ${blockTitleBorderColorMobile}; }
@@ -419,7 +420,7 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
           #ad-banner-${block.id} .ad-empty-subtext { color: ${emptyStateSubtextMobile}; }
           @media (min-width: 768px) { #ad-banner-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${padTopTablet} !important; padding-right: ${padRightTablet} !important; padding-bottom: ${padBottomTablet} !important; padding-left: ${padLeftTablet} !important; } #ad-banner-${block.id} .theme-widget-title { font-size: ${blockTitleFsTablet}; color: ${blockTitleColorTablet}; } #ad-banner-${block.id} .widget-title-bar { background-color: ${blockTitleBorderColorTablet}; } #ad-banner-${block.id} .ad-banner-empty { background-color: ${emptyStateBgTablet}; border-color: ${emptyStateBorderTablet}; } #ad-banner-${block.id} .ad-empty-title { color: ${emptyStateTextTablet}; } #ad-banner-${block.id} .ad-empty-subtext { color: ${emptyStateSubtextTablet}; } }
           @media (min-width: 1025px) { #ad-banner-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${padTopDesktop} !important; padding-right: ${padRightDesktop} !important; padding-bottom: ${padBottomDesktop} !important; padding-left: ${padLeftDesktop} !important; } #ad-banner-${block.id} .theme-widget-title { font-size: ${blockTitleFsDesktop}; color: ${blockTitleColorDesktop}; } #ad-banner-${block.id} .widget-title-bar { background-color: ${blockTitleBorderColorDesktop}; } #ad-banner-${block.id} .ad-banner-empty { background-color: ${emptyStateBgDesktop}; border-color: ${emptyStateBorderDesktop}; } #ad-banner-${block.id} .ad-empty-title { color: ${emptyStateTextDesktop}; } #ad-banner-${block.id} .ad-empty-subtext { color: ${emptyStateSubtextDesktop}; } }
-        `}} />
+        `) }} />
 
         <div
           className={hasAd ? "w-full" : "w-full flex justify-center items-center relative ad-banner-empty"}

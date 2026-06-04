@@ -1,5 +1,6 @@
 import Link from "next/link";
 import React from "react";
+import { safeStyleTagCss, sanitizeExternalUrl } from "@/lib/sanitizer";
 
 interface ArchiveEmptyStateProps {
   block: any;
@@ -20,9 +21,7 @@ export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateP
   const ctaLabel = typeof config.emptyButtonText === "string" && config.emptyButtonText.trim()
     ? config.emptyButtonText.trim()
     : "";
-  const ctaHref = typeof config.emptyButtonHref === "string" && config.emptyButtonHref.trim()
-    ? config.emptyButtonHref.trim()
-    : "/";
+  const ctaHref = sanitizeExternalUrl(config.emptyButtonHref) || "/";
   const align = config.textAlign === "left" || config.textAlign === "right" ? config.textAlign : "center";
   const titleColorDesktop = typeof config.titleColor === "string" && config.titleColor.trim() ? config.titleColor : "var(--home-widget-title-color, var(--heading-color, #111827))";
   const titleColorTablet = typeof config.tabletTitleColor === "string" && config.tabletTitleColor.trim() ? config.tabletTitleColor : titleColorDesktop;
@@ -38,7 +37,7 @@ export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateP
     <div id={rootId} className="rounded-[var(--home-main-box-radius,0.75rem)] border border-dashed border-[var(--border,#e5e7eb)] bg-[var(--bg-surface,white)] px-6 py-12" style={{ textAlign: align as React.CSSProperties["textAlign"] }}>
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #${rootId} {
               --archive-empty-title-color: ${titleColorMobile};
               --archive-empty-description-color: ${descriptionColorMobile};
@@ -58,7 +57,7 @@ export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateP
                 --archive-empty-button-bg: ${buttonBgColorDesktop};
               }
             }
-          `
+          `)
         }}
       />
       <h2 className="text-2xl font-bold" style={{ color: "var(--archive-empty-title-color)" }}>{title}</h2>

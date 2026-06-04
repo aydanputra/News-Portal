@@ -4,6 +4,7 @@ import React from "react";
 import { CLASSIC_BLOCKS } from "../blocks/registry";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface HomepageProps {
   data: {
@@ -197,7 +198,7 @@ export default function ClassicHomepage({ data }: HomepageProps) {
           >
               <style
                 dangerouslySetInnerHTML={{
-                  __html: `
+                  __html: safeStyleTagCss(`
                     .public-theme #${section.id} {
                       --section-widget-gap: ${blockGapMobile};
                       --section-column-gap: ${columnGapMobile};
@@ -214,7 +215,7 @@ export default function ClassicHomepage({ data }: HomepageProps) {
                         --section-column-gap: ${columnGapDesktop};
                       }
                     }
-                  `,
+                  `),
                 }}
               />
               <div className={containerClass} style={containerStyle}>
@@ -393,7 +394,7 @@ export default function ClassicHomepage({ data }: HomepageProps) {
       <Header siteName={siteName} logoUrl={logoUrl} categories={categories || []} />
       
       {/* Global Theme Styles */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         @media (max-width: 767px) {
             .hide-mobile-widget { display: none !important; }
         }
@@ -455,7 +456,7 @@ export default function ClassicHomepage({ data }: HomepageProps) {
             color: var(--home-meta-color); 
         }
         .theme-meta a:hover { color: var(--home-hover-color) !important; }
-      `}} />
+      `) }} />
 
       <main className="flex-grow">
         {(!blocks || blocks.length === 0) ? (

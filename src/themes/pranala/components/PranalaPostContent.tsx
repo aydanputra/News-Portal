@@ -7,6 +7,7 @@ import Link from "next/link";
 import React from "react";
 import AdBanner from "../blocks/AdBanner";
 import { getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "@/lib/utils";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 const PDFViewer = dynamic(() => import("@/components/ui/PDFViewer"), {
   ssr: false,
@@ -631,13 +632,13 @@ export default function PranalaPostContent({
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             .post-content-fix :where(p, span, div, li, blockquote, h1, h2, h3, h4, h5, h6) {
               background-color: transparent !important;
               background: transparent !important;
               color: inherit !important;
             }
-          `,
+          `),
         }}
       />
       {parsedContent}

@@ -2,6 +2,7 @@
 
 import React from "react";
 import { PRANALA_BLOCKS } from "../blocks/registry";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 type SidebarWidgetRendererProps = {
   widget: any;
@@ -105,7 +106,7 @@ export default function SidebarWidgetRenderer({
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             .${scopeClass} .theme-widget-title {
               color: var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color))) !important;
               font-size: var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size))) !important;
@@ -234,7 +235,7 @@ export default function SidebarWidgetRenderer({
             html.public-dark .${scopeClass} .bullet-list-link:hover {
               color: var(--accent) !important;
             }
-          `,
+          `),
         }}
       />
       <Component

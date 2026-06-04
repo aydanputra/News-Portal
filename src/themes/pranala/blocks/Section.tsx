@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
 
 interface SectionProps {
   block: any;
@@ -265,7 +265,7 @@ export default function Section({ block, layout: _layout, colWidths: _colWidths,
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         .public-theme #section-${block.id} {
             margin-top: ${mtMobile} !important;
             margin-bottom: ${mbMobile} !important;
@@ -382,7 +382,7 @@ export default function Section({ block, layout: _layout, colWidths: _colWidths,
                 padding-right: ${boxPaddingXDesktop} !important;
             }
         }
-      `}} />
+      `) }} />
 
       <section 
         id={`section-${block.id}`}

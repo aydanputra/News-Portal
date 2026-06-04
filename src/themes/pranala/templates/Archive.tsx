@@ -11,6 +11,7 @@ import HeroSlider from "../blocks/HeroSlider";
 import NewsGrid from "../blocks/NewsGrid";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import SidebarWidgetRenderer from "../components/SidebarWidgetRenderer";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface ArchiveProps {
   title: string;
@@ -402,7 +403,7 @@ export default function PranalaArchive({
         mobileMenu={menusByLocation?.MOBILE}
         headerConfig={headerConfig}
       />
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         .theme-widget-title {
           color: var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color))) !important;
           font-size: var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size))) !important;
@@ -528,7 +529,7 @@ export default function PranalaArchive({
             background-color: var(--widget-title-border-color-desktop, var(--widget-title-border-color-tablet, var(--widget-title-border-color-mobile, var(--widget-title-border-color, var(--accent))))) !important;
           }
         }
-      ` }} />
+      `) }} />
 
       <main className="flex-grow" data-archive-type={archiveType}>
         {visibleBlocks.length > 0 ? visibleBlocks.map(renderBlock) : (

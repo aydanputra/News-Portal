@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool } from "./responsive";
 import { resolveWidgetRadius } from "./radius";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
 
 type NewsListCategory = {
   slug: string;
@@ -768,7 +768,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
       className="news-list-container"
       style={containerStyle}
     >
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         #news-list-${block.id} {
           --nl-title-hover: ${titleHoverColorMobile};
           background-color: ${useBoxMobile ? boxColorMobile : 'transparent'};
@@ -956,7 +956,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
             padding-left: ${lmpLeftDesktop};
           }
         }
-      `}} />
+      `) }} />
 
       <div className="news-list-inner">
         {(cfg.showTitle !== false) && (

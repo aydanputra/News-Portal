@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues } from "./responsive";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 type NewsGridAuthor = { name?: string; fullName?: string; avatar?: string; avatarUrl?: string; image?: string; banner?: string } | string;
 
@@ -492,7 +493,7 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #news-grid-${block.id} {
               background-color: ${useBoxMobile ? boxColorMobile : "transparent"};
               border-radius: ${useBoxMobile ? boxRadiusMobile : "0"};
@@ -642,7 +643,7 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
             html.public-dark #news-grid-${block.id}.news-grid-dark-card-auto .news-grid-content {
               background-color: transparent !important;
             }
-          `,
+          `),
         }}
       />
 
