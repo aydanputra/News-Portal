@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Fragment } from "react";
 import { Facebook, Twitter, Instagram, Youtube, Linkedin } from "lucide-react";
-import { sanitizeContent } from "@/lib/sanitizer";
+import { sanitizeContent, sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
 
 interface FooterProps {
   siteName: string;
@@ -485,13 +485,13 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
 
     if (widget.type === "footer_social") {
       const links = [
-        { key: "facebook", icon: Facebook, href: config.facebook },
-        { key: "twitter", icon: Twitter, href: config.twitter },
-        { key: "instagram", icon: Instagram, href: config.instagram },
-        { key: "youtube", icon: Youtube, href: config.youtube },
-        { key: "linkedin", icon: Linkedin, href: config.linkedin },
-        { key: "tiktok", icon: TikTokIcon, href: config.tiktok },
-      ].filter((x) => typeof x.href === "string" && x.href.trim() !== "");
+        { key: "facebook", icon: Facebook, href: sanitizeExternalUrl(config.facebook) },
+        { key: "twitter", icon: Twitter, href: sanitizeExternalUrl(config.twitter) },
+        { key: "instagram", icon: Instagram, href: sanitizeExternalUrl(config.instagram) },
+        { key: "youtube", icon: Youtube, href: sanitizeExternalUrl(config.youtube) },
+        { key: "linkedin", icon: Linkedin, href: sanitizeExternalUrl(config.linkedin) },
+        { key: "tiktok", icon: TikTokIcon, href: sanitizeExternalUrl(config.tiktok) },
+      ].filter((x) => x.href !== "");
 
       if (links.length === 0) return null;
       const layoutRaw = typeof config.socialLayout === "string" ? config.socialLayout : "horizontal";
@@ -1039,9 +1039,9 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
           const bgT = normalizeColor(rawBgT, bgM);
           const bgD = normalizeColor(rawBgD, bgT);
 
-          const bgImgM = resolveOptionalUrl(getResponsive(sectionConfig, "backgroundImage", "mobile")) || "";
-          const bgImgT = resolveOptionalUrl(getResponsive(sectionConfig, "backgroundImage", "tablet")) || bgImgM;
-          const bgImgD = resolveOptionalUrl(getResponsive(sectionConfig, "backgroundImage", "desktop")) || bgImgT;
+          const bgImgM = sanitizeCssUrl(resolveOptionalUrl(getResponsive(sectionConfig, "backgroundImage", "mobile")) || "");
+          const bgImgT = sanitizeCssUrl(resolveOptionalUrl(getResponsive(sectionConfig, "backgroundImage", "tablet")) || bgImgM);
+          const bgImgD = sanitizeCssUrl(resolveOptionalUrl(getResponsive(sectionConfig, "backgroundImage", "desktop")) || bgImgT);
           const hasBgImage = [bgImgM, bgImgT, bgImgD].some((x) => typeof x === "string" && x.trim() !== "");
 
           const rawOverlayD = getResponsive(sectionConfig, "overlayColor", "desktop");
@@ -1101,9 +1101,9 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
             ["--fb-sec-bg-m" as any]: bgM,
             ["--fb-sec-bg-t" as any]: bgT,
             ["--fb-sec-bg-d" as any]: bgD,
-            ["--fb-sec-bgimg-m" as any]: bgImgM ? `url(${bgImgM})` : "none",
-            ["--fb-sec-bgimg-t" as any]: bgImgT ? `url(${bgImgT})` : "none",
-            ["--fb-sec-bgimg-d" as any]: bgImgD ? `url(${bgImgD})` : "none",
+            ["--fb-sec-bgimg-m" as any]: bgImgM ? `url("${bgImgM}")` : "none",
+            ["--fb-sec-bgimg-t" as any]: bgImgT ? `url("${bgImgT}")` : "none",
+            ["--fb-sec-bgimg-d" as any]: bgImgD ? `url("${bgImgD}")` : "none",
             ["--fb-sec-bgsize-m" as any]: bgImgM ? sizeM : "auto",
             ["--fb-sec-bgsize-t" as any]: bgImgT ? sizeT : "auto",
             ["--fb-sec-bgsize-d" as any]: bgImgD ? sizeD : "auto",
@@ -1165,7 +1165,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                       padding-left: ${plMF} !important;
                       padding-right: ${prMF} !important;
                       background-color: ${bgM} !important;
-                      background-image: ${bgImgM ? `url(${bgImgM})` : "none"} !important;
+                      background-image: ${bgImgM ? `url("${bgImgM}")` : "none"} !important;
                       background-size: ${bgImgM ? sizeM : "auto"} !important;
                       background-position: center !important;
                       background-repeat: no-repeat !important;
@@ -1200,7 +1200,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                         padding-left: ${plTF} !important;
                         padding-right: ${prTF} !important;
                         background-color: ${bgT} !important;
-                        background-image: ${bgImgT ? `url(${bgImgT})` : "none"} !important;
+                        background-image: ${bgImgT ? `url("${bgImgT}")` : "none"} !important;
                         background-size: ${bgImgT ? sizeT : "auto"} !important;
                         border-radius: ${radiusT} !important;
                       }
@@ -1234,7 +1234,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                         padding-left: ${plDF} !important;
                         padding-right: ${prDF} !important;
                         background-color: ${bgD} !important;
-                        background-image: ${bgImgD ? `url(${bgImgD})` : "none"} !important;
+                        background-image: ${bgImgD ? `url("${bgImgD}")` : "none"} !important;
                         background-size: ${bgImgD ? sizeD : "auto"} !important;
                         border-radius: ${radiusD} !important;
                       }

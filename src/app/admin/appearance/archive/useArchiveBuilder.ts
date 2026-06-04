@@ -5,6 +5,8 @@ import { ConfigValue } from "@/lib/page-builder-config";
 import { buildArchiveChildConfig } from "@/lib/page-builder-child-presets";
 import { getThemeDefaultArchiveBlocks } from "@/lib/archive-builder-theme-registry";
 
+const MAX_HISTORY = 50;
+
 export function useArchiveBuilder() {
   const router = useRouter();
 
@@ -111,14 +113,9 @@ export function useArchiveBuilder() {
       setHistory(prev => {
           const newBlocks = typeof newBlocksOrFn === 'function' ? newBlocksOrFn(prev.present) : newBlocksOrFn;
           
-          if (JSON.stringify(prev.present) !== JSON.stringify(newBlocks)) {
-              return {
-                  past: [...prev.past, prev.present],
-                  present: newBlocks,
-                  future: []
-              };
-          }
-          return prev;
+          if (newBlocks === prev.present) return prev;
+          const nextPast = prev.past.length >= MAX_HISTORY ? [...prev.past.slice(1), prev.present] : [...prev.past, prev.present];
+          return { past: nextPast, present: newBlocks, future: [] };
       });
   }, []);
 
@@ -1030,6 +1027,11 @@ export function useArchiveBuilder() {
       });
 
       if (resBlocks.ok) {
+        const resFresh = await fetch(`/api/homepage?location=archive&themeId=${encodeURIComponent(activeTheme)}`, { cache: "no-store" });
+        const freshBlocks = await resFresh.json();
+        if (Array.isArray(freshBlocks)) {
+          setHistory({ past: [], present: freshBlocks, future: [] });
+        }
         setToast({ message: "Archive Builder berhasil diupdate!", type: "success" });
         router.refresh(); 
       } else {

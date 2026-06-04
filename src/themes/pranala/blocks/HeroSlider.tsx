@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
 
 type HeroSliderPost = {
   id?: string;
@@ -511,7 +512,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
         borderRadius: useBox ? activeBoxRadius : "0",
         border: useBox ? "var(--box-border, 1px solid var(--border))" : "none",
         boxShadow: useBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
-        backgroundImage: useBox && boxBgImage ? `url(${boxBgImage})` : "none",
+        backgroundImage: useBox && boxBgImage ? `url("${sanitizeCssUrl(boxBgImage)}")` : "none",
         backgroundSize: useBox && boxBgImage ? "cover" : undefined,
         backgroundPosition: useBox && boxBgImage ? "center" : undefined,
         backgroundRepeat: useBox && boxBgImage ? "no-repeat" : undefined,
