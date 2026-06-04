@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { getToolsAllowlistSource, getToolsRequestHost, isToolEnabledForRequest, isToolsAllowlistActive, requireAdmin, type ToolId } from "@/lib/api-guards";
+import { getToolsAllowlistSource, getToolsRequestHost, isToolEnabledForRequest, isToolsAllowlistActive, requireAdmin } from "@/lib/api-guards";
+import { ALL_TOOL_IDS, type ToolId } from "@/lib/tools";
 
 export const dynamic = "force-dynamic";
 
-const ALL_TOOLS: ToolId[] = ["wp_import", "media_migration", "print_tools", "backfill_excerpts"];
+const ALL_TOOLS: ToolId[] = ALL_TOOL_IDS;
 
 export async function GET(request: Request) {
   const user = await requireAdmin();

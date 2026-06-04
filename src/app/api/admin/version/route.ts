@@ -92,11 +92,21 @@ export async function GET(_request: Request) {
     const feedUrlRaw = normalizeVersion(process.env.UPDATE_FEED_URL);
     const repo = normalizeVersion(process.env.GITHUB_REPO);
     const ghToken = normalizeVersion(process.env.GITHUB_TOKEN);
+    const overrideLatest = normalizeVersion(process.env.LATEST_VERSION_OVERRIDE);
+    const overrideChangelogUrl = normalizeVersion(process.env.LATEST_CHANGELOG_URL_OVERRIDE);
+    const overrideReleasedAt = normalizeVersion(process.env.LATEST_RELEASED_AT_OVERRIDE);
 
     let latest: LatestInfo | null = null;
-    let source: "feed" | "github" | "none" = "none";
+    let source: "override" | "feed" | "github" | "none" = "none";
     let feedUrlUsed: string | null = null;
-    if (feedUrlRaw) {
+    if (overrideLatest) {
+      source = "override";
+      latest = {
+        version: overrideLatest,
+        url: overrideChangelogUrl || undefined,
+        publishedAt: overrideReleasedAt || undefined,
+      };
+    } else if (feedUrlRaw) {
       const resolved = feedUrlRaw.includes("{channel}") ? feedUrlRaw.replaceAll("{channel}", channel) : feedUrlRaw;
       feedUrlUsed = resolved;
       source = "feed";

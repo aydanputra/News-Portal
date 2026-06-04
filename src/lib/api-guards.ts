@@ -1,11 +1,9 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
+import { isToolId, type ToolId } from "@/lib/tools";
 
 type Role = "SUPER_ADMIN" | "ADMIN" | "EDITOR" | "WRITER";
-export type ToolId = "wp_import" | "media_migration" | "print_tools" | "backfill_excerpts";
-
-const ALL_TOOL_IDS: ToolId[] = ["wp_import", "media_migration", "print_tools", "backfill_excerpts"];
 
 type RateState = {
   count: number;
@@ -106,7 +104,7 @@ function parseToolAllowlistEnv(): Record<string, ToolId[]> | null {
       const arr = Array.isArray(v) ? v : [];
       const tools = arr
         .map((x) => String(x))
-        .filter((x): x is ToolId => (ALL_TOOL_IDS as string[]).includes(x));
+        .filter((x): x is ToolId => isToolId(x));
       out[host] = tools;
     }
     return out;
@@ -128,7 +126,7 @@ function parseInstanceToolsEnv(): InstanceToolsMode | null {
     .split(",")
     .map((x) => x.trim())
     .filter(Boolean);
-  const tools = parts.filter((x): x is ToolId => (ALL_TOOL_IDS as string[]).includes(x));
+  const tools = parts.filter((x): x is ToolId => isToolId(x));
   return { mode: "list", tools };
 }
 
@@ -136,7 +134,8 @@ const INSTANCE_TOOLS = parseInstanceToolsEnv();
 
 export function isToolEnabledForRequest(request: Request, toolId: ToolId): boolean {
   const host = getRequestHost(request);
-  if (isLocalHost(host)) return true;
+  const allowlistOnLocalhost = String(process.env.ALLOWLIST_ON_LOCALHOST || "").trim() === "1";
+  if (isLocalHost(host) && !allowlistOnLocalhost) return true;
   if (INSTANCE_TOOLS) {
     if (INSTANCE_TOOLS.mode === "all") return true;
     return INSTANCE_TOOLS.tools.includes(toolId);
