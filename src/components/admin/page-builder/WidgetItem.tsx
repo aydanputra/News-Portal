@@ -1,26 +1,13 @@
 import React from "react";
-import { ArrowUp, ArrowDown, Edit, Trash2, Copy, ArrowLeft, ArrowRight } from "lucide-react";
+import { ArrowUp, ArrowDown, Edit, Trash2, Copy, ArrowLeft, ArrowRight, Settings } from "lucide-react";
 import { Block, Tag } from "./types";
 import { getBlockDefinition } from "@/lib/block-registry";
 import PostWidgetRenderer from "@/themes/pranala/blockpost/PostWidgetRenderer";
-
-// --- THEME POST COMPONENTS (Still Static for now, as they are part of Post Template) ---
-// Ideally, these should also be dynamic if we want full Post Builder modularity
-// import PostTitle from "@themes/modern/components/post/PostTitle";
-// import PostSubtitle from "@themes/modern/components/post/PostSubtitle";
-// import PostBreadcrumb from "@themes/modern/components/post/PostBreadcrumb";
-// import PostMeta from "@themes/modern/components/post/PostMeta";
-// import PostFeaturedImage from "@themes/modern/components/post/PostFeaturedImage";
-// import PostContent from "@themes/modern/components/post/PostContent";
-// import PostTags from "@themes/modern/components/post/PostTags";
-// import PostShare from "@themes/modern/components/post/PostShare";
-// import BlockStyleWrapper from "@themes/modern/components/BlockStyleWrapper";
-// import PostAuthorBox from "@themes/modern/components/post/PostAuthorBox";
-// import PostNavigation from "@themes/modern/components/post/PostNavigation";
-// import RelatedPostsBottom from "@themes/modern/components/post/RelatedPostsBottom";
-// import PostComments from "@themes/modern/components/post/PostComments";
+import SectionBlock from "./SectionBlock";
+import { ConfigValue } from "@/lib/page-builder-config";
 
 interface WidgetItemProps {
+    builderLocation?: "home" | "archive" | "header" | "footer" | "post";
     child: Block;
     parentIndex: number;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
@@ -46,17 +33,29 @@ interface WidgetItemProps {
     insideInnerSection?: boolean;
     activeTheme?: string;
     activeDeviceTab?: "desktop" | "tablet" | "mobile";
-    context?: "home" | "post";
+    
+    // Props for SectionBlock recursion (from Homepage version)
+    updateBlockConfig?: (index: number, key: string, value: ConfigValue) => void;
+    deleteBlock?: (index: number) => void;
+    setEditingSectionId?: (id: string | null) => void;
+    setActiveSectionTab?: (tab: 'layout' | 'style') => void;
+    addChildBlock?: (parentIndex: number, type: string, title: string, columnIndex: number) => void;
+    activeAddMenu?: { blockId: string, colIndex: number } | null;
+    setActiveAddMenu?: (menu: { blockId: string, colIndex: number } | null) => void;
+    moveBlock?: (index: number, direction: "up" | "down") => void;
+    updateBlockConfigById?: (blockId: string, key: string, value: ConfigValue) => void;
+    addChildBlockById?: (parentId: string, type: string, title: string, columnIndex: number) => void;
 }
 
 function WidgetItem({
+    builderLocation = "home",
     child,
     parentIndex,
     moveChildBlock,
     setEditingChild,
     setActiveEditTab,
     deleteChildBlock,
-    tags: _tags,
+    tags,
     accentColor,
     headingColor,
     metaColor,
@@ -74,10 +73,24 @@ function WidgetItem({
     insideInnerSection = false,
     activeTheme = "classic",
     activeDeviceTab = "desktop",
-    context = "home"
+
+    // Recursion props
+    updateBlockConfig,
+    deleteBlock,
+    setEditingSectionId,
+    setActiveSectionTab,
+    addChildBlock,
+    activeAddMenu,
+    setActiveAddMenu,
+    moveBlock,
+    updateBlockConfigById,
+    addChildBlockById
 }: WidgetItemProps) {
     const containerRef = React.useRef<HTMLDivElement | null>(null);
     const [isCompact, setIsCompact] = React.useState(false);
+
+    const context = builderLocation === "post" ? "post" : "home";
+
     React.useEffect(() => {
         if (typeof window === "undefined") return;
         const el = containerRef.current;
@@ -104,18 +117,90 @@ function WidgetItem({
         return () => window.removeEventListener("resize", update);
     }, [activeDeviceTab, context]);
 
-    type MockPost = {
-        id: string;
-        title: string;
-        slug: string;
-        excerpt: string;
-        image: string;
-        publishedAt: string;
-        category: { name: string; slug: string };
-        author: { name: string };
+    const isNewsWidget =
+        child.type.startsWith("news_") ||
+        child.type === "headline_2" ||
+        child.type === "classic_hero";
+    const isArchiveWidget = child.type.startsWith("archive_") || (builderLocation === "archive" && (child.type === "news_hero_slider" || child.type === "news_grid"));
+    const isPostWidgetType = typeof child.type === "string" && child.type.startsWith("post_");
+
+    const getResponsiveValue = (key: string): unknown => {
+        const config = child.config || {};
+        if (activeDeviceTab === "tablet") {
+            const tabletKey = `tablet${key.charAt(0).toUpperCase() + key.slice(1)}`;
+            return config[tabletKey] !== undefined ? config[tabletKey] : config[key];
+        }
+        if (activeDeviceTab === "mobile") {
+            const mobileKey = `mobile${key.charAt(0).toUpperCase() + key.slice(1)}`;
+            return config[mobileKey] !== undefined ? mobileKey : config[key];
+        }
+        return config[key];
     };
 
-    // Helper to handle actions (prefer ID-based if available)
+    const getConfigString = (key: string, fallback = ""): string => {
+        const value = getResponsiveValue(key);
+        if (typeof value === "string") return value;
+        if (typeof value === "number" && Number.isFinite(value)) return String(value);
+        return fallback;
+    };
+
+    const getConfigNumber = (key: string): number | undefined => {
+        const value = getResponsiveValue(key);
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "string" && value.trim() !== "") {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : undefined;
+        }
+        return undefined;
+    };
+
+    const getConfigBool = (key: string, fallback = false): boolean => {
+        const value = getResponsiveValue(key);
+        if (typeof value === "boolean") return value;
+        if (typeof value === "string") {
+            const normalized = value.trim().toLowerCase();
+            if (normalized === "true") return true;
+            if (normalized === "false") return false;
+        }
+        if (typeof value === "number") return value === 1;
+        return fallback;
+    };
+
+    const getTextAlign = () => {
+        const value = getResponsiveValue("textAlign");
+        if (value === "left" || value === "center" || value === "right" || value === "justify") return value;
+        return undefined;
+    };
+
+    const widgetContainerStyle: React.CSSProperties = {
+        textAlign: getTextAlign() as any,
+    };
+
+    const deviceLabel = activeDeviceTab === "desktop" ? "Desktop" : activeDeviceTab === "tablet" ? "Tablet" : "Mobile";
+    const isTabletSidebarCompact = activeDeviceTab === "tablet" && isSidebarColumn;
+    const isInnerSectionSidebarCompact = isSidebarColumn && insideInnerSection;
+    const isMobileInnerSectionCompact = activeDeviceTab === "mobile" && insideInnerSection;
+    const isCompactLayout = isCompact || isTabletSidebarCompact || isInnerSectionSidebarCompact || isMobileInnerSectionCompact || (context === "post" && activeDeviceTab === "mobile");
+
+    const canOpenWidgetSettings = builderLocation !== "header"
+        || child.type === "ad_banner"
+        || child.type === "header_logo"
+        || child.type === "header_menu_primary"
+        || child.type === "header_menu_secondary"
+        || child.type === "header_search"
+        || child.type === "header_theme_toggle"
+        || child.type === "header_mobile_menu_toggle";
+
+    // Helper for delete
+    const handleDelete = () => {
+        if (deleteChildBlockById && parentId) {
+            deleteChildBlockById(parentId, child.id);
+        } else {
+            deleteChildBlock(parentIndex, child.id);
+        }
+    };
+    
+    // Helper for move
     const handleMove = (direction: "up" | "down") => {
         if (moveChildBlockById && parentId) {
             moveChildBlockById(parentId, child.id, direction);
@@ -124,43 +209,18 @@ function WidgetItem({
         }
     };
 
-    const handleDelete = () => {
-        if (deleteChildBlockById && parentId) {
-            deleteChildBlockById(parentId, child.id);
-        } else {
-            deleteChildBlock(parentIndex, child.id);
-        }
-    };
     const handleDuplicate = () => {
         if (duplicateChildBlockById && parentId) {
             duplicateChildBlockById(parentId, child.id);
         }
     };
+
     const handleMoveColumn = (direction: "left" | "right") => {
         if (moveChildBlockColumnById && parentId) {
             moveChildBlockColumnById(parentId, child.id, direction);
         }
     };
 
-    const cap = (value: string) => value.charAt(0).toUpperCase() + value.slice(1);
-    const getResponsiveConfig = (key: string): unknown => {
-        const base = child.config?.[key];
-        const tablet = child.config?.[`tablet${cap(key)}`];
-        const mobile = child.config?.[`mobile${cap(key)}`];
-        if (activeDeviceTab === "mobile") return mobile ?? tablet ?? base;
-        if (activeDeviceTab === "tablet") return tablet ?? base;
-        return base;
-    };
-    const getTextAlign = () => {
-        const value = getResponsiveConfig("textAlign");
-        if (value === "left" || value === "center" || value === "right" || value === "justify") return value;
-        return undefined;
-    };
-    const widgetContainerStyle: React.CSSProperties = {
-        textAlign: getTextAlign(),
-    };
-    const isPostWidgetType = typeof child.type === "string" && child.type.startsWith("post_");
-    const isCompactLayout = isCompact || (context === "post" && activeDeviceTab === "mobile");
     const safeAccent = typeof accentColor === "string" && accentColor.trim() !== "" ? accentColor : "var(--accent)";
     const safeHeading = typeof headingColor === "string" && headingColor.trim() !== "" ? headingColor : "#111827";
     const safeMeta = typeof metaColor === "string" && metaColor.trim() !== "" ? metaColor : "#6b7280";
@@ -172,7 +232,8 @@ function WidgetItem({
         { id: "c2", name: "Ekonomi", slug: "ekonomi" },
         { id: "c3", name: "Olahraga", slug: "olahraga" }
     ];
-    const mockPosts: MockPost[] = Array.from({ length: 8 }).map((_, i) => ({
+
+    const mockPosts = Array.from({ length: 8 }).map((_, i) => ({
         id: `${i + 1}`,
         title: `Contoh Berita ${i + 1} untuk Preview`,
         slug: `contoh-berita-${i + 1}`,
@@ -182,12 +243,14 @@ function WidgetItem({
         category: mockCategories[i % mockCategories.length],
         author: { name: i % 2 === 0 ? "Redaksi Pranala" : "Reporter Pranala" }
     }));
+
     const mockTagCloud = [
         { id: "t1", name: "politik", slug: "politik", _count: { posts: 18 } },
         { id: "t2", name: "ekonomi", slug: "ekonomi", _count: { posts: 12 } },
         { id: "t3", name: "internasional", slug: "internasional", _count: { posts: 9 } },
         { id: "t4", name: "teknologi", slug: "teknologi", _count: { posts: 7 } }
     ];
+
     const widgetLabelMap: Record<string, string> = {
         post_breadcrumb: "Breadcrumb",
         post_title: "Judul Artikel",
@@ -204,11 +267,14 @@ function WidgetItem({
         post_comments: "Komentar",
         sidebar_widget: "Sidebar Widget",
         tag_cloud: "Tag Cloud",
-        ad_banner: "Iklan Banner"
+        ad_banner: "Iklan Banner",
+        archive_header: "Header Arsip",
+        archive_post_grid: "Grid Arsip",
+        archive_post_list: "List Arsip",
+        archive_pagination: "Pagination",
+        archive_empty_state: "Empty State"
     };
-    const isTabletSidebarCompact = context === "post" && activeDeviceTab === "tablet" && isSidebarColumn;
-    const isInnerSectionSidebarCompact = context === "post" && isSidebarColumn && insideInnerSection;
-    const isMobileInnerSectionCompact = context === "post" && activeDeviceTab === "mobile" && insideInnerSection;
+
     const widgetBadgeTextMap: Record<string, string> = {
         post_breadcrumb: "BREADCRUMB",
         post_title: "JUDUL",
@@ -225,8 +291,14 @@ function WidgetItem({
         post_comments: "KOMENTAR",
         sidebar_widget: "WIDGET",
         tag_cloud: "TAG CLOUD",
-        ad_banner: "BANNER"
+        ad_banner: "BANNER",
+        archive_header: "HEADER",
+        archive_post_grid: "GRID",
+        archive_post_list: "LIST",
+        archive_pagination: "PAGIN",
+        archive_empty_state: "EMPTY"
     };
+
     const widgetBadgeClassMap: Record<string, string> = {
         post_breadcrumb: "bg-slate-500",
         post_title: "bg-blue-500",
@@ -243,45 +315,47 @@ function WidgetItem({
         post_comments: "bg-amber-500",
         sidebar_widget: "bg-red-500",
         tag_cloud: "bg-violet-500",
-        ad_banner: "bg-yellow-500"
+        ad_banner: "bg-yellow-500",
+        archive_header: "bg-indigo-600",
+        archive_post_grid: "bg-cyan-600",
+        archive_post_list: "bg-emerald-600",
+        archive_pagination: "bg-amber-600",
+        archive_empty_state: "bg-rose-600"
     };
 
-    if (isInnerSection) {
+    if (isInnerSection || child.type === 'section') {
         const controlIconSize = isCompactLayout ? 12 : 14;
         const controlPad = isCompactLayout ? "p-1" : "p-1.5";
         return (
-            <div ref={containerRef} className="bg-[var(--bg-surface)] border-2 border-dashed border-[color:var(--accent)/0.3] rounded-lg p-3 shadow-sm hover:border-[var(--accent)] group/item relative">
-                <div className={`${isCompactLayout ? "flex flex-col gap-2" : "flex items-center justify-between"} mb-2`}>
-                    <div className="flex items-center gap-2 min-w-0">
-                        <div className="p-1 rounded text-white text-[10px] font-bold bg-[var(--accent)]">
-                            SECTION
-                        </div>
-                        <span className="text-xs font-bold text-[var(--fg-primary)] truncate min-w-0">Inner Section</span>
-                    </div>
-                    <div className={`${isCompactLayout ? "flex flex-wrap items-center justify-end" : "flex items-center"} bg-[var(--bg-elevated)] rounded-md border border-[var(--border)] shadow-sm overflow-hidden`}>
-                        <button onClick={() => handleMove("up")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all rounded-l-md border-r border-[var(--border)]`} title="Geser Atas"><ArrowUp size={controlIconSize} /></button>
-                        <button onClick={() => handleMove("down")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all border-r border-[var(--border)]`} title="Geser Bawah"><ArrowDown size={controlIconSize} /></button>
-                        
-                        {/* We use setEditingChild here, but the Modal needs to support "section" type config for children */}
-                        {/* Currently EditChildModal might only support widget config. We might need to enhance it or redirect to SectionEditModal logic? */}
-                        {/* Since "Inner Section" is technically a "Child Block" with type "section", we should treat it as a child. */}
-                        {/* However, the config needed is layout/style (padding/margin). */}
-                        {/* For now, let's allow basic child editing which might just show title/generic config if not handled specifically. */}
-                        
-                        {/* BETTER: If we want full section editing (columns, gap, etc), we should probably use EditSectionModal? */}
-                        {/* But EditSectionModal expects a root section. */}
-                        {/* Let's stick to setEditingChild and update EditChildModal to handle 'section' type if needed, or just let it show JSON/generic fields. */}
-                        <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all border-r border-[var(--border)]`} title="Edit Layout"><Edit size={controlIconSize} /></button>
-                        <button onClick={handleDelete} className={`${controlPad} text-[var(--fg-muted)] hover:text-red-600 hover:bg-red-50 transition-all rounded-r-md`} title="Hapus"><Trash2 size={controlIconSize} /></button>
-                    </div>
-                </div>
-                
-                {/* Preview of Inner Section Content (Simplified) */}
-                <div className="text-center py-4 bg-[var(--bg-elevated)] border border-[var(--border)] rounded text-xs text-[var(--fg-muted)]">
-                    <p>Inner Section Container</p>
-                    <p className="text-[10px] opacity-70">(Nested widgets editing not supported in this view level)</p>
-                </div>
-            </div>
+            <SectionBlock
+                builderLocation={builderLocation as any}
+                activeTheme={activeTheme}
+                activeDeviceTab={activeDeviceTab}
+                block={child}
+                index={-1}
+                deleteChildBlockById={deleteChildBlockById}
+                updateBlockConfigById={updateBlockConfigById}
+                addChildBlockById={addChildBlockById}
+                moveChildBlockById={moveChildBlockById}
+                duplicateChildBlockById={duplicateChildBlockById}
+                moveChildBlockColumnById={moveChildBlockColumnById}
+                updateBlockConfig={updateBlockConfig!}
+                deleteBlock={deleteBlock!}
+                setEditingSectionId={setEditingSectionId!}
+                setActiveSectionTab={setActiveSectionTab!}
+                moveChildBlock={moveChildBlock}
+                setEditingChild={setEditingChild}
+                setActiveEditTab={setActiveEditTab}
+                deleteChildBlock={deleteChildBlock}
+                addChildBlock={addChildBlock!}
+                tags={tags}
+                accentColor={accentColor}
+                activeAddMenu={activeAddMenu || null}
+                setActiveAddMenu={setActiveAddMenu!}
+                moveBlock={moveBlock!}
+                onMove={handleMove}
+                onDuplicate={handleDuplicate}
+            />
         );
     }
 
@@ -289,7 +363,7 @@ function WidgetItem({
     const renderContent = () => {
         if (context === "post") {
             const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
-            const limitValue = getResponsiveConfig("limit");
+            const limitValue = getResponsiveValue("limit");
             const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
             return (
                 <div className="bg-[var(--bg-base)] border border-[var(--border)] rounded-lg px-4 py-3">
@@ -311,9 +385,7 @@ function WidgetItem({
             );
         }
 
-        // --- 1. DYNAMIC THEME BLOCKS (Homepage Widgets) ---
-        // Check if this block type exists in the registry for the current theme (defaulting to classic)
-        // Ideally we should pass activeTheme prop to WidgetItem
+        // --- 1. DYNAMIC THEME BLOCKS (Homepage & Archive Widgets) ---
         const blockDef = getBlockDefinition(child.type, activeTheme || "classic");
         
         if (blockDef) {
@@ -336,7 +408,7 @@ function WidgetItem({
                 accentColor: safeAccent
             };
             
-            const limitValue = getResponsiveConfig("limit");
+            const limitValue = getResponsiveValue("limit");
             const limit = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 8)) : 6;
 
             if (child.type === "tag_cloud") {
@@ -366,7 +438,7 @@ function WidgetItem({
         }
         
         // --- 2. POST COMPONENTS (Shared with Public Renderer) ---
-        const limitValue = getResponsiveConfig("limit");
+        const limitValue = getResponsiveValue("limit");
         const relatedCount = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 6)) : 3;
 
         if (isPostWidgetType) {
@@ -414,6 +486,29 @@ function WidgetItem({
             );
         }
 
+        // --- 3. ARCHIVE COMPONENTS (Fallback UI) ---
+        if (isArchiveWidget) {
+            const limit = getConfigNumber("limit");
+            const offset = getConfigNumber("offset");
+            return (
+                <div className="bg-[var(--bg-base)] border border-[var(--border)] rounded-lg px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs font-bold uppercase tracking-wide text-[var(--fg-secondary)]">
+                            {widgetLabelMap[child.type] || child.type.replaceAll("_", " ")}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--fg-muted)]">
+                            {child.type}
+                        </span>
+                    </div>
+                    <div className="mt-2 text-[11px] text-[var(--fg-muted)] flex flex-wrap gap-x-3 gap-y-1">
+                        <span>sumber: archive aktif</span>
+                        {limit !== undefined && <span>limit: {limit}</span>}
+                        {offset !== undefined && offset > 0 && <span>offset: {offset}</span>}
+                    </div>
+                </div>
+            );
+        }
+
         // --- FALLBACK (Mini Config) ---
         return (
             <div className="text-[10px] text-gray-500 space-y-1">
@@ -422,15 +517,15 @@ function WidgetItem({
         );
     };
 
-    if (context === "post") {
+    if (context === "post" || isArchiveWidget) {
         const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
-        const limitValue = getResponsiveConfig("limit");
+        const limitValue = getResponsiveValue("limit");
         const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
         const badgeClass = widgetBadgeClassMap[child.type] || "bg-gray-500";
         const displayTitle = widgetLabelMap[child.type] || child.title || child.type;
         const badgeText = widgetBadgeTextMap[child.type] || displayTitle.toUpperCase();
         const showMetaSummary = activeDeviceTab !== "mobile";
-        const moveControlsBelow = isTabletSidebarCompact || isInnerSectionSidebarCompact || isMobileInnerSectionCompact;
+        const moveControlsBelow = isCompactLayout;
         const controlIconSize = moveControlsBelow ? 12 : 14;
         const controlPad = moveControlsBelow ? "p-1" : "p-1.5";
         const wrapperClass = "bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 shadow-sm hover:border-[var(--accent)] group/item relative transition-all";
@@ -453,7 +548,13 @@ function WidgetItem({
                         )}
                         <button onClick={() => handleMove("up")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${columnCount <= 1 ? "rounded-l-md" : ""}`} title="Geser Atas"><ArrowUp size={controlIconSize} /></button>
                         <button onClick={() => handleMove("down")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Geser Bawah"><ArrowDown size={controlIconSize} /></button>
-                        <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Edit Konten"><Edit size={controlIconSize} /></button>
+                        
+                        {canOpenWidgetSettings && (
+                            <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title={builderLocation === "header" ? "Pengaturan" : "Edit Konten"}>
+                                {builderLocation === "header" ? <Settings size={controlIconSize} /> : <Edit size={controlIconSize} />}
+                            </button>
+                        )}
+
                         <button onClick={handleDuplicate} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Duplikasi"><Copy size={controlIconSize} /></button>
                         <button onClick={handleDelete} className={`${controlPad} text-[var(--fg-muted)] hover:text-red-600 hover:bg-[var(--bg-elevated)] transition-all rounded-r-md`} title="Hapus"><Trash2 size={controlIconSize} /></button>
                     </div>
@@ -466,6 +567,7 @@ function WidgetItem({
                         </div>
                         {typeof child.config?.categorySlug === "string" && child.config.categorySlug !== "" && <span>kategori: {child.config.categorySlug}</span>}
                         {typeof child.config?.filterType === "string" && child.config.filterType !== "" && <span>filter: {child.config.filterType}</span>}
+                        {isArchiveWidget && <span>sumber: archive aktif</span>}
                     </div>
                 )}
             </div>

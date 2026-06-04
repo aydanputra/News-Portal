@@ -3,9 +3,10 @@ import { Monitor, Smartphone, Tablet, X } from "lucide-react";
 import SectionConfigPanel from "./SectionConfigPanel";
 import { Block } from "./types";
 import { ConfigValue } from "@/lib/page-builder-config";
+import { SidebarSourceLocation } from "@/lib/sidebar-reference";
 
 interface EditSectionModalProps {
-  context?: "home" | "post" | "archive";
+  builderLocation?: "home" | "archive" | "header" | "footer" | "post";
   section: Block | null | undefined;
   isOpen: boolean;
   onClose: () => void;
@@ -19,7 +20,7 @@ interface EditSectionModalProps {
 }
 
 export default function EditSectionModal({
-  context = "post",
+  builderLocation = "home",
   section,
   isOpen,
   onClose,
@@ -35,6 +36,11 @@ export default function EditSectionModal({
   const activeDeviceLabel = activeSectionDeviceTab.toUpperCase();
   const sectionLabel = section.type === "section" ? "Inner Section" : "Section";
 
+  // Cast or handle builderLocation for SectionConfigPanel
+  const sidebarSourceLocation = (builderLocation === "home" || builderLocation === "post" || builderLocation === "archive")
+    ? builderLocation as SidebarSourceLocation
+    : undefined;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
         <div className="bg-[var(--bg-elevated)] w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden h-[90vh] max-h-[90vh] flex flex-col border border-[var(--border)] animate-in zoom-in-95 duration-200">
@@ -47,43 +53,44 @@ export default function EditSectionModal({
             </div>
 
             <SectionConfigPanel 
-                context={context}
+                builderLocation={sidebarSourceLocation}
                 section={section}
                 activeSectionTab={activeSectionTab}
                 setActiveSectionTab={setActiveSectionTab}
                 activeSectionDeviceTab={activeSectionDeviceTab}
+                setActiveSectionDeviceTab={setActiveSectionDeviceTab}
                 updateSectionConfig={updateSectionConfig}
                 updateSectionResponsiveConfig={updateSectionResponsiveConfig}
                 getSectionConfigValue={getSectionConfigValue}
             />
-            <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--bg-surface)] flex justify-between items-center">
-                {activeSectionTab === 'style' ? (
-                    <div className="flex flex-col gap-2">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--fg-secondary)]">
-                            Mode Aktif: <span className="text-[var(--accent)]">{activeDeviceLabel}</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-[var(--bg-base)] border border-[var(--border)] rounded-lg p-1">
-                            {(["desktop", "tablet", "mobile"] as const).map((device) => (
-                                <button
-                                    key={device}
-                                    type="button"
-                                    onClick={() => setActiveSectionDeviceTab(device)}
-                                    className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1.5 transition-colors ${
-                                        activeSectionDeviceTab === device ? "bg-[var(--bg-elevated)] text-[var(--accent)]" : "text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"
-                                    }`}
-                                >
-                                    {device === "desktop" && <Monitor size={12} />}
-                                    {device === "tablet" && <Tablet size={12} />}
-                                    {device === "mobile" && <Smartphone size={12} />}
-                                    {device}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div />
-                )}
-                <button onClick={onClose} className="btn btn-primary text-sm">Selesai</button>
+            <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--bg-base)] flex items-center justify-between">
+                <div className="flex items-center gap-1 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-1">
+                    {([
+                        { id: "desktop", icon: Monitor },
+                        { id: "tablet", icon: Tablet },
+                        { id: "mobile", icon: Smartphone },
+                    ] as const).map((device) => {
+                        const Icon = device.icon;
+                        const isActive = activeSectionDeviceTab === device.id;
+                        return (
+                            <button
+                                key={device.id}
+                                onClick={() => setActiveSectionDeviceTab(device.id)}
+                                className={`p-2 rounded-md transition-all ${
+                                    isActive
+                                        ? "bg-[var(--bg-base)] text-[var(--accent)] shadow-sm border border-[var(--border)]"
+                                        : "text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"
+                                }`}
+                                title={device.id.toUpperCase()}
+                            >
+                                <Icon size={14} />
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="text-[10px] font-bold text-[var(--fg-muted)] uppercase tracking-widest bg-[var(--bg-elevated)] px-2 py-1 rounded border border-[var(--border)]">
+                    Mode: {activeDeviceLabel}
+                </div>
             </div>
         </div>
     </div>

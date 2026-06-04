@@ -1,13 +1,15 @@
 import React from "react";
-import { Trash2, Settings, Plus, Layout, ArrowUp, ArrowDown, X } from "lucide-react";
+import { Trash2, Settings, Plus, Layout, ArrowUp, ArrowDown, X, Copy, List, Grid, Megaphone, Newspaper } from "lucide-react";
 import { Block, Tag } from "./types";
 import WidgetItem from "./WidgetItem";
 import { getThemeBlocks } from "@/lib/block-registry";
 import { getThemePostWidgetGroups } from "@/lib/post-builder-theme-registry";
 import { ConfigValue } from "@/lib/page-builder-config";
 import { resolveSectionChildrenWithSidebarSource, SidebarSourceBlocksMap } from "@/lib/sidebar-reference";
+import { getThemeArchiveWidgetGroups } from "@/lib/archive-builder-theme-registry";
 
 interface SectionBlockProps {
+    builderLocation?: "home" | "archive" | "header" | "footer" | "post";
     block: Block;
     index: number;
     updateBlockConfig: (index: number, key: string, value: ConfigValue) => void;
@@ -32,6 +34,9 @@ interface SectionBlockProps {
     context?: "home" | "post";
     activeTheme?: string;
     moveBlock?: (index: number, direction: "up" | "down") => void;
+    duplicateBlock?: (index: number) => void;
+    onMove?: (direction: "up" | "down") => void;
+    onDuplicate?: () => void;
     // Recursive & Nested Props
     isNested?: boolean;
     parentId?: string;
@@ -46,6 +51,8 @@ interface SectionBlockProps {
     customContainerWidth?: string;
     sidebarContext?: boolean;
     sourceBlocksByLocation?: SidebarSourceBlocksMap;
+    homeContainerWidth?: string;
+    homeCustomContainerWidth?: string;
 }
 
 interface WidgetDefinition {
@@ -60,6 +67,7 @@ interface WidgetDefinition {
 }
 
 function SectionBlock({
+    builderLocation = "home",
     block,
     index,
     updateBlockConfig,
@@ -81,9 +89,12 @@ function SectionBlock({
     activeDeviceTab = "desktop",
     activeAddMenu,
     setActiveAddMenu,
-    context = "home",
+    context: _context,
     activeTheme = "classic",
     moveBlock,
+    duplicateBlock,
+    onMove,
+    onDuplicate,
     isNested = false,
     parentId,
     deleteBlockById,
@@ -96,9 +107,13 @@ function SectionBlock({
     containerWidth,
     customContainerWidth,
     sidebarContext = false,
-    sourceBlocksByLocation
+    sourceBlocksByLocation,
+    homeContainerWidth = "boxed",
+    homeCustomContainerWidth = "1200"
 }: SectionBlockProps) {
+    const context = builderLocation === "post" ? "post" : "home";
     const postWidgetGroups = getThemePostWidgetGroups(activeTheme || "classic");
+    const archiveWidgetGroups = getThemeArchiveWidgetGroups(activeTheme || "classic");
     // --- HELPERS FOR RECURSIVE ACTIONS ---
     const handleUpdateConfig = (key: string, value: ConfigValue) => {
         if (updateBlockConfigById) {
@@ -146,8 +161,20 @@ function SectionBlock({
     const handleMoveSection = (direction: "up" | "down") => {
         if (isNested && moveChildBlockById && parentId) {
             moveChildBlockById(parentId, block.id, direction);
-        } else if (!isNested && moveBlock) {
+        } else if (onMove) {
+            onMove(direction);
+        } else if (moveBlock) {
             moveBlock(index, direction);
+        }
+    };
+
+    const handleDuplicate = () => {
+        if (onDuplicate) {
+            onDuplicate();
+        } else if (duplicateChildBlockById && parentId) {
+            duplicateChildBlockById(parentId, block.id);
+        } else if (duplicateBlock) {
+            duplicateBlock(index);
         }
     };
 
@@ -369,8 +396,9 @@ function SectionBlock({
                     </div>
                 </div>
                 <div className="flex gap-2">
-                    <button onClick={() => { setEditingSectionId(block.id); setActiveSectionTab("layout"); }} className="p-1 text-[var(--fg-muted)] hover:text-[var(--accent)]"><Settings size={14} /></button>
-                    <button onClick={handleDeleteBlock} className="p-1 text-[var(--fg-muted)] hover:text-red-500"><Trash2 size={14} /></button>
+                    <button onClick={() => { setEditingSectionId(block.id); setActiveSectionTab("layout"); }} className="p-1 text-[var(--fg-muted)] hover:text-[var(--accent)]" title="Settings"><Settings size={14} /></button>
+                    <button onClick={handleDuplicate} className="p-1 text-[var(--fg-muted)] hover:text-[var(--accent)]" title="Duplicate"><Copy size={14} /></button>
+                    <button onClick={() => handleDeleteBlock()} className="p-1 text-[var(--fg-muted)] hover:text-red-500" title="Delete"><Trash2 size={14} /></button>
                 </div>
             </div>
 
@@ -390,7 +418,9 @@ function SectionBlock({
                         <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: overlayColor }} />
                     )}
                     {columns.map((widthClass, colIndex) => {
-                        const resolvedSectionChildren = resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, context === "post" ? "post" : "home");
+                        const resolvedSectionChildren = builderLocation === "header" || builderLocation === "footer"
+                          ? ((block.config as any)?.children || [])
+                          : resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, builderLocation as any);
                         const visibleSectionChildren = resolvedSectionChildren.filter((c: Block) => !isHiddenOnActiveDevice(c?.config));
                         const colChildren = visibleSectionChildren.filter((c: Block) => (c.config?.columnIndex || 0) === colIndex);
                         const isEmpty = colChildren.length === 0;
@@ -452,6 +482,7 @@ function SectionBlock({
                                         return (
                                             <div key={child.id} className={wrapperClass}>
                                                 <SectionBlock 
+                                                    builderLocation={builderLocation}
                                                     key={child.id}
                                                     block={child}
                                                     index={index}
@@ -479,6 +510,7 @@ function SectionBlock({
                                                     isNested={true}
                                                     parentId={block.id}
                                                     moveBlock={moveBlock}
+                                                    duplicateBlock={duplicateBlock}
                                                     deleteBlockById={deleteBlockById}
                                                     updateBlockConfigById={updateBlockConfigById}
                                                     addChildBlockById={addChildBlockById}
@@ -496,6 +528,7 @@ function SectionBlock({
                                     return (
                                         <div key={child.id} className={wrapperClass}>
                                             <WidgetItem 
+                                                builderLocation={builderLocation}
                                                 key={child.id}
                                                 child={child}
                                                 parentIndex={index}
@@ -521,7 +554,16 @@ function SectionBlock({
                                                 isSidebarColumn={effectiveSidebarContext}
                                                 insideInnerSection={isNested}
                                                 activeTheme={activeTheme}
-                                                context={context}
+                                                
+                                                // Pass recursive SectionBlock props
+                                                updateBlockConfig={updateBlockConfig}
+                                                deleteBlock={deleteBlock}
+                                                setEditingSectionId={setEditingSectionId}
+                                                setActiveSectionTab={setActiveSectionTab}
+                                                addChildBlock={addChildBlock}
+                                                activeAddMenu={activeAddMenu}
+                                                setActiveAddMenu={setActiveAddMenu}
+                                                moveBlock={moveBlock}
                                             />
                                         </div>
                                     );
@@ -567,7 +609,7 @@ function SectionBlock({
                                                 {/* Content Scrollable */}
                                                 <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg-surface)] custom-scrollbar">
                                                     {(() => {
-                                                        const currentContext = context || 'home';
+                                                        const currentContext = builderLocation === 'post' ? 'post' : 'home';
                                                         
                                                         // Get Blocks from Registry based on Active Theme
                                                         const themeBlocks = getThemeBlocks(activeTheme || 'classic');
@@ -597,18 +639,114 @@ function SectionBlock({
                                                         groups.main.push(innerSectionBlock);
                                                         groups.sidebar.push(innerSectionBlock);
 
+                                                        // Header/Footer Widget Definitions
+                                                        const FOOTER_WIDGET_GROUPS: Record<string, { main: WidgetDefinition[]; sidebar: WidgetDefinition[] }> = {
+                                                            classic: {
+                                                                main: [
+                                                                    { type: "footer_logo", label: "Logo", icon: Layout, desc: "Logo atau nama situs (samakan dengan Header Logo)." },
+                                                                    { type: "footer_menu", label: "Menu Footer", icon: List, desc: "Menu khusus lokasi Footer." },
+                                                                    { type: "footer_text", label: "Teks", icon: Grid, desc: "Teks bebas (alamat, kontak, dsb)." },
+                                                                    { type: "footer_social", label: "Social Links", icon: Grid, desc: "Link media sosial." },
+                                                                    { type: "footer_categories", label: "Kategori", icon: List, desc: "List kategori (otomatis dari data kategori)." },
+                                                                    { type: "footer_custom_links", label: "Custom Links", icon: List, desc: "Daftar link custom (mirip Custom Links pada Menu)." },
+                                                                    { type: "footer_copyright", label: "Copyright", icon: Megaphone, desc: "Teks copyright + tahun." },
+                                                                    innerSectionBlock,
+                                                                ],
+                                                                sidebar: [],
+                                                            },
+                                                            pranala: {
+                                                                main: [
+                                                                    { type: "footer_logo", label: "Logo", icon: Layout, desc: "Logo atau nama situs (samakan dengan Header Logo)." },
+                                                                    { type: "footer_menu", label: "Menu Footer", icon: List, desc: "Menu khusus lokasi Footer." },
+                                                                    { type: "footer_text", label: "Teks", icon: Grid, desc: "Teks bebas (alamat, kontak, dsb)." },
+                                                                    { type: "footer_social", label: "Social Links", icon: Grid, desc: "Link media sosial." },
+                                                                    { type: "footer_categories", label: "Kategori", icon: List, desc: "List kategori (otomatis dari data kategori)." },
+                                                                    { type: "footer_custom_links", label: "Custom Links", icon: List, desc: "Daftar link custom (mirip Custom Links pada Menu)." },
+                                                                    { type: "footer_copyright", label: "Copyright", icon: Megaphone, desc: "Teks copyright + tahun." },
+                                                                    innerSectionBlock,
+                                                                ],
+                                                                sidebar: [],
+                                                            },
+                                                        };
+                                                        const footerThemeKey = (activeTheme && FOOTER_WIDGET_GROUPS[activeTheme]) ? activeTheme : 'classic';
+                                                        
+                                                        const headerGroups = {
+                                                            main: [
+                                                                { type: "header_logo", label: "Logo", icon: Layout, desc: "Logo atau nama situs." },
+                                                                { type: "header_menu_primary", label: "Menu Primary", icon: List, desc: "Menu lokasi Primary." },
+                                                                { type: "header_menu_secondary", label: "Menu Secondary", icon: List, desc: "Menu lokasi Secondary." },
+                                                                { type: "header_search", label: "Search", icon: Grid, desc: "Tombol search." },
+                                                                { type: "header_theme_toggle", label: "Theme Toggle", icon: Grid, desc: "Tombol ganti tema." },
+                                                                { type: "header_login", label: "Tombol Masuk", icon: Megaphone, desc: "Tombol login/masuk." },
+                                                                { type: "header_mobile_menu_toggle", label: "Hamburger Menu (Mobile)", icon: List, desc: "Tombol hamburger untuk membuka menu off-canvas di mobile." },
+                                                                { type: "ad_banner", label: "Iklan Banner", icon: Megaphone, desc: "Banner iklan dari Manajemen Iklan (posisi: HEADER)." },
+                                                                innerSectionBlock,
+                                                            ],
+                                                            sidebar: [],
+                                                        };
+
                                                         return (
                                                             <div className="space-y-10">
-                                                                {currentContext === 'home' ? (
+                                                                {builderLocation === 'header' ? (
+                                                                    <div>
+                                                                        <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                            <div className="w-1.5 h-5 bg-[var(--accent)] rounded-full"></div>
+                                                                            Elemen Header
+                                                                        </h4>
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                                                            {(headerGroups.main as WidgetDefinition[]).map((widget) => {
+                                                                                const Icon = widget.icon;
+                                                                                return (
+                                                                                    <button 
+                                                                                        key={widget.type}
+                                                                                        onClick={(e) => { e.stopPropagation(); handleAddChild(widget.type!, widget.label, colIndex); }}
+                                                                                        className="flex flex-col items-start p-5 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                    >
+                                                                                        <div className={`p-3.5 rounded-xl mb-4 ${widget.isSpecial ? 'bg-[var(--accent-subtle)] text-[var(--accent)]' : 'bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors'}`}>
+                                                                                            <Icon size={28} />
+                                                                                        </div>
+                                                                                        <span className="font-bold text-lg text-[var(--fg-primary)] mb-2 group-hover:text-[var(--accent)] transition-colors">{widget.label}</span>
+                                                                                        <span className="text-sm text-[var(--fg-muted)] leading-relaxed">{widget.desc}</span>
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                ) : builderLocation === 'footer' ? (
+                                                                    <div>
+                                                                        <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                            <div className="w-1.5 h-5 bg-[var(--accent)] rounded-full"></div>
+                                                                            Elemen Footer
+                                                                        </h4>
+                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                                                            {(FOOTER_WIDGET_GROUPS[footerThemeKey].main as WidgetDefinition[]).map((widget) => {
+                                                                                const Icon = widget.icon;
+                                                                                return (
+                                                                                    <button 
+                                                                                        key={widget.type}
+                                                                                        onClick={(e) => { e.stopPropagation(); handleAddChild(widget.type!, widget.label, colIndex); }}
+                                                                                        className="flex flex-col items-start p-5 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                    >
+                                                                                        <div className={`p-3.5 rounded-xl mb-4 ${widget.isSpecial ? 'bg-[var(--accent-subtle)] text-[var(--accent)]' : 'bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors'}`}>
+                                                                                            <Icon size={28} />
+                                                                                        </div>
+                                                                                        <span className="font-bold text-lg text-[var(--fg-primary)] mb-2 group-hover:text-[var(--accent)] transition-colors">{widget.label}</span>
+                                                                                        <span className="text-sm text-[var(--fg-muted)] leading-relaxed">{widget.desc}</span>
+                                                                                    </button>
+                                                                                );
+                                                                            })}
+                                                                        </div>
+                                                                    </div>
+                                                                ) : currentContext === 'home' || builderLocation === 'archive' ? (
                                                                     <>
                                                                         {/* Section 1: Widget Utama */}
                                                                         <div>
                                                                             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-gray-200 pb-2">
                                                                                 <div className="w-1.5 h-5 bg-blue-600 rounded-full"></div>
-                                                                                Widget Utama (Main Content)
+                                                                                {builderLocation === 'archive' ? 'Widget Arsip' : 'Widget Utama (Main Content)'}
                                                                             </h4>
                                                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                                                                {groups.main.map((widget: WidgetDefinition) => {
+                                                                                {(builderLocation === 'archive' ? archiveWidgetGroups.main : groups.main).map((widget: WidgetDefinition) => {
                                                                                     const Icon = widget.icon;
                                                                                     const widgetType = widget.id ?? widget.type;
                                                                                     if (!widgetType) return null;
@@ -636,7 +774,7 @@ function SectionBlock({
                                                                                 Widget Sidebar & Tambahan
                                                                             </h4>
                                                                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                                                                {groups.sidebar.map((widget: WidgetDefinition) => {
+                                                                                {(builderLocation === 'archive' ? archiveWidgetGroups.support : groups.sidebar).map((widget: WidgetDefinition) => {
                                                                                     const Icon = widget.icon;
                                                                                     const widgetType = widget.id ?? widget.type;
                                                                                     if (!widgetType) return null;

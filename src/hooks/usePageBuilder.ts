@@ -899,6 +899,16 @@ export function usePageBuilder(location: PageLocation = "home") {
       updateSectionConfig(getSectionResponsiveKey(baseKey), value);
   }, [getSectionResponsiveKey, updateSectionConfig]);
 
+  const updateChildTitle = useCallback((newTitle: string) => {
+      if (!editingChild) return;
+      setBlocksWithHistory(prev => {
+          const { found, newBlocks } = updateBlockRecursive(prev, editingChild.childId, (block) => {
+              return { ...block, title: newTitle };
+          });
+          return found ? newBlocks : prev;
+      });
+  }, [editingChild, setBlocksWithHistory, updateBlockRecursive]);
+
   async function handleSave() {
     setLoading(true);
     try {
@@ -1100,19 +1110,11 @@ export function usePageBuilder(location: PageLocation = "home") {
       updateChildConfig: updateChildConfigState,
       getConfigValue,
       updateChildResponsiveConfig,
+      updateChildTitle,
       updateSectionConfig,
       getSectionConfigValue,
       updateSectionResponsiveConfig,
       handleSave,
-      onUpdateTitle: (newTitle: string) => {
-        if (!editingChild) return;
-        setBlocksWithHistory(prev => {
-            const { found, newBlocks } = updateBlockRecursive(prev, editingChild.childId, (block) => {
-                return { ...block, title: newTitle };
-            });
-            return found ? newBlocks : prev;
-        });
-      },
       undo,
       redo,
       canUndo: history.past.length > 0,

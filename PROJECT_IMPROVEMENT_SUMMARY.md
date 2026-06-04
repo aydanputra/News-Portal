@@ -55,8 +55,8 @@ Saya akan menandai item menjadi selesai setelah benar-benar diimplementasikan da
   - [x] Tambah index trigram (pg_trgm) untuk mempercepat pencarian `contains/ILIKE`.
 
 ## Phase 4 — Maintainability (Medium)
-- [ ] Deduplicate komponen Page Builder:
-  - [ ] Satukan `src/app/admin/homepage/components/*` dan `src/components/admin/page-builder/*`.
+- [x] Deduplicate komponen Page Builder:
+  - [x] Satukan `src/app/admin/homepage/components/*` dan `src/components/admin/page-builder/*`.
   - [x] Dedup types (homepage → re-export ke shared).
   - [x] Dedup komponen yang identik (ColorPicker, SectionPicker, LegacyBlock) via re-export.
 - [ ] Tingkatkan type-safety:

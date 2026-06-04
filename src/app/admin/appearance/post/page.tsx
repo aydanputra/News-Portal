@@ -7,8 +7,8 @@ import EditChildModal from "@/components/admin/page-builder/EditChildModal";
 import EditSectionModal from "@/components/admin/page-builder/EditSectionModal";
 import PreviewPanel from "@/components/admin/page-builder/PreviewPanel";
 import { usePageBuilder } from "@/hooks/usePageBuilder";
-import ThemeStyles from "@/themes/classic/components/ThemeStyles";
 import { useSidebarSourceBlocks } from "@/hooks/useSidebarSourceBlocks";
+import ThemeStyles from "@/themes/classic/components/ThemeStyles";
 
 export default function PostBuilderPage() {
   const { state, actions } = usePageBuilder("post");
@@ -116,6 +116,7 @@ export default function PostBuilderPage() {
           </div>
 
           <PreviewPanel
+              builderLocation="post"
               blocks={state.blocks}
               updateBlockConfig={actions.updateBlockConfig}
               deleteBlock={actions.deleteBlock}
@@ -135,9 +136,9 @@ export default function PostBuilderPage() {
               bodyFont={state.bodyFont}
               activeDeviceTab={state.activeDeviceTab}
               setShowSectionPicker={actions.setShowSectionPicker}
-              context="post"
               activeTheme={state.activeTheme}
               moveBlock={actions.moveBlock}
+              duplicateBlock={actions.duplicateBlock}
               deleteBlockById={actions.deleteBlockById}
               updateBlockConfigById={actions.updateBlockConfigById}
               addChildBlockById={actions.addChildBlockById}
@@ -210,9 +211,10 @@ export default function PostBuilderPage() {
           </div>
 
           {/* Edit Child Modal */}
-          <EditChildModal 
-            child={actions.getEditingChildBlock()}
-            isOpen={!!state.editingChild}
+          <EditChildModal
+        builderLocation="post"
+        child={state.editingChild ? (state.blocks[state.editingChild.parentIndex]?.config?.children?.find((c: any) => c.id === state.editingChild?.childId) || null) : null}
+        isOpen={!!state.editingChild}
             onClose={() => actions.setEditingChild(null)}
             categories={state.categories}
             tags={state.tags}
@@ -220,10 +222,10 @@ export default function PostBuilderPage() {
             setActiveEditTab={actions.setActiveEditTab}
             activeDeviceTab={state.activeDeviceTab}
             setActiveDeviceTab={actions.setActiveDeviceTab}
-            updateChildConfig={actions.updateChildConfig}
-            updateChildResponsiveConfig={actions.updateChildResponsiveConfig}
-            getConfigValue={actions.getConfigValue}
-            onUpdateTitle={actions.onUpdateTitle}
+            updateChildConfig={(key, value) => actions.updateChildConfig(key, value)}
+        updateChildResponsiveConfig={(key, value) => actions.updateChildResponsiveConfig(key, value)}
+        getConfigValue={(child, key) => actions.getConfigValue(child, key)}
+        onUpdateTitle={(newTitle) => actions.updateChildTitle(newTitle)}
             globalSettings={{
                 primaryColor: state.primaryColor,
                 headingColor: state.headingColor,
@@ -234,17 +236,17 @@ export default function PostBuilderPage() {
 
           {/* Edit Section Modal */}
           <EditSectionModal 
-            context="post"
-            section={actions.getEditingSectionBlock() || undefined}
+            builderLocation="post"
+            section={state.editingSectionId ? (state.blocks.find(b => b.id === state.editingSectionId) || state.blocks.flatMap(b => b.config?.children || []).find(b => b.id === state.editingSectionId)) : null}
             isOpen={!!state.editingSectionId}
             onClose={() => actions.setEditingSectionId(null)}
             activeSectionTab={state.activeSectionTab}
             setActiveSectionTab={actions.setActiveSectionTab}
-            activeSectionDeviceTab={state.activeSectionDeviceTab}
-            setActiveSectionDeviceTab={actions.setActiveSectionDeviceTab}
-            updateSectionConfig={actions.updateSectionConfig}
-            updateSectionResponsiveConfig={actions.updateSectionResponsiveConfig}
-            getSectionConfigValue={actions.getSectionConfigValue}
+            activeSectionDeviceTab={state.activeDeviceTab}
+            setActiveSectionDeviceTab={actions.setActiveDeviceTab}
+            updateSectionConfig={(key, value) => actions.updateSectionConfig(key, value)}
+        updateSectionResponsiveConfig={(key, value) => actions.updateSectionResponsiveConfig(key, value)}
+        getSectionConfigValue={(key) => actions.getSectionConfigValue(key)}
           />
         </div>
       );

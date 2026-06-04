@@ -1,9 +1,9 @@
 "use client";
 
 import { Monitor, Redo2, RotateCcw, Save, Smartphone, Tablet, Undo2 } from "lucide-react";
-import EditChildModal from "../../homepage/components/EditChildModal";
-import EditSectionModal from "../../homepage/components/EditSectionModal";
-import PreviewPanel from "../../homepage/components/PreviewPanel";
+import EditChildModal from "@/components/admin/page-builder/EditChildModal";
+import EditSectionModal from "@/components/admin/page-builder/EditSectionModal";
+import PreviewPanel from "@/components/admin/page-builder/PreviewPanel";
 import SectionPicker from "@/components/admin/page-builder/SectionPicker";
 import { useHeaderBuilder } from "./useHeaderBuilder";
 
@@ -83,7 +83,6 @@ export default function HeaderAppearancePage() {
         setActiveSectionTab={actions.setActiveSectionTab}
         accentColor={state.accentColor}
         setShowSectionPicker={actions.setShowSectionPicker}
-        backgroundColor={state.backgroundColor}
         moveBlock={actions.moveBlock}
         duplicateBlock={actions.duplicateBlock}
         moveChildBlock={actions.moveChildBlock}

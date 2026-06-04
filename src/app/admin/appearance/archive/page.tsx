@@ -1,9 +1,9 @@
 "use client";
 
 import { Monitor, Redo2, RotateCcw, Save, Smartphone, Tablet, Undo2 } from "lucide-react";
-import EditChildModal from "@/app/admin/homepage/components/EditChildModal";
-import EditSectionModal from "@/app/admin/homepage/components/EditSectionModal";
-import PreviewPanel from "@/app/admin/homepage/components/PreviewPanel";
+import EditChildModal from "@/components/admin/page-builder/EditChildModal";
+import EditSectionModal from "@/components/admin/page-builder/EditSectionModal";
+import PreviewPanel from "@/components/admin/page-builder/PreviewPanel";
 import SectionPicker from "@/components/admin/page-builder/SectionPicker";
 import { useArchiveBuilder } from "./useArchiveBuilder";
 import { useSidebarSourceBlocks } from "@/hooks/useSidebarSourceBlocks";
@@ -89,12 +89,16 @@ export default function ArchiveAppearancePage() {
         addChildBlock={actions.addChildBlock}
         tags={state.tags}
         accentColor={state.accentColor}
+        headingColor={state.headingColor}
+        metaColor={state.metaColor}
+        excerptColor={state.excerptColor}
+        headingFont={state.headingFont}
+        bodyFont={state.bodyFont}
         moveBlock={actions.moveBlock}
         duplicateBlock={actions.duplicateBlock}
         setShowSectionPicker={actions.setShowSectionPicker}
-        homeContainerWidth={state.homeContainerWidth}
-        homeCustomContainerWidth={state.homeCustomContainerWidth}
-        backgroundColor={state.backgroundColor}
+        containerWidth={state.homeContainerWidth}
+        customContainerWidth={state.homeCustomContainerWidth}
         deleteBlockById={actions.deleteBlockById}
         updateBlockConfigById={actions.updateBlockConfigById}
         addChildBlockById={actions.addChildBlockById}
