@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { themeOptions } from "@/lib/theme-registry";
@@ -73,6 +73,20 @@ export default function SettingsPage() {
   // Toast State
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
+  const [systemLoading, setSystemLoading] = useState(false);
+  const [systemError, setSystemError] = useState<string | null>(null);
+  const [systemVersion, setSystemVersion] = useState<{
+    currentVersion: string;
+    latestVersion: string | null;
+    updateAvailable: boolean;
+    changelogUrl: string | null;
+    releasedAt: string | null;
+  } | null>(null);
+  const [systemTools, setSystemTools] = useState<{
+    allowlistActive: boolean;
+    enabledTools: string[];
+  } | null>(null);
+
   useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 3000);
@@ -111,6 +125,52 @@ export default function SettingsPage() {
         setAiApiKeySource((data.aiApiKeySource as any) || "none");
       });
   }, []);
+
+  const loadSystemStatus = useCallback(async () => {
+    setSystemLoading(true);
+    setSystemError(null);
+    try {
+      const [versionRes, toolsRes] = await Promise.all([
+        fetch("/api/admin/version", { cache: "no-store" }),
+        fetch("/api/admin/tools/enabled", { cache: "no-store" }),
+      ]);
+
+      const versionJson = await versionRes.json().catch(() => null);
+      const toolsJson = await toolsRes.json().catch(() => null);
+
+      let nextError: string | null = null;
+      if (!versionRes.ok) {
+        nextError = versionJson?.error || "Gagal memuat status versi";
+      } else {
+        setSystemVersion({
+          currentVersion: String(versionJson?.currentVersion || "unknown"),
+          latestVersion: typeof versionJson?.latestVersion === "string" ? versionJson.latestVersion : null,
+          updateAvailable: Boolean(versionJson?.updateAvailable),
+          changelogUrl: typeof versionJson?.changelogUrl === "string" ? versionJson.changelogUrl : null,
+          releasedAt: typeof versionJson?.releasedAt === "string" ? versionJson.releasedAt : null,
+        });
+      }
+
+      if (!toolsRes.ok) {
+        nextError = nextError || toolsJson?.error || "Gagal memuat status tools";
+      } else {
+        setSystemTools({
+          allowlistActive: Boolean(toolsJson?.allowlistActive),
+          enabledTools: Array.isArray(toolsJson?.enabledTools) ? toolsJson.enabledTools.map((x: any) => String(x)) : [],
+        });
+      }
+      setSystemError(nextError);
+    } catch {
+      setSystemError("Gagal memuat status sistem");
+    } finally {
+      setSystemLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== "system") return;
+    loadSystemStatus();
+  }, [activeTab, loadSystemStatus]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -188,7 +248,94 @@ export default function SettingsPage() {
       <h1 className="font-display text-2xl md:text-3xl font-bold text-[var(--fg-primary)] mb-6">Pengaturan Website</h1>
 
       <form onSubmit={handleSave} className="card p-6 space-y-6">
-        {activeTab === "insert-code" ? (
+        {activeTab === "system" ? (
+          <>
+            <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="font-bold text-[var(--fg-primary)] mb-1">Status Sistem</h2>
+                  <p className="text-sm text-[var(--fg-muted)]">
+                    Informasi versi CMS, status update, dan tools yang aktif pada instance website ini.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={loadSystemStatus}
+                  disabled={systemLoading}
+                  className="btn btn-secondary"
+                >
+                  {systemLoading ? "Memuat..." : "Muat Ulang"}
+                </button>
+              </div>
+            </div>
+
+            {systemError && (
+              <div className="rounded-xl px-4 py-3 text-sm font-semibold bg-red-50 text-red-700 border border-red-200">
+                {systemError}
+              </div>
+            )}
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="card p-5">
+                <div className="font-bold text-[var(--fg-primary)]">Versi CMS</div>
+                <div className="mt-3 text-sm text-[var(--fg-muted)] space-y-1">
+                  <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Versi saat ini:</span>{" "}
+                    <span className="font-bold text-[var(--fg-primary)]">{systemVersion?.currentVersion || "unknown"}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Versi terbaru:</span>{" "}
+                    <span className="font-bold text-[var(--fg-primary)]">{systemVersion?.latestVersion || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Status:</span>{" "}
+                    {systemVersion?.updateAvailable ? (
+                      <span className="font-bold text-[var(--accent)]">Update tersedia</span>
+                    ) : (
+                      <span className="font-bold text-emerald-700">Terbaru</span>
+                    )}
+                  </div>
+                  {systemVersion?.changelogUrl ? (
+                    <div className="pt-2">
+                      <a
+                        href={systemVersion.changelogUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--accent)] font-bold hover:underline"
+                      >
+                        Lihat rilis
+                      </a>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="card p-5">
+                <div className="font-bold text-[var(--fg-primary)]">Tools Aktif</div>
+                <div className="mt-3 text-sm text-[var(--fg-muted)] space-y-2">
+                  <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Allowlist aktif:</span>{" "}
+                    <span className="font-bold text-[var(--fg-primary)]">{systemTools?.allowlistActive ? "Ya" : "Tidak"}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Enabled tools:</span>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(systemTools?.enabledTools || []).length ? (
+                        (systemTools?.enabledTools || []).map((t) => (
+                          <span key={t} className="px-2 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--fg-primary)] font-semibold text-xs">
+                            {t}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-xs text-[var(--fg-muted)]">Tidak ada</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : activeTab === "insert-code" ? (
           <>
             <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4">
               <h2 className="font-bold text-[var(--fg-primary)] mb-1">Insert Code</h2>
@@ -1069,11 +1216,13 @@ export default function SettingsPage() {
           </>
         )}
 
-        <div className="pt-4 border-t border-[var(--border)]">
-          <button type="submit" disabled={loading} className="btn btn-primary w-full">
-            {loading ? "Menyimpan..." : "Simpan Pengaturan"}
-          </button>
-        </div>
+        {activeTab !== "system" && (
+          <div className="pt-4 border-t border-[var(--border)]">
+            <button type="submit" disabled={loading} className="btn btn-primary w-full">
+              {loading ? "Menyimpan..." : "Simpan Pengaturan"}
+            </button>
+          </div>
+        )}
       </form>
 
       {/* Media Modal */}

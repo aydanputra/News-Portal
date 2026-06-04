@@ -104,7 +104,7 @@ export default function Sidebar() {
 
   const rawTab = searchParams.get("tab");
   const settingsTab = pathname === "/admin/settings" 
-    ? (rawTab === "insert-code" || rawTab === "notifications" ? rawTab : "general") 
+    ? (rawTab === "insert-code" || rawTab === "notifications" || rawTab === "system" ? rawTab : "general") 
     : "general";
 
   const toolsEnabledSet = useMemo(() => new Set(toolsFlags?.enabledTools || []), [toolsFlags]);
@@ -230,6 +230,7 @@ export default function Sidebar() {
                 <NavItem href="/admin/settings" label="Umum" active={pathname === "/admin/settings" && settingsTab === "general"} size="sm" />
                 <NavItem href="/admin/settings?tab=notifications" label="Notifikasi" active={pathname === "/admin/settings" && settingsTab === "notifications"} size="sm" />
                 <NavItem href="/admin/settings?tab=insert-code" label="Insert Code" active={pathname === "/admin/settings" && settingsTab === "insert-code"} size="sm" />
+                <NavItem href="/admin/settings?tab=system" label="Status Sistem" active={pathname === "/admin/settings" && settingsTab === "system"} size="sm" />
                 <NavItem href="/admin/settings/menus" label="Menu" active={pathname === "/admin/settings/menus"} size="sm" />
               </div>
             )}
