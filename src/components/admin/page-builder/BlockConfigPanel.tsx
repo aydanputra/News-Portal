@@ -318,6 +318,7 @@ export default function BlockConfigPanel({
 
     // Sidebar types
     const currentSidebarWidgetType = child.type === "sidebar_widget" ? getConfigString("widgetType", "popular_posts") : "";
+    const isSidebarPostListType = currentSidebarWidgetType === "popular_posts" || currentSidebarWidgetType === "recent_posts";
     const isSidebarAdSlotType = currentSidebarWidgetType === "ad_slot";
 
     // Ad Banner loading
@@ -428,9 +429,9 @@ export default function BlockConfigPanel({
         setShowMediaModal(true);
     };
 
-    const handleMediaSelect = (file: { url: string }) => {
+    const handleMediaSelect = (file: { fileUrl: string }) => {
         if (mediaTargetKey) {
-            updateChildConfig(mediaTargetKey, file.url);
+            updateChildConfig(mediaTargetKey, file.fileUrl);
         }
         setShowMediaModal(false);
         setMediaTargetKey(null);
@@ -4452,7 +4453,6 @@ export default function BlockConfigPanel({
             {/* Media Library Modal */}
             {showMediaModal && (
                 <MediaLibraryModal
-                    isOpen={showMediaModal}
                     onClose={() => setShowMediaModal(false)}
                     onSelect={handleMediaSelect}
                 />

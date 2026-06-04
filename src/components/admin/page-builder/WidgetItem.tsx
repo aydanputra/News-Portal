@@ -363,7 +363,7 @@ function WidgetItem({
     const renderContent = () => {
         if (context === "post") {
             const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
-            const limitValue = getResponsiveConfig("limit");
+            const limitValue = getResponsiveValue("limit");
             const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
             return (
                 <div className="bg-[var(--bg-base)] border border-[var(--border)] rounded-lg px-4 py-3">
@@ -408,7 +408,7 @@ function WidgetItem({
                 accentColor: safeAccent
             };
             
-            const limitValue = getResponsiveConfig("limit");
+            const limitValue = getResponsiveValue("limit");
             const limit = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 8)) : 6;
 
             if (child.type === "tag_cloud") {
@@ -438,7 +438,7 @@ function WidgetItem({
         }
         
         // --- 2. POST COMPONENTS (Shared with Public Renderer) ---
-        const limitValue = getResponsiveConfig("limit");
+        const limitValue = getResponsiveValue("limit");
         const relatedCount = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 6)) : 3;
 
         if (isPostWidgetType) {
@@ -519,7 +519,7 @@ function WidgetItem({
 
     if (context === "post" || isArchiveWidget) {
         const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
-        const limitValue = getResponsiveConfig("limit");
+        const limitValue = getResponsiveValue("limit");
         const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
         const badgeClass = widgetBadgeClassMap[child.type] || "bg-gray-500";
         const displayTitle = widgetLabelMap[child.type] || child.title || child.type;

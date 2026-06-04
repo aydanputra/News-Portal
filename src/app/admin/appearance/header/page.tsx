@@ -83,7 +83,6 @@ export default function HeaderAppearancePage() {
         setActiveSectionTab={actions.setActiveSectionTab}
         accentColor={state.accentColor}
         setShowSectionPicker={actions.setShowSectionPicker}
-        backgroundColor={state.backgroundColor}
         moveBlock={actions.moveBlock}
         duplicateBlock={actions.duplicateBlock}
         moveChildBlock={actions.moveChildBlock}

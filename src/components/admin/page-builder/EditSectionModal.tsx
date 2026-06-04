@@ -3,6 +3,7 @@ import { Monitor, Smartphone, Tablet, X } from "lucide-react";
 import SectionConfigPanel from "./SectionConfigPanel";
 import { Block } from "./types";
 import { ConfigValue } from "@/lib/page-builder-config";
+import { SidebarSourceLocation } from "@/lib/sidebar-reference";
 
 interface EditSectionModalProps {
   builderLocation?: "home" | "archive" | "header" | "footer" | "post";
@@ -35,6 +36,11 @@ export default function EditSectionModal({
   const activeDeviceLabel = activeSectionDeviceTab.toUpperCase();
   const sectionLabel = section.type === "section" ? "Inner Section" : "Section";
 
+  // Cast or handle builderLocation for SectionConfigPanel
+  const sidebarSourceLocation = (builderLocation === "home" || builderLocation === "post" || builderLocation === "archive")
+    ? builderLocation as SidebarSourceLocation
+    : undefined;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
         <div className="bg-[var(--bg-elevated)] w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden h-[90vh] max-h-[90vh] flex flex-col border border-[var(--border)] animate-in zoom-in-95 duration-200">
@@ -47,7 +53,7 @@ export default function EditSectionModal({
             </div>
 
             <SectionConfigPanel 
-                builderLocation={builderLocation}
+                builderLocation={sidebarSourceLocation}
                 section={section}
                 activeSectionTab={activeSectionTab}
                 setActiveSectionTab={setActiveSectionTab}

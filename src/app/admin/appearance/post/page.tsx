@@ -211,10 +211,10 @@ export default function PostBuilderPage() {
           </div>
 
           {/* Edit Child Modal */}
-          <EditChildModal 
-            builderLocation="post"
-            child={state.editingChild ? state.blocks[state.editingChild.parentIndex]?.config?.children?.find((c: any) => c.id === state.editingChild?.childId) : null}
-            isOpen={!!state.editingChild}
+          <EditChildModal
+        builderLocation="post"
+        child={state.editingChild ? (state.blocks[state.editingChild.parentIndex]?.config?.children?.find((c: any) => c.id === state.editingChild?.childId) || null) : null}
+        isOpen={!!state.editingChild}
             onClose={() => actions.setEditingChild(null)}
             categories={state.categories}
             tags={state.tags}
@@ -222,10 +222,10 @@ export default function PostBuilderPage() {
             setActiveEditTab={actions.setActiveEditTab}
             activeDeviceTab={state.activeDeviceTab}
             setActiveDeviceTab={actions.setActiveDeviceTab}
-            updateChildConfig={(key, value) => state.editingChild && actions.updateChildConfig(state.editingChild.parentIndex, state.editingChild.childId, key, value)}
-            updateChildResponsiveConfig={(key, value) => state.editingChild && actions.updateChildResponsiveConfig(state.editingChild.parentIndex, state.editingChild.childId, key, value)}
-            getConfigValue={(child, key) => actions.getChildConfigValue(child, key)}
-            onUpdateTitle={(newTitle) => state.editingChild && actions.updateChildTitle(state.editingChild.parentIndex, state.editingChild.childId, newTitle)}
+            updateChildConfig={(key, value) => actions.updateChildConfig(key, value)}
+        updateChildResponsiveConfig={(key, value) => actions.updateChildResponsiveConfig(key, value)}
+        getConfigValue={(child, key) => actions.getConfigValue(child, key)}
+        onUpdateTitle={(newTitle) => actions.updateChildTitle(newTitle)}
             globalSettings={{
                 primaryColor: state.primaryColor,
                 headingColor: state.headingColor,
@@ -244,9 +244,9 @@ export default function PostBuilderPage() {
             setActiveSectionTab={actions.setActiveSectionTab}
             activeSectionDeviceTab={state.activeDeviceTab}
             setActiveSectionDeviceTab={actions.setActiveDeviceTab}
-            updateSectionConfig={(key, value) => state.editingSectionId && actions.updateBlockConfigById(state.editingSectionId, key, value)}
-            updateSectionResponsiveConfig={(key, value) => state.editingSectionId && actions.updateBlockConfigById(state.editingSectionId, key, value)}
-            getSectionConfigValue={(key) => state.editingSectionId ? actions.getBlockConfigValueById(state.editingSectionId, key) : undefined}
+            updateSectionConfig={(key, value) => actions.updateSectionConfig(key, value)}
+        updateSectionResponsiveConfig={(key, value) => actions.updateSectionResponsiveConfig(key, value)}
+        getSectionConfigValue={(key) => actions.getSectionConfigValue(key)}
           />
         </div>
       );

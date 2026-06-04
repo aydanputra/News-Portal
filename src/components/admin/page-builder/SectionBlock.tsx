@@ -694,7 +694,7 @@ function SectionBlock({
                                                                             Elemen Header
                                                                         </h4>
                                                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                                                            {headerGroups.main.map((widget) => {
+                                                                            {(headerGroups.main as WidgetDefinition[]).map((widget) => {
                                                                                 const Icon = widget.icon;
                                                                                 return (
                                                                                     <button 
@@ -719,7 +719,7 @@ function SectionBlock({
                                                                             Elemen Footer
                                                                         </h4>
                                                                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                                                            {FOOTER_WIDGET_GROUPS[footerThemeKey].main.map((widget) => {
+                                                                            {(FOOTER_WIDGET_GROUPS[footerThemeKey].main as WidgetDefinition[]).map((widget) => {
                                                                                 const Icon = widget.icon;
                                                                                 return (
                                                                                     <button 

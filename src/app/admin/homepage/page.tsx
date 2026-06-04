@@ -135,7 +135,6 @@ export default function HomepageBuilder() {
               setShowSectionPicker={actions.setShowSectionPicker}
               homeContainerWidth={state.homeContainerWidth}
               homeCustomContainerWidth={state.homeCustomContainerWidth}
-              backgroundColor={state.backgroundColor}
 
               // Recursive Actions
               deleteBlockById={actions.deleteBlockById}
