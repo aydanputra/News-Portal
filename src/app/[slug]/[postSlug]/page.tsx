@@ -698,6 +698,7 @@ export async function generateMetadata(
   const ogImage =
     ogImageUrl
       ? [{
+          url: ogImageUrl,
           width: typeof (post as any)?.featuredImage?.width === "number" ? (post as any).featuredImage.width : undefined,
           height: typeof (post as any)?.featuredImage?.height === "number" ? (post as any).featuredImage.height : undefined,
           alt: ogImageAlt,
