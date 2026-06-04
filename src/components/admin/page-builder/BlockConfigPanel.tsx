@@ -1,13 +1,17 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
-import { FileText, Palette, Copy } from "lucide-react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { FileText, Palette, Monitor, Tablet, Smartphone, Upload, X, Copy, Image as ImageIcon } from "lucide-react";
 import { Block, Category, Tag } from "./types";
 import CustomColorPicker from "./ColorPicker";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 import { ConfigValue, createConfigReaders } from "@/lib/page-builder-config";
+import MediaLibraryModal from "@/app/admin/components/MediaLibraryModal";
 
 const VISUAL_ONLY_WIDGETS = ['post_breadcrumb', 'post_title', 'post_meta', 'post_featured_image', 'post_content', 'post_navigation', 'post_subtitle', 'post_share', 'post_comments', 'post_tags', 'post_author_box'];
 const ActiveDeviceTabContext = createContext<'desktop' | 'tablet' | 'mobile'>('desktop');
 
 interface BlockConfigPanelProps {
+    builderLocation?: "home" | "archive" | "header" | "footer" | "post";
     child: Block;
     categories: Category[];
     tags: Tag[];
@@ -24,6 +28,11 @@ interface BlockConfigPanelProps {
         headingColor: string;
         metaColor: string;
         excerptColor: string;
+        homeWidgetTitleColor?: string;
+        homeNewsTitleColor?: string;
+        homeHoverColor?: string;
+        homeExcerptColor?: string;
+        homeMetaColor?: string;
     };
 }
 
@@ -34,12 +43,16 @@ type AdOption = {
     isActive?: boolean | null;
 };
 
-// Helper for Color Inputs (Wrapper around CustomColorPicker)
 const BaseColorPicker = ({ 
     label, 
     configKey, 
     globalDefault, 
     isResponsive = true,
+    containerClassName,
+    labelClassName,
+    triggerClassName,
+    swatchClassName,
+    inputClassName,
     child,
     getConfigValue,
     updateChildResponsiveConfig,
@@ -49,6 +62,11 @@ const BaseColorPicker = ({
     configKey: string, 
     globalDefault?: string, 
     isResponsive?: boolean,
+    containerClassName?: string,
+    labelClassName?: string,
+    triggerClassName?: string,
+    swatchClassName?: string,
+    inputClassName?: string,
     child: Block,
     getConfigValue: (child: Block, key: string) => unknown,
     updateChildResponsiveConfig: (key: string, value: ConfigValue) => void,
@@ -68,6 +86,11 @@ const BaseColorPicker = ({
             value={value}
             onChange={handleChange}
             globalDefault={globalDefault}
+            containerClassName={containerClassName}
+            labelClassName={labelClassName}
+            triggerClassName={triggerClassName}
+            swatchClassName={swatchClassName}
+            inputClassName={inputClassName}
         />
     );
 };
@@ -78,6 +101,11 @@ const ColorPicker = ({
     globalDefault,
     isResponsive = true,
     activeDeviceTab,
+    containerClassName,
+    labelClassName,
+    triggerClassName,
+    swatchClassName,
+    inputClassName,
     child,
     getConfigValue,
     updateChildResponsiveConfig,
@@ -88,6 +116,11 @@ const ColorPicker = ({
     globalDefault?: string,
     isResponsive?: boolean,
     activeDeviceTab?: 'desktop' | 'tablet' | 'mobile',
+    containerClassName?: string,
+    labelClassName?: string,
+    triggerClassName?: string,
+    swatchClassName?: string,
+    inputClassName?: string,
     child: Block,
     getConfigValue: (child: Block, key: string) => unknown,
     updateChildResponsiveConfig: (key: string, value: ConfigValue) => void,
@@ -102,6 +135,11 @@ const ColorPicker = ({
             configKey={configKey}
             globalDefault={globalDefault}
             isResponsive={isResponsive}
+            containerClassName={containerClassName}
+            labelClassName={labelClassName}
+            triggerClassName={triggerClassName}
+            swatchClassName={swatchClassName}
+            inputClassName={inputClassName}
             child={child}
             getConfigValue={getConfigValue}
             updateChildResponsiveConfig={updateChildResponsiveConfig}
@@ -110,7 +148,146 @@ const ColorPicker = ({
     );
 };
 
+type FontFamilyOption = {
+    label: string;
+    value: string;
+    previewFamily?: string;
+};
+
+const FONT_FAMILY_OPTIONS: FontFamilyOption[] = [
+    { label: "Default", value: "" },
+    { label: "Body (Theme)", value: "var(--font-body)", previewFamily: "var(--font-body)" },
+    { label: "Display (Theme)", value: "var(--font-display)", previewFamily: "var(--font-display)" },
+    { label: "Inter", value: "Inter, system-ui, sans-serif", previewFamily: "Inter, system-ui, sans-serif" },
+    { label: "Sora", value: "Sora, system-ui, sans-serif", previewFamily: "Sora, system-ui, sans-serif" },
+    { label: "System Sans", value: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif" },
+    { label: "System Serif", value: "ui-serif, Georgia, Cambria, Times New Roman, Times, serif" },
+    { label: "System Mono", value: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace" },
+    { label: "Arial", value: "Arial, Helvetica, sans-serif", previewFamily: "Arial, Helvetica, sans-serif" },
+    { label: "Helvetica", value: "Helvetica, Arial, sans-serif", previewFamily: "Helvetica, Arial, sans-serif" },
+    { label: "Georgia", value: "Georgia, serif", previewFamily: "Georgia, serif" },
+    { label: "Times New Roman", value: "Times New Roman, Times, serif", previewFamily: "Times New Roman, Times, serif" },
+    { label: "Courier New", value: "Courier New, Courier, monospace", previewFamily: "Courier New, Courier, monospace" },
+    { label: "Verdana", value: "Verdana, Geneva, sans-serif", previewFamily: "Verdana, Geneva, sans-serif" },
+    { label: "Trebuchet MS", value: "Trebuchet MS, Helvetica, Arial, sans-serif", previewFamily: "Trebuchet MS, Helvetica, Arial, sans-serif" },
+    { label: "Tahoma", value: "Tahoma, Verdana, sans-serif", previewFamily: "Tahoma, Verdana, sans-serif" },
+    { label: "Roboto*", value: "Roboto, system-ui, sans-serif", previewFamily: "Roboto, system-ui, sans-serif" },
+    { label: "Poppins*", value: "Poppins, system-ui, sans-serif", previewFamily: "Poppins, system-ui, sans-serif" },
+    { label: "Montserrat*", value: "Montserrat, system-ui, sans-serif", previewFamily: "Montserrat, system-ui, sans-serif" },
+    { label: "Lato*", value: "Lato, system-ui, sans-serif", previewFamily: "Lato, system-ui, sans-serif" },
+    { label: "Open Sans*", value: "Open Sans, system-ui, sans-serif", previewFamily: "Open Sans, system-ui, sans-serif" },
+    { label: "Nunito*", value: "Nunito, system-ui, sans-serif", previewFamily: "Nunito, system-ui, sans-serif" },
+    { label: "Merriweather*", value: "Merriweather, ui-serif, Georgia, serif", previewFamily: "Merriweather, ui-serif, Georgia, serif" },
+    { label: "Playfair Display*", value: "Playfair Display, ui-serif, Georgia, serif", previewFamily: "Playfair Display, ui-serif, Georgia, serif" },
+];
+
+function FontFamilyPicker({
+    value,
+    onChange,
+    options = FONT_FAMILY_OPTIONS,
+}: {
+    value: string;
+    onChange: (value: string) => void;
+    options?: FontFamilyOption[];
+}) {
+    const [open, setOpen] = useState(false);
+    const [customValue, setCustomValue] = useState("");
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const popoverRef = useRef<HTMLDivElement | null>(null);
+
+    const normalizedValue = typeof value === "string" ? value : "";
+    const selected = useMemo(() => options.find((o) => o.value === normalizedValue) || null, [options, normalizedValue]);
+    const displayLabel = selected?.label || (normalizedValue ? "Custom" : "Default");
+
+    useEffect(() => {
+        setCustomValue(selected ? "" : normalizedValue);
+    }, [normalizedValue, selected]);
+
+    useEffect(() => {
+        const handler = (event: PointerEvent) => {
+            const c = containerRef.current;
+            const p = popoverRef.current;
+            if (!c) return;
+            const path = typeof event.composedPath === "function" ? event.composedPath() : undefined;
+            const insideContainer = path ? path.includes(c) : c.contains(event.target as Node);
+            const insidePopover = p ? (path ? path.includes(p) : p.contains(event.target as Node)) : false;
+            if (!insideContainer && !insidePopover) setOpen(false);
+        };
+        if (open) document.addEventListener("pointerdown", handler, true);
+        return () => document.removeEventListener("pointerdown", handler, true);
+    }, [open]);
+
+    const previewFamily = selected?.previewFamily || selected?.value || normalizedValue || undefined;
+
+    return (
+        <div ref={containerRef} className="relative">
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[var(--accent)] text-[var(--fg-primary)] flex items-center justify-between gap-3"
+                style={{ fontFamily: previewFamily }}
+            >
+                <span className="truncate">{displayLabel}</span>
+                <span className="text-[10px] text-[var(--fg-muted)]">▼</span>
+            </button>
+
+            {open && (
+                <div ref={popoverRef} className="absolute z-50 mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] shadow-lg overflow-hidden">
+                    <div className="max-h-64 overflow-auto">
+                        {options.map((opt) => {
+                            const isActive = opt.value === normalizedValue;
+                            const optFamily = opt.previewFamily || opt.value || undefined;
+                            return (
+                                <button
+                                    key={`${opt.label}_${opt.value}`}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(opt.value);
+                                        setOpen(false);
+                                    }}
+                                    className={`w-full text-left px-3 py-2 text-sm border-b border-[var(--border)] last:border-b-0 hover:bg-[var(--bg-elevated)] ${
+                                        isActive ? "bg-[var(--accent-subtle)] text-[var(--accent)]" : "text-[var(--fg-primary)]"
+                                    }`}
+                                    style={{ fontFamily: optFamily }}
+                                >
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="p-3 border-t border-[var(--border)] bg-[var(--bg-base)]">
+                        <div className="text-[10px] font-medium text-[var(--fg-muted)] mb-1">Custom font-family</div>
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={customValue}
+                                onChange={(e) => setCustomValue(e.target.value)}
+                                className="flex-1 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-2.5 py-2 text-xs outline-none focus:border-[var(--accent)] text-[var(--fg-primary)]"
+                                placeholder="Contoh: Poppins, sans-serif"
+                                style={{ fontFamily: customValue || undefined }}
+                            />
+                            <button
+                                type="button"
+                                className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] text-xs text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]"
+                                onClick={() => {
+                                    onChange(customValue.trim());
+                                    setOpen(false);
+                                }}
+                                disabled={customValue.trim() === ""}
+                            >
+                                Pakai
+                            </button>
+                        </div>
+                        <div className="text-[10px] text-[var(--fg-muted)] mt-2">* Font bertanda * akan tampil jika font tersedia / ter-load di website.</div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function BlockConfigPanel({
+    builderLocation = "post",
     child,
     categories,
     tags,
@@ -123,8 +300,13 @@ export default function BlockConfigPanel({
     onUpdateTitle,
     globalSettings
 }: BlockConfigPanelProps) {
+    const [uploading, setUploading] = useState(false);
+    const [showMediaModal, setShowMediaModal] = useState(false);
+    const [mediaTargetKey, setMediaTargetKey] = useState<string | null>(null);
     const [availableAds, setAvailableAds] = useState<AdOption[]>([]);
     const [loadingAds, setLoadingAds] = useState(false);
+    const [responsiveNumberDrafts, setResponsiveNumberDrafts] = useState<Record<string, string>>({});
+
     const applyToAllDevices = (key: string, value: ConfigValue) => {
         updateChildConfig(key, value);
         updateChildConfig(`tablet${key.charAt(0).toUpperCase() + key.slice(1)}`, value);
@@ -133,12 +315,14 @@ export default function BlockConfigPanel({
     const deviceLabel = activeDeviceTab.toUpperCase();
 
     const { getConfigString, getConfigBool, getConfigForApply } = createConfigReaders(child, getConfigValue);
+
+    // Sidebar types
     const currentSidebarWidgetType = child.type === "sidebar_widget" ? getConfigString("widgetType", "popular_posts") : "";
-    const isSidebarPostListType = currentSidebarWidgetType === "popular_posts" || currentSidebarWidgetType === "recent_posts";
     const isSidebarAdSlotType = currentSidebarWidgetType === "ad_slot";
 
+    // Ad Banner loading
     useEffect(() => {
-        if (child.type !== "ad_banner") return;
+        if (child.type !== "ad_banner" && child.type !== "sidebar_widget") return;
         let cancelled = false;
         const loadAds = async () => {
             setLoadingAds(true);
@@ -167,6 +351,105 @@ export default function BlockConfigPanel({
         }
     }, [child.type, activeEditTab, setActiveEditTab]);
 
+    // Number Input Draft Logic (from Homepage Builder)
+    const getNumberDraftKey = (key: string, scope: "responsive" | "global" = "responsive") => `${child.id}:${scope}:${activeDeviceTab}:${key}`;
+    const getDraftedNumberInputValue = (key: string, fallback = "", scope: "responsive" | "global" = "responsive") => {
+        const draftKey = getNumberDraftKey(key, scope);
+        return Object.prototype.hasOwnProperty.call(responsiveNumberDrafts, draftKey)
+            ? responsiveNumberDrafts[draftKey]
+            : getConfigString(key, fallback);
+    };
+    const commitDraftedNumberInput = (
+        key: string,
+        {
+            scope = "responsive",
+            parser = "int",
+            min,
+            max,
+        }: {
+            scope?: "responsive" | "global";
+            parser?: "int" | "float";
+            min?: number;
+            max?: number;
+        } = {}
+    ) => {
+        const draftKey = getNumberDraftKey(key, scope);
+        const draftValue = responsiveNumberDrafts[draftKey];
+        if (draftValue === "") {
+            if (scope === "responsive") {
+                updateChildResponsiveConfig(key, undefined);
+            } else {
+                updateChildConfig(key, undefined);
+            }
+        } else if (draftValue !== undefined) {
+            const parsed = parser === "float" ? parseFloat(draftValue) : parseInt(draftValue, 10);
+            if (!Number.isNaN(parsed)) {
+                let nextValue = parsed;
+                if (min !== undefined) nextValue = Math.max(min, nextValue);
+                if (max !== undefined) nextValue = Math.min(max, nextValue);
+                if (scope === "responsive") {
+                    updateChildResponsiveConfig(key, nextValue);
+                } else {
+                    updateChildConfig(key, nextValue);
+                }
+            }
+        }
+        setResponsiveNumberDrafts((prev) => {
+            if (!Object.prototype.hasOwnProperty.call(prev, draftKey)) return prev;
+            const next = { ...prev };
+            delete next[draftKey];
+            return next;
+        });
+    };
+    const handleResponsiveIntegerInputChange = (key: string, rawValue: string) => {
+        const draftKey = getNumberDraftKey(key, "responsive");
+        setResponsiveNumberDrafts((prev) => ({ ...prev, [draftKey]: rawValue }));
+    };
+    const clearResponsiveIntegerDraft = (key: string, min?: number) => {
+        commitDraftedNumberInput(key, { scope: "responsive", parser: "int", min });
+    };
+    const getResponsiveNumberInputValue = (key: string, fallback = "") => getDraftedNumberInputValue(key, fallback, "responsive");
+    const getGlobalNumberInputValue = (key: string, fallback = "") => getDraftedNumberInputValue(key, fallback, "global");
+    const handleGlobalIntegerInputChange = (key: string, rawValue: string) => {
+        const draftKey = getNumberDraftKey(key, "global");
+        setResponsiveNumberDrafts((prev) => ({ ...prev, [draftKey]: rawValue }));
+    };
+    const clearGlobalIntegerDraft = (key: string, min?: number, max?: number) => {
+        commitDraftedNumberInput(key, { scope: "global", parser: "int", min, max });
+    };
+
+    // Footer states
+    const [footerCustomLinkLabel, setFooterCustomLinkLabel] = useState("");
+    const [footerCustomLinkUrl, setFooterCustomLinkUrl] = useState("");
+    const [footerCustomLinkNewTab, setFooterCustomLinkNewTab] = useState(false);
+
+    const openMediaLibraryForKey = (key: string) => {
+        setMediaTargetKey(key);
+        setShowMediaModal(true);
+    };
+
+    const handleMediaSelect = (file: { url: string }) => {
+        if (mediaTargetKey) {
+            updateChildConfig(mediaTargetKey, file.url);
+        }
+        setShowMediaModal(false);
+        setMediaTargetKey(null);
+    };
+
+    const getSideLabel = (side: string) => {
+        switch (side) {
+            case 'Top': return 'Atas';
+            case 'Right': return 'Kanan';
+            case 'Bottom': return 'Bawah';
+            case 'Left': return 'Kiri';
+            default: return side;
+        }
+    };
+
+    const isArchiveNewsGrid = child.type === "archive_news_grid";
+    const isArchiveHeroSlider = child.type === "archive_hero_slider";
+    const isArchiveSource = isArchiveNewsGrid || isArchiveHeroSlider;
+
     const CONTAINER_AT_BOTTOM_WIDGETS = [
         "post_tags",
         "post_navigation",
@@ -174,7 +457,13 @@ export default function BlockConfigPanel({
         "post_related_posts",
         "sidebar_widget",
         "tag_cloud",
-        "ad_banner"
+        "ad_banner",
+        "archive_news_grid",
+        "news_list",
+        "news_grid",
+        "news_grid_slider",
+        "news_hero_split_4",
+        "news_hero_slider"
     ];
     const shouldRenderContainerAtBottom = CONTAINER_AT_BOTTOM_WIDGETS.includes(child.type);
 
@@ -239,6 +528,134 @@ export default function BlockConfigPanel({
                                 }}
                             />
                         ))}
+                    </div>
+                </div>
+            </div>
+
+            <div className="mb-5">
+                <div className="flex justify-between items-center mb-2">
+                    <label className="text-xs font-bold text-[var(--fg-primary)] block">Background & Warna - {deviceLabel}</label>
+                    <button
+                        onClick={() => {
+                            const bgColor = getConfigForApply("backgroundColor");
+                            const bgImage = getConfigForApply("backgroundImage");
+                            const bgRepeat = getConfigForApply("backgroundRepeat");
+                            const bgSize = getConfigForApply("backgroundSize");
+                            const bgPosition = getConfigForApply("backgroundPosition");
+                            const borderRadius = getConfigForApply("borderRadius");
+                            const borderColor = getConfigForApply("borderColor");
+                            const borderWidth = getConfigForApply("borderWidth");
+                            const borderStyle = getConfigForApply("borderStyle");
+                            if (bgColor !== undefined) applyToAllDevices("backgroundColor", bgColor);
+                            if (bgImage !== undefined) applyToAllDevices("backgroundImage", bgImage);
+                            if (bgRepeat !== undefined) applyToAllDevices("backgroundRepeat", bgRepeat);
+                            if (bgSize !== undefined) applyToAllDevices("backgroundSize", bgSize);
+                            if (bgPosition !== undefined) applyToAllDevices("backgroundPosition", bgPosition);
+                            if (borderRadius !== undefined) applyToAllDevices("borderRadius", borderRadius);
+                            if (borderColor !== undefined) applyToAllDevices("borderColor", borderColor);
+                            if (borderWidth !== undefined) applyToAllDevices("borderWidth", borderWidth);
+                            if (borderStyle !== undefined) applyToAllDevices("borderStyle", borderStyle);
+                        }}
+                        className="text-[10px] text-[var(--accent)] hover:text-[var(--accent)] flex items-center gap-1 bg-[var(--accent-subtle)] px-2 py-1 rounded border border-[var(--border)] transition-colors"
+                        title="Terapkan background & border ke semua device"
+                    >
+                        <Copy size={10} /> Semua
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    <ColorPicker 
+                        label="Background" 
+                        configKey="backgroundColor" 
+                        child={child}
+                        getConfigValue={getConfigValue}
+                        updateChildResponsiveConfig={updateChildResponsiveConfig}
+                        updateChildConfig={updateChildConfig}
+                    />
+                    <ColorPicker 
+                        label="Warna Border" 
+                        configKey="borderColor" 
+                        child={child}
+                        getConfigValue={getConfigValue}
+                        updateChildResponsiveConfig={updateChildResponsiveConfig}
+                        updateChildConfig={updateChildConfig}
+                    />
+                </div>
+
+                <div className="mb-4 space-y-2">
+                    <label className="text-[10px] text-[var(--fg-muted)] block">Background Image - {deviceLabel}</label>
+                    <div className="flex gap-2">
+                        <input
+                            type="text"
+                            placeholder="https://..."
+                            className="flex-1 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-3 py-2 text-xs outline-none focus:border-[var(--accent)] text-[var(--fg-primary)]"
+                            value={getConfigString("backgroundImage")}
+                            onChange={(e) => updateChildResponsiveConfig("backgroundImage", e.target.value)}
+                        />
+                        <button
+                            type="button"
+                            onClick={() => openMediaLibraryForKey("backgroundImage")}
+                            className="px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-xs font-semibold hover:opacity-90"
+                        >
+                            Pilih
+                        </button>
+                    </div>
+                    {getConfigString("backgroundImage") && (
+                        <div className="grid grid-cols-3 gap-2">
+                            <select
+                                className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-1.5 text-[10px] text-[var(--fg-primary)] outline-none"
+                                value={getConfigString("backgroundSize", "cover")}
+                                onChange={(e) => updateChildResponsiveConfig("backgroundSize", e.target.value)}
+                            >
+                                <option value="cover">Cover</option>
+                                <option value="contain">Contain</option>
+                                <option value="auto">Auto</option>
+                            </select>
+                            <select
+                                className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-1.5 text-[10px] text-[var(--fg-primary)] outline-none"
+                                value={getConfigString("backgroundRepeat", "no-repeat")}
+                                onChange={(e) => updateChildResponsiveConfig("backgroundRepeat", e.target.value)}
+                            >
+                                <option value="no-repeat">No Repeat</option>
+                                <option value="repeat">Repeat</option>
+                            </select>
+                            <select
+                                className="bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-1.5 text-[10px] text-[var(--fg-primary)] outline-none"
+                                value={getConfigString("backgroundPosition", "center")}
+                                onChange={(e) => updateChildResponsiveConfig("backgroundPosition", e.target.value)}
+                            >
+                                <option value="center">Center</option>
+                                <option value="top">Top</option>
+                                <option value="bottom">Bottom</option>
+                            </select>
+                        </div>
+                    )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Border Radius (px) - {deviceLabel}</label>
+                        <input 
+                            type="number" 
+                            className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-2 text-xs outline-none text-[var(--fg-primary)]"
+                            value={getConfigString("borderRadius")}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                updateChildResponsiveConfig("borderRadius", isNaN(val) ? undefined : val);
+                            }}
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Border Width (px) - {deviceLabel}</label>
+                        <input 
+                            type="number" 
+                            className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-2 text-xs outline-none text-[var(--fg-primary)]"
+                            value={getConfigString("borderWidth")}
+                            onChange={(e) => {
+                                const val = parseInt(e.target.value);
+                                updateChildResponsiveConfig("borderWidth", isNaN(val) ? undefined : val);
+                            }}
+                        />
                     </div>
                 </div>
             </div>
@@ -4031,6 +4448,15 @@ export default function BlockConfigPanel({
                     box-shadow: var(--shadow-sm) !important;
                 }
             `}</style>
+
+            {/* Media Library Modal */}
+            {showMediaModal && (
+                <MediaLibraryModal
+                    isOpen={showMediaModal}
+                    onClose={() => setShowMediaModal(false)}
+                    onSelect={handleMediaSelect}
+                />
+            )}
         </div>
         </ActiveDeviceTabContext.Provider>
     );

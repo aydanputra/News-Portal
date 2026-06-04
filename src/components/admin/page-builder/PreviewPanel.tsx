@@ -5,6 +5,7 @@ import { ConfigValue } from "@/lib/page-builder-config";
 import { SidebarSourceBlocksMap } from "@/lib/sidebar-reference";
 
 interface PreviewPanelProps {
+    builderLocation?: "home" | "archive" | "header" | "footer" | "post";
     blocks: Block[];
     updateBlockConfig: (index: number, key: string, value: ConfigValue) => void;
     deleteBlock: (index: number) => void;
@@ -27,6 +28,7 @@ interface PreviewPanelProps {
     context?: "home" | "post";
     activeTheme?: string;
     moveBlock: (index: number, direction: "up" | "down") => void;
+    duplicateBlock?: (index: number) => void;
     // Recursive Actions
     deleteBlockById?: (id: string) => void;
     updateBlockConfigById?: (id: string, key: string, value: ConfigValue) => void;
@@ -38,10 +40,12 @@ interface PreviewPanelProps {
     containerWidth?: string;
     customContainerWidth?: string;
     homeContainerWidth?: string; // Legacy/Specific
+    homeCustomContainerWidth?: string;
     sourceBlocksByLocation?: SidebarSourceBlocksMap;
 }
 
 export default function PreviewPanel({
+    builderLocation = "home",
     blocks,
     updateBlockConfig,
     deleteBlock,
@@ -61,9 +65,10 @@ export default function PreviewPanel({
     bodyFont,
     activeDeviceTab = "desktop",
     setShowSectionPicker,
-    context = "home",
-    activeTheme,
+    context: _context,
+    activeTheme = "classic",
     moveBlock,
+    duplicateBlock,
     deleteBlockById,
     updateBlockConfigById,
     addChildBlockById,
@@ -74,6 +79,7 @@ export default function PreviewPanel({
     containerWidth,
     customContainerWidth,
     homeContainerWidth,
+    homeCustomContainerWidth,
     sourceBlocksByLocation
 }: PreviewPanelProps) {
     const deviceCanvasClass =
@@ -98,6 +104,7 @@ export default function PreviewPanel({
                 <div className="flex justify-center">
                     <div className={`${canvasClass} transition-all duration-300 bg-[var(--bg-surface)] rounded-xl overflow-hidden shadow-sm border border-[var(--border)]`}>
                         <BlockList
+                            builderLocation={builderLocation}
                             blocks={blocks}
                             updateBlockConfig={updateBlockConfig}
                             deleteBlock={deleteBlock}
@@ -116,9 +123,9 @@ export default function PreviewPanel({
                             headingFont={headingFont}
                             bodyFont={bodyFont}
                             activeDeviceTab={activeDeviceTab}
-                            context={context}
                             activeTheme={activeTheme}
                             moveBlock={moveBlock}
+                            duplicateBlock={duplicateBlock}
                             deleteBlockById={deleteBlockById}
                             updateBlockConfigById={updateBlockConfigById}
                             addChildBlockById={addChildBlockById}
@@ -126,8 +133,10 @@ export default function PreviewPanel({
                             moveChildBlockColumnById={moveChildBlockColumnById}
                             deleteChildBlockById={deleteChildBlockById}
                             duplicateChildBlockById={duplicateChildBlockById}
-                            containerWidth={containerWidth || homeContainerWidth}
+                            containerWidth={containerWidth}
                             customContainerWidth={customContainerWidth}
+                            homeContainerWidth={homeContainerWidth}
+                            homeCustomContainerWidth={homeCustomContainerWidth}
                             sourceBlocksByLocation={sourceBlocksByLocation}
                         />
                     </div>

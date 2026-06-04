@@ -2,10 +2,10 @@
 
 import { RotateCcw, Palette, Save, Undo2, Redo2, Monitor, Tablet, Smartphone } from "lucide-react";
 import { GlobalStylePanel } from "@/components/admin/page-builder/GlobalStylePanel";
-import SectionPicker from "./components/SectionPicker";
-import EditChildModal from "./components/EditChildModal";
-import EditSectionModal from "./components/EditSectionModal";
-import PreviewPanel from "./components/PreviewPanel";
+import SectionPicker from "@/components/admin/page-builder/SectionPicker";
+import EditChildModal from "@/components/admin/page-builder/EditChildModal";
+import EditSectionModal from "@/components/admin/page-builder/EditSectionModal";
+import PreviewPanel from "@/components/admin/page-builder/PreviewPanel";
 import { useHomepageBuilder } from "./hooks/useHomepageBuilder";
 import ThemeStyles from "@/themes/classic/components/ThemeStyles";
 import { useSidebarSourceBlocks } from "@/hooks/useSidebarSourceBlocks";

@@ -8,18 +8,21 @@ import MediaLibraryModal from "@/app/admin/components/MediaLibraryModal";
 import { getSidebarColumnIndex, getSidebarSourceOptions, SidebarSourceLocation } from "@/lib/sidebar-reference";
 
 interface SectionConfigPanelProps {
-    context?: SidebarSourceLocation;
+    builderLocation?: SidebarSourceLocation;
+    uiContext?: "home" | "archive" | "header" | "footer" | "post";
     section: Block;
     activeSectionTab: 'layout' | 'style';
     setActiveSectionTab: (tab: 'layout' | 'style') => void;
     activeSectionDeviceTab: 'desktop' | 'tablet' | 'mobile';
+    setActiveSectionDeviceTab?: (tab: 'desktop' | 'tablet' | 'mobile') => void;
     updateSectionConfig: (key: string, value: ConfigValue) => void;
     updateSectionResponsiveConfig: (key: string, value: ConfigValue) => void;
     getSectionConfigValue: (key: string) => unknown;
 }
 
 export default function SectionConfigPanel({
-    context,
+    builderLocation,
+    uiContext: _uiContext,
     section: _section,
     activeSectionTab,
     setActiveSectionTab,
@@ -33,7 +36,7 @@ export default function SectionConfigPanel({
     const sectionDeviceLabel = activeSectionDeviceTab.toUpperCase();
     const currentLayout = getConfigString("layout", "100");
     const supportsSidebarSync = getSidebarColumnIndex(currentLayout) !== null;
-    const sidebarSourceOptions = getSidebarSourceOptions(context);
+    const sidebarSourceOptions = getSidebarSourceOptions(builderLocation);
     const getColumnStructure = (layout: string) => {
         switch(layout) {
             case '100': return ['w-full'];

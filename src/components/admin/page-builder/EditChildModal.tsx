@@ -1,7 +1,6 @@
 import React from "react";
 import { Monitor, Smartphone, Tablet, X } from "lucide-react";
 import BlockConfigPanel from "./BlockConfigPanel";
-import HomepageEditChildModal from "@/app/admin/homepage/components/EditChildModal";
 import { Block, Category, Tag } from "./types";
 import { ConfigValue } from "@/lib/page-builder-config";
 
@@ -18,12 +17,32 @@ const WIDGET_LABELS: Record<string, string> = {
   sidebar_widget: "Sidebar Widget",
   tag_cloud: "Tag Cloud",
   ad_banner: "Iklan",
+  header_logo: "Logo",
+  header_menu_primary: "Menu Primary",
+  header_menu_secondary: "Menu Secondary",
+  header_search: "Search",
+  header_theme_toggle: "Theme Toggle",
+  header_mobile_menu_toggle: "Hamburger Menu (Mobile)",
+  archive_header: "Header Arsip",
+  archive_post_grid: "Grid Artikel Arsip",
+  archive_post_list: "List Artikel Arsip",
+  archive_pagination: "Pagination Arsip",
+  archive_empty_state: "Empty State Arsip",
   section: "Inner Section",
   headline_2: "Headline 2",
-  news_slider: "News Slider"
+  news_slider: "News Slider",
+  footer_brand: "Brand",
+  footer_logo: "Logo",
+  footer_menu: "Menu Footer",
+  footer_text: "Teks",
+  footer_social: "Social Links",
+  footer_categories: "Kategori",
+  footer_custom_links: "Custom Links",
+  footer_copyright: "Copyright"
 };
 
 interface EditChildModalProps {
+  builderLocation?: "home" | "archive" | "header" | "footer" | "post";
   child: Block | null;
   isOpen: boolean;
   onClose: () => void;
@@ -44,10 +63,16 @@ interface EditChildModalProps {
       headingColor: string;
       metaColor: string;
       excerptColor: string;
+      homeWidgetTitleColor?: string;
+      homeNewsTitleColor?: string;
+      homeHoverColor?: string;
+      homeExcerptColor?: string;
+      homeMetaColor?: string;
   };
 }
 
 export default function EditChildModal({
+  builderLocation = "home",
   child,
   isOpen,
   onClose,
@@ -64,27 +89,6 @@ export default function EditChildModal({
   globalSettings
 }: EditChildModalProps) {
   if (!isOpen || !child) return null;
-  const SHARED_WIDGET_TYPES = ['sidebar_widget', 'tag_cloud', 'ad_banner'];
-  if (SHARED_WIDGET_TYPES.includes(child.type)) {
-    return (
-      <HomepageEditChildModal
-        child={child as any}
-        isOpen={isOpen}
-        onClose={onClose}
-        categories={categories as any}
-        tags={tags as any}
-        activeEditTab={activeEditTab}
-        setActiveEditTab={setActiveEditTab}
-        activeDeviceTab={activeDeviceTab}
-        setActiveDeviceTab={setActiveDeviceTab}
-        updateChildConfig={updateChildConfig}
-        updateChildResponsiveConfig={updateChildResponsiveConfig}
-        getConfigValue={getConfigValue as any}
-        onUpdateTitle={onUpdateTitle}
-        globalSettings={globalSettings as any}
-      />
-    );
-  }
   const activeDeviceLabel = activeDeviceTab.toUpperCase();
   const widgetName = WIDGET_LABELS[child.type] || child.title || child.type;
   const configTitle = typeof child.config?.title === "string" ? child.config.title.trim() : "";
@@ -98,18 +102,43 @@ export default function EditChildModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200 p-4">
         <div className="bg-[var(--bg-elevated)] w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden h-[90vh] max-h-[90vh] flex flex-col border border-[var(--border)] animate-in zoom-in-95 duration-200">
             <div className="px-6 py-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-surface)]">
-                <h3 className="font-bold text-lg text-[var(--fg-primary)] flex items-center gap-2">
-                    <span>Edit Widget</span>
-                    <span className="text-xs font-semibold text-[var(--accent)] bg-[var(--accent-subtle)] border border-[var(--border)] px-2 py-0.5 rounded-md">{widgetName}</span>
-                    {showCustomTitle && (
-                      <span className="text-xs font-medium text-[var(--fg-secondary)] bg-[var(--bg-base)] border border-[var(--border)] px-2 py-0.5 rounded-md">{customTitle}</span>
-                    )}
-                </h3>
-                <button onClick={onClose} className="text-[var(--fg-muted)] hover:text-[var(--fg-primary)] transition-colors"><X size={20} /></button>
+                <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <h3 className="text-lg font-bold text-[var(--fg-primary)] truncate max-w-[250px]">{widgetName}</h3>
+                    </div>
+                    {showCustomTitle && <p className="text-[10px] text-[var(--fg-muted)] truncate max-w-[250px]">{customTitle}</p>}
+                </div>
+                <button onClick={onClose} className="p-2 hover:bg-[var(--bg-base)] rounded-full transition-colors text-[var(--fg-muted)] hover:text-red-500">
+                    <X size={20} />
+                </button>
             </div>
-            
-            <div className="flex-1 min-h-0 overflow-hidden">
-                <BlockConfigPanel 
+
+            <div className="flex bg-[var(--bg-base)] border-b border-[var(--border)] sticky top-0 z-10">
+                <button
+                    onClick={() => setActiveEditTab('content')}
+                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
+                        activeEditTab === 'content'
+                            ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-subtle)]"
+                            : "border-transparent text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]"
+                    }`}
+                >
+                    Konten
+                </button>
+                <button
+                    onClick={() => setActiveEditTab('visual')}
+                    className={`flex-1 py-3 text-xs font-bold uppercase tracking-wider transition-all border-b-2 ${
+                        activeEditTab === 'visual'
+                            ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-subtle)]"
+                            : "border-transparent text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]"
+                    }`}
+                >
+                    Visual
+                </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-[var(--bg-surface)] custom-scrollbar">
+                <BlockConfigPanel
+                    builderLocation={builderLocation}
                     child={child}
                     categories={categories}
                     tags={tags}
@@ -125,34 +154,34 @@ export default function EditChildModal({
                 />
             </div>
 
-            <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--bg-surface)] flex justify-between items-center">
-                {activeEditTab === 'visual' ? (
-                    <div className="flex flex-col gap-2">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--fg-secondary)]">
-                            Mode Aktif: <span className="text-[var(--accent)]">{activeDeviceLabel}</span>
-                        </div>
-                        <div className="flex items-center gap-1 bg-[var(--bg-base)] border border-[var(--border)] rounded-lg p-1">
-                            {(["desktop", "tablet", "mobile"] as const).map((d) => (
-                                <button
-                                    key={d}
-                                    type="button"
-                                    onClick={() => setActiveDeviceTab(d)}
-                                    className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase flex items-center gap-1.5 transition-colors ${
-                                        activeDeviceTab === d ? "bg-[var(--bg-elevated)] text-[var(--accent)]" : "text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"
-                                    }`}
-                                >
-                                    {d === "desktop" && <Monitor size={12} />}
-                                    {d === "tablet" && <Tablet size={12} />}
-                                    {d === "mobile" && <Smartphone size={12} />}
-                                    {d}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ) : (
-                    <div />
-                )}
-                <button onClick={onClose} className="btn btn-primary text-sm">Selesai</button>
+            <div className="px-6 py-4 border-t border-[var(--border)] bg-[var(--bg-base)] flex items-center justify-between">
+                <div className="flex items-center gap-1 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-1">
+                    {([
+                        { id: "desktop", icon: Monitor },
+                        { id: "tablet", icon: Tablet },
+                        { id: "mobile", icon: Smartphone },
+                    ] as const).map((device) => {
+                        const Icon = device.icon;
+                        const isActive = activeDeviceTab === device.id;
+                        return (
+                            <button
+                                key={device.id}
+                                onClick={() => setActiveDeviceTab(device.id)}
+                                className={`p-2 rounded-md transition-all ${
+                                    isActive
+                                        ? "bg-[var(--bg-base)] text-[var(--accent)] shadow-sm border border-[var(--border)]"
+                                        : "text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"
+                                }`}
+                                title={device.id.toUpperCase()}
+                            >
+                                <Icon size={14} />
+                            </button>
+                        );
+                    })}
+                </div>
+                <div className="text-[10px] font-bold text-[var(--fg-muted)] uppercase tracking-widest bg-[var(--bg-elevated)] px-2 py-1 rounded border border-[var(--border)]">
+                    Mode: {activeDeviceLabel}
+                </div>
             </div>
         </div>
     </div>
