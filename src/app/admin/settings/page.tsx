@@ -76,6 +76,9 @@ export default function SettingsPage() {
   const [systemLoading, setSystemLoading] = useState(false);
   const [systemError, setSystemError] = useState<string | null>(null);
   const [systemVersion, setSystemVersion] = useState<{
+    channel?: "stable" | "beta";
+    source?: "feed" | "github" | "none";
+    feedUrlUsed?: string | null;
     currentVersion: string;
     latestVersion: string | null;
     updateAvailable: boolean;
@@ -145,6 +148,9 @@ export default function SettingsPage() {
         nextError = versionJson?.error || "Gagal memuat status versi";
       } else {
         setSystemVersion({
+          channel: versionJson?.channel === "beta" || versionJson?.channel === "stable" ? versionJson.channel : undefined,
+          source: versionJson?.source === "feed" || versionJson?.source === "github" || versionJson?.source === "none" ? versionJson.source : undefined,
+          feedUrlUsed: typeof versionJson?.feedUrlUsed === "string" ? versionJson.feedUrlUsed : null,
           currentVersion: String(versionJson?.currentVersion || "unknown"),
           latestVersion: typeof versionJson?.latestVersion === "string" ? versionJson.latestVersion : null,
           updateAvailable: Boolean(versionJson?.updateAvailable),
@@ -287,6 +293,16 @@ export default function SettingsPage() {
                 <div className="font-bold text-[var(--fg-primary)]">Versi CMS</div>
                 <div className="mt-3 text-sm text-[var(--fg-muted)] space-y-1">
                   <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Channel:</span>{" "}
+                    <span className="font-bold text-[var(--fg-primary)]">{systemVersion?.channel || "stable"}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Sumber update:</span>{" "}
+                    <span className="font-bold text-[var(--fg-primary)]">
+                      {systemVersion?.source === "feed" ? "UPDATE_FEED_URL" : systemVersion?.source === "github" ? "GitHub Releases" : "Tidak ada"}
+                    </span>
+                  </div>
+                  <div>
                     <span className="font-semibold text-[var(--fg-secondary)]">Versi saat ini:</span>{" "}
                     <span className="font-bold text-[var(--fg-primary)]">{systemVersion?.currentVersion || "unknown"}</span>
                   </div>
@@ -312,6 +328,11 @@ export default function SettingsPage() {
                       >
                         Lihat rilis
                       </a>
+                    </div>
+                  ) : null}
+                  {systemVersion?.feedUrlUsed ? (
+                    <div className="pt-2 text-xs text-[var(--fg-muted)] break-all">
+                      Feed: {systemVersion.feedUrlUsed}
                     </div>
                   ) : null}
                 </div>

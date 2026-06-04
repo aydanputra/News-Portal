@@ -9,9 +9,16 @@ type LatestInfo = {
   publishedAt?: string;
 };
 
+type UpdateChannel = "stable" | "beta";
+
 function normalizeVersion(raw: unknown): string {
   const v = typeof raw === "string" ? raw.trim() : "";
   return v;
+}
+
+function normalizeChannel(raw: unknown): UpdateChannel {
+  const v = typeof raw === "string" ? raw.trim().toLowerCase() : "";
+  return v === "beta" ? "beta" : "stable";
 }
 
 function parseSemver(input: string): { major: number; minor: number; patch: number } | null {
@@ -37,21 +44,24 @@ function isNewer(latest: string, current: string): boolean {
   return latest !== current;
 }
 
-async function fetchLatestFromFeed(url: string): Promise<LatestInfo | null> {
-  const res = await fetch(url, { cache: "no-store" });
-  if (!res.ok) return null;
-  const json = await res.json().catch(() => null);
-  if (!json || typeof json !== "object") return null;
-  const latest = normalizeVersion((json as any).latest || (json as any).version);
-  if (!latest) return null;
-  const info: LatestInfo = { version: latest };
-  if (typeof (json as any).changelogUrl === "string") info.url = (json as any).changelogUrl;
-  if (typeof (json as any).releasedAt === "string") info.publishedAt = (json as any).releasedAt;
-  return info;
+function pickFromGitHubReleases(releases: any[], channel: UpdateChannel): LatestInfo | null {
+  for (const r of releases) {
+    if (!r || typeof r !== "object") continue;
+    if ((r as any).draft) continue;
+    const isPrerelease = Boolean((r as any).prerelease);
+    if (channel === "stable" && isPrerelease) continue;
+    if (channel === "beta" && !isPrerelease) continue;
+    const tag = normalizeVersion((r as any).tag_name);
+    if (!tag) continue;
+    const htmlUrl = typeof (r as any).html_url === "string" ? (r as any).html_url : undefined;
+    const publishedAt = typeof (r as any).published_at === "string" ? (r as any).published_at : undefined;
+    return { version: tag, url: htmlUrl, publishedAt };
+  }
+  return null;
 }
 
-async function fetchLatestFromGitHub(repo: string, token?: string): Promise<LatestInfo | null> {
-  const url = `https://api.github.com/repos/${encodeURIComponent(repo)}/releases/latest`;
+async function fetchLatestFromGitHub(repo: string, channel: UpdateChannel, token?: string): Promise<LatestInfo | null> {
+  const url = `https://api.github.com/repos/${encodeURIComponent(repo)}/releases?per_page=20`;
   const headers: Record<string, string> = {
     Accept: "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28",
@@ -60,12 +70,11 @@ async function fetchLatestFromGitHub(repo: string, token?: string): Promise<Late
   const res = await fetch(url, { headers, cache: "no-store" });
   if (!res.ok) return null;
   const json = await res.json().catch(() => null);
-  if (!json || typeof json !== "object") return null;
-  const tag = normalizeVersion((json as any).tag_name);
-  const htmlUrl = typeof (json as any).html_url === "string" ? (json as any).html_url : undefined;
-  const publishedAt = typeof (json as any).published_at === "string" ? (json as any).published_at : undefined;
-  if (!tag) return null;
-  return { version: tag, url: htmlUrl, publishedAt };
+  if (!Array.isArray(json)) return null;
+  const picked = pickFromGitHubReleases(json, channel);
+  if (picked) return picked;
+  if (channel !== "stable") return null;
+  return pickFromGitHubReleases(json, "beta");
 }
 
 export async function GET(_request: Request) {
@@ -79,21 +88,58 @@ export async function GET(_request: Request) {
       normalizeVersion(process.env.VERCEL_GIT_COMMIT_SHA) ||
       "unknown";
 
-    const feedUrl = normalizeVersion(process.env.UPDATE_FEED_URL);
+    const channel = normalizeChannel(process.env.UPDATE_CHANNEL);
+    const feedUrlRaw = normalizeVersion(process.env.UPDATE_FEED_URL);
     const repo = normalizeVersion(process.env.GITHUB_REPO);
     const ghToken = normalizeVersion(process.env.GITHUB_TOKEN);
 
     let latest: LatestInfo | null = null;
-    if (feedUrl) {
-      latest = await fetchLatestFromFeed(feedUrl);
+    let source: "feed" | "github" | "none" = "none";
+    let feedUrlUsed: string | null = null;
+    if (feedUrlRaw) {
+      const resolved = feedUrlRaw.includes("{channel}") ? feedUrlRaw.replaceAll("{channel}", channel) : feedUrlRaw;
+      feedUrlUsed = resolved;
+      source = "feed";
+      const res = await fetch(resolved, { cache: "no-store" });
+      if (res.ok) {
+        const json = await res.json().catch(() => null);
+        if (json && typeof json === "object") {
+          const direct = normalizeVersion((json as any).latest || (json as any).version);
+          if (direct) {
+            latest = {
+              version: direct,
+              url: typeof (json as any).changelogUrl === "string" ? (json as any).changelogUrl : undefined,
+              publishedAt: typeof (json as any).releasedAt === "string" ? (json as any).releasedAt : undefined,
+            };
+          } else {
+            const channelsObj =
+              (json as any).channels && typeof (json as any).channels === "object" ? (json as any).channels : null;
+            const channelEntry = channelsObj ? (channelsObj as any)[channel] : null;
+            if (channelEntry && typeof channelEntry === "object") {
+              const v = normalizeVersion((channelEntry as any).latest || (channelEntry as any).version);
+              if (v) {
+                latest = {
+                  version: v,
+                  url: typeof (channelEntry as any).changelogUrl === "string" ? (channelEntry as any).changelogUrl : undefined,
+                  publishedAt: typeof (channelEntry as any).releasedAt === "string" ? (channelEntry as any).releasedAt : undefined,
+                };
+              }
+            }
+          }
+        }
+      }
     } else if (repo) {
-      latest = await fetchLatestFromGitHub(repo, ghToken || undefined);
+      source = "github";
+      latest = await fetchLatestFromGitHub(repo, channel, ghToken || undefined);
     }
 
     const latestVersion = latest?.version || null;
     const updateAvailable = latestVersion ? isNewer(latestVersion, currentVersion) : false;
 
     return NextResponse.json({
+      channel,
+      source,
+      feedUrlUsed,
       currentVersion,
       latestVersion,
       updateAvailable,
