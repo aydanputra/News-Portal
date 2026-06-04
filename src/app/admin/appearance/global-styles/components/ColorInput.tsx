@@ -1,4 +1,4 @@
-import CustomColorPicker from "../../../homepage/components/ColorPicker";
+import CustomColorPicker from "@/components/admin/page-builder/ColorPicker";
 
 interface ColorInputProps { 
     label: string; 

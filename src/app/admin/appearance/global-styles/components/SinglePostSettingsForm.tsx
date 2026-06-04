@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
-import CustomColorPicker from "../../../homepage/components/ColorPicker";
+import CustomColorPicker from "@/components/admin/page-builder/ColorPicker";
 
 interface SinglePostSettingsFormProps {
     settings: any;
