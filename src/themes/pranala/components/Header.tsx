@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { Facebook, Instagram, Link2, Menu, Search, Twitter, X, Youtube, ChevronDown, Moon, Sun } from "lucide-react";
 import type { PublicMenuItem } from "@/lib/public-menus";
 import AdBanner from "../blocks/AdBanner";
+import { sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
 
 function TiktokIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -249,12 +250,12 @@ function MobileDrawer({
   const footerText = typeof config?.drawerFooterText === "string" ? config.drawerFooterText.trim() : "";
   const socialOpenNewTab = config?.socialOpenNewTab === true || config?.socialOpenNewTab === "true" || config?.socialOpenNewTab === 1 || config?.socialOpenNewTab === "1";
   const socialItems: { key: string; label: string; href: string; Icon: any }[] = [
-    { key: "tiktok", label: "TikTok", href: typeof config?.socialTiktokUrl === "string" ? config.socialTiktokUrl.trim() : "", Icon: TiktokIcon },
-    { key: "instagram", label: "Instagram", href: typeof config?.socialInstagramUrl === "string" ? config.socialInstagramUrl.trim() : "", Icon: Instagram },
-    { key: "facebook", label: "Facebook", href: typeof config?.socialFacebookUrl === "string" ? config.socialFacebookUrl.trim() : "", Icon: Facebook },
-    { key: "twitter", label: "Twitter", href: typeof config?.socialTwitterUrl === "string" ? config.socialTwitterUrl.trim() : "", Icon: Twitter },
-    { key: "youtube", label: "YouTube", href: typeof config?.socialYoutubeUrl === "string" ? config.socialYoutubeUrl.trim() : "", Icon: Youtube },
-    { key: "website", label: "Website", href: typeof config?.socialWebsiteUrl === "string" ? config.socialWebsiteUrl.trim() : "", Icon: Link2 },
+    { key: "tiktok", label: "TikTok", href: sanitizeExternalUrl(config?.socialTiktokUrl), Icon: TiktokIcon },
+    { key: "instagram", label: "Instagram", href: sanitizeExternalUrl(config?.socialInstagramUrl), Icon: Instagram },
+    { key: "facebook", label: "Facebook", href: sanitizeExternalUrl(config?.socialFacebookUrl), Icon: Facebook },
+    { key: "twitter", label: "Twitter", href: sanitizeExternalUrl(config?.socialTwitterUrl), Icon: Twitter },
+    { key: "youtube", label: "YouTube", href: sanitizeExternalUrl(config?.socialYoutubeUrl), Icon: Youtube },
+    { key: "website", label: "Website", href: sanitizeExternalUrl(config?.socialWebsiteUrl), Icon: Link2 },
   ].filter((x) => x.href !== "");
 
   const [rendered, setRendered] = useState(false);
@@ -975,11 +976,12 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
       return `${fallback}px`;
     };
     const resolveBgImage = (url: unknown, overlay: unknown) => {
-      if (typeof url !== "string" || url.trim() === "") return "none";
+      const safeUrl = sanitizeCssUrl(typeof url === "string" ? url : "");
+      if (!safeUrl) return "none";
       if (typeof overlay === "string" && overlay.trim() !== "") {
-        return `linear-gradient(${overlay}, ${overlay}), url(${url})`;
+        return `linear-gradient(${overlay}, ${overlay}), url("${safeUrl}")`;
       }
-      return `url(${url})`;
+      return `url("${safeUrl}")`;
     };
     const resolveOptionalPx = (raw: unknown) => {
       if (typeof raw === "number" && Number.isFinite(raw)) return `${raw}px`;

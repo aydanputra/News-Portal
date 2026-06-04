@@ -4,6 +4,8 @@ import { Block, Category, Tag } from "../types";
 import { ConfigValue } from "@/lib/page-builder-config";
 import { buildHomepageChildConfig } from "@/lib/page-builder-child-presets";
 
+const MAX_HISTORY = 50;
+
 export function useHomepageBuilder() {
   const router = useRouter();
 
@@ -110,14 +112,9 @@ export function useHomepageBuilder() {
       setHistory(prev => {
           const newBlocks = typeof newBlocksOrFn === 'function' ? newBlocksOrFn(prev.present) : newBlocksOrFn;
           
-          if (JSON.stringify(prev.present) !== JSON.stringify(newBlocks)) {
-              return {
-                  past: [...prev.past, prev.present],
-                  present: newBlocks,
-                  future: []
-              };
-          }
-          return prev;
+          if (newBlocks === prev.present) return prev;
+          const nextPast = prev.past.length >= MAX_HISTORY ? [...prev.past.slice(1), prev.present] : [...prev.past, prev.present];
+          return { past: nextPast, present: newBlocks, future: [] };
       });
   }, []);
 
@@ -1013,60 +1010,57 @@ export function useHomepageBuilder() {
   async function handleSave() {
     setLoading(true);
     try {
+      const themeConfig = {
+        homeLayout,
+        homeSidebarWidth: sidebarWidth,
+        homeMainColumnBox: mainColumnBox,
+        homeSidebarColumnBox: sidebarColumnBox,
+        homeMainColumnBorderRadius: mainColumnBorderRadius,
+        homeSidebarColumnBorderRadius: sidebarColumnBorderRadius,
+        homeMainColumnColor: mainColumnColor,
+        homeSidebarColumnColor: sidebarColumnColor,
+        homeContainerWidth: homeContainerWidth,
+        homeCustomContainerWidth: homeCustomContainerWidth,
+        primaryColor: primaryColor,
+        secondaryColor: secondaryColor,
+        accentColor: accentColor,
+        backgroundColor: backgroundColor,
+        headingColor: headingColor,
+        excerptColor: excerptColor,
+        metaColor: metaColor,
+        headingFont: headingFont,
+        bodyFont: bodyFont,
+        globalBorderRadius: globalBorderRadius,
+        homeGlobalMarginTop: globalMarginTop,
+        homeGlobalMarginBottom: globalMarginBottom,
+        homeGlobalPaddingTop: globalPaddingTop,
+        homeGlobalPaddingBottom: globalPaddingBottom,
+        homeGlobalPaddingLeft: globalPaddingLeft,
+        homeGlobalPaddingRight: globalPaddingRight,
+      };
+
       const resBlocks = await fetch("/api/homepage", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
             blocks,
-            themeId: activeTheme // Kirim themeId aktif
+            themeId: activeTheme,
+            themeConfig
         }),
       });
 
-      const resSettings = await fetch("/api/admin/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ 
-              themeId: activeTheme, // PENTING: Kirim themeId agar disimpan ke ThemeConfig yang benar
-              homeLayout, 
-              homeSidebarWidth: sidebarWidth,
-              homeMainColumnBox: mainColumnBox,
-              homeSidebarColumnBox: sidebarColumnBox,
-              homeMainColumnBorderRadius: mainColumnBorderRadius,
-              homeSidebarColumnBorderRadius: sidebarColumnBorderRadius,
-              homeMainColumnColor: mainColumnColor,
-              homeSidebarColumnColor: sidebarColumnColor,
-              homeContainerWidth: homeContainerWidth,
-              homeCustomContainerWidth: homeCustomContainerWidth,
-              
-              primaryColor: primaryColor, // Fix: remove 'home' prefix
-              secondaryColor: secondaryColor,
-              accentColor: accentColor,
-              backgroundColor: backgroundColor,
-              headingColor: headingColor,
-              excerptColor: excerptColor,
-              metaColor: metaColor,
-              headingFont: headingFont, // Fix: remove 'home' prefix
-              bodyFont: bodyFont,
-              globalBorderRadius: globalBorderRadius,
-              
-              // Margin & Padding
-              homeGlobalMarginTop: globalMarginTop,
-              homeGlobalMarginBottom: globalMarginBottom,
-              homeGlobalPaddingTop: globalPaddingTop,
-              homeGlobalPaddingBottom: globalPaddingBottom,
-              homeGlobalPaddingLeft: globalPaddingLeft,
-              homeGlobalPaddingRight: globalPaddingRight
-          }),
-      });
-
-      if (resBlocks.ok && resSettings.ok) {
+      if (resBlocks.ok) {
+        const resFresh = await fetch(`/api/homepage?themeId=${activeTheme}`, { cache: "no-store" });
+        const freshBlocks = await resFresh.json();
+        if (Array.isArray(freshBlocks)) {
+          setHistory({ past: [], present: freshBlocks, future: [] });
+        }
         setToast({ message: "Homepage berhasil diupdate!", type: "success" });
         router.refresh(); 
       } else {
         const errBlocks = !resBlocks.ok ? await resBlocks.json() : null;
-        const errSettings = !resSettings.ok ? await resSettings.json() : null;
-        const errMsg = (errBlocks?.error || "") + (errSettings?.error ? (errBlocks?.error ? " & " : "") + errSettings.error : "");
-        setToast({ message: "Gagal menyimpan: " + (errMsg || "Unknown Error"), type: "error" });
+        const errMsg = errBlocks?.error || "Unknown Error";
+        setToast({ message: "Gagal menyimpan: " + errMsg, type: "error" });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown";

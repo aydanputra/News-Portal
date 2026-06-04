@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues } from "./responsive";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
 
 type HeroSplitPost = {
   id?: string;
@@ -618,9 +619,13 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const boxColorDesktop = boxColorValues.desktop || "var(--bg-elevated, #ffffff)";
   const boxColorTablet = boxColorValues.tablet || boxColorDesktop;
   const boxColorMobile = boxColorValues.mobile || boxColorDesktop;
-  const boxBgImageDesktop = typeof cfg.backgroundImage === "string" ? cfg.backgroundImage.trim() : "";
-  const boxBgImageTablet = typeof cfg.tabletBackgroundImage === "string" && cfg.tabletBackgroundImage.trim() !== "" ? cfg.tabletBackgroundImage.trim() : boxBgImageDesktop;
-  const boxBgImageMobile = typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage.trim() : boxBgImageDesktop;
+  const boxBgImageDesktop = sanitizeCssUrl(typeof cfg.backgroundImage === "string" ? cfg.backgroundImage : "");
+  const boxBgImageTablet = sanitizeCssUrl(
+    typeof cfg.tabletBackgroundImage === "string" && cfg.tabletBackgroundImage.trim() !== "" ? cfg.tabletBackgroundImage : boxBgImageDesktop
+  );
+  const boxBgImageMobile = sanitizeCssUrl(
+    typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage : boxBgImageDesktop
+  );
   const globalRadius = "var(--home-main-box-radius, 0.75rem)";
   const boxRadiusDesktop = toRadius(cfg.boxBorderRadius, globalRadius);
   const boxRadiusTablet = toRadius(cfg.tabletBoxBorderRadius, boxRadiusDesktop);
@@ -679,7 +684,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
         borderRadius: useBoxMobile ? boxRadiusMobile : "0",
         border: useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none",
         boxShadow: useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
-        backgroundImage: useBoxMobile && boxBgImageMobile ? `url(${boxBgImageMobile})` : "none",
+        backgroundImage: useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : "none",
         backgroundSize: useBoxMobile && boxBgImageMobile ? "cover" : undefined,
         backgroundPosition: useBoxMobile && boxBgImageMobile ? "center" : undefined,
         backgroundRepeat: useBoxMobile && boxBgImageMobile ? "no-repeat" : undefined
@@ -690,7 +695,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
           __html: `
             #hero-split-4-${block.id} .theme-widget-title span { color: ${blockTitleColorMobile}; font-size: ${blockTitleFsMobile}; }
             #hero-split-4-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderMobile}; }
-            #hero-split-4-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; background-color: ${useBoxMobile ? boxColorMobile : "transparent"} !important; border-radius: ${useBoxMobile ? boxRadiusMobile : "0"} !important; border: ${useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxMobile && boxBgImageMobile ? `url(${boxBgImageMobile})` : "none"} !important; background-size: ${useBoxMobile && boxBgImageMobile ? "cover" : "initial"} !important; background-position: ${useBoxMobile && boxBgImageMobile ? "center" : "initial"} !important; background-repeat: ${useBoxMobile && boxBgImageMobile ? "no-repeat" : "repeat"} !important; }
+            #hero-split-4-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; background-color: ${useBoxMobile ? boxColorMobile : "transparent"} !important; border-radius: ${useBoxMobile ? boxRadiusMobile : "0"} !important; border: ${useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : "none"} !important; background-size: ${useBoxMobile && boxBgImageMobile ? "cover" : "initial"} !important; background-position: ${useBoxMobile && boxBgImageMobile ? "center" : "initial"} !important; background-repeat: ${useBoxMobile && boxBgImageMobile ? "no-repeat" : "repeat"} !important; }
             #hero-split-4-${block.id} .hs-hero-title-link { color: ${heroTitleColorMobile}; }
             #hero-split-4-${block.id} .hs-hero-title-link:hover { color: ${heroTitleHoverMobile}; }
             #hero-split-4-${block.id} .hs-mini-title-link { color: ${miniTitleColorMobile}; }
@@ -734,7 +739,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
             #hero-split-4-${block.id} .hs-mini-grid { display: grid; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(${miniColsMobile}, minmax(0, 1fr)); gap: 0.75rem; overflow-x: visible; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scroll-snap-type: none; }
             #hero-split-4-${block.id} .hs-mini-grid > article { scroll-snap-align: none; }
             @media (min-width: 768px) {
-              #hero-split-4-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; background-color: ${useBoxTablet ? boxColorTablet : "transparent"} !important; border-radius: ${useBoxTablet ? boxRadiusTablet : "0"} !important; border: ${useBoxTablet ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxTablet ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxTablet && boxBgImageTablet ? `url(${boxBgImageTablet})` : "none"} !important; background-size: ${useBoxTablet && boxBgImageTablet ? "cover" : "initial"} !important; background-position: ${useBoxTablet && boxBgImageTablet ? "center" : "initial"} !important; background-repeat: ${useBoxTablet && boxBgImageTablet ? "no-repeat" : "repeat"} !important; }
+              #hero-split-4-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; background-color: ${useBoxTablet ? boxColorTablet : "transparent"} !important; border-radius: ${useBoxTablet ? boxRadiusTablet : "0"} !important; border: ${useBoxTablet ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxTablet ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxTablet && boxBgImageTablet ? `url("${boxBgImageTablet}")` : "none"} !important; background-size: ${useBoxTablet && boxBgImageTablet ? "cover" : "initial"} !important; background-position: ${useBoxTablet && boxBgImageTablet ? "center" : "initial"} !important; background-repeat: ${useBoxTablet && boxBgImageTablet ? "no-repeat" : "repeat"} !important; }
               #hero-split-4-${block.id} .theme-widget-title span { color: ${blockTitleColorTablet}; font-size: ${blockTitleFsTablet}; }
               #hero-split-4-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderTablet}; }
               #hero-split-4-${block.id} .hs-hero-title-link { color: ${heroTitleColorTablet}; }
@@ -774,7 +779,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
               #hero-split-4-${block.id} .hs-mini-grid > article { scroll-snap-align: none; }
             }
             @media (min-width: 1025px) {
-              #hero-split-4-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; background-color: ${useBoxDesktop ? boxColorDesktop : "transparent"} !important; border-radius: ${useBoxDesktop ? boxRadiusDesktop : "0"} !important; border: ${useBoxDesktop ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxDesktop ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxDesktop && boxBgImageDesktop ? `url(${boxBgImageDesktop})` : "none"} !important; background-size: ${useBoxDesktop && boxBgImageDesktop ? "cover" : "initial"} !important; background-position: ${useBoxDesktop && boxBgImageDesktop ? "center" : "initial"} !important; background-repeat: ${useBoxDesktop && boxBgImageDesktop ? "no-repeat" : "repeat"} !important; }
+              #hero-split-4-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; background-color: ${useBoxDesktop ? boxColorDesktop : "transparent"} !important; border-radius: ${useBoxDesktop ? boxRadiusDesktop : "0"} !important; border: ${useBoxDesktop ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxDesktop ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxDesktop && boxBgImageDesktop ? `url("${boxBgImageDesktop}")` : "none"} !important; background-size: ${useBoxDesktop && boxBgImageDesktop ? "cover" : "initial"} !important; background-position: ${useBoxDesktop && boxBgImageDesktop ? "center" : "initial"} !important; background-repeat: ${useBoxDesktop && boxBgImageDesktop ? "no-repeat" : "repeat"} !important; }
               #hero-split-4-${block.id} .theme-widget-title span { color: ${blockTitleColorDesktop}; font-size: ${blockTitleFsDesktop}; }
               #hero-split-4-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderDesktop}; }
               #hero-split-4-${block.id} .hs-hero-title-link { color: ${heroTitleColorDesktop}; }

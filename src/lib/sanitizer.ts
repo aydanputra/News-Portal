@@ -150,3 +150,32 @@ export const sanitizePageContent = (html: string): string => {
     },
   });
 };
+
+export function sanitizeExternalUrl(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const value = raw.trim();
+  if (!value) return "";
+  if (value.startsWith("/") || value.startsWith("#")) return value;
+  if (value.toLowerCase().startsWith("javascript:")) return "";
+  if (value.toLowerCase().startsWith("data:")) return "";
+  if (value.toLowerCase().startsWith("vbscript:")) return "";
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:" && url.protocol !== "mailto:") return "";
+    return url.toString();
+  } catch {
+    return "";
+  }
+}
+
+export function sanitizeCssUrl(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const value = raw.trim();
+  if (!value) return "";
+  const lower = value.toLowerCase();
+  if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("vbscript:")) return "";
+  if (/[<>"'()\\\n\r]/.test(value)) return "";
+  if (value.startsWith("/")) return value;
+  if (value.startsWith("http://") || value.startsWith("https://")) return value;
+  return "";
+}

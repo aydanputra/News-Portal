@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
 
 interface SectionProps {
   block: any;
@@ -221,15 +222,21 @@ export default function Section({ block, layout: _layout, colWidths: _colWidths,
   const bgColorTablet = normalizeColor(config.tabletBackgroundColor ?? backgroundColor ?? config.mobileBackgroundColor, bgColorMobile);
   const bgColorDesktop = normalizeColor(backgroundColor ?? config.tabletBackgroundColor ?? config.mobileBackgroundColor, bgColorTablet);
 
-  const bgImageMobile = typeof config.mobileBackgroundImage === 'string' && config.mobileBackgroundImage.trim() !== ''
-    ? config.mobileBackgroundImage.trim()
-    : (typeof backgroundImage === 'string' ? backgroundImage : '');
-  const bgImageTablet = typeof config.tabletBackgroundImage === 'string' && config.tabletBackgroundImage.trim() !== ''
-    ? config.tabletBackgroundImage.trim()
-    : bgImageMobile;
-  const bgImageDesktop = typeof backgroundImage === 'string' && backgroundImage.trim() !== ''
-    ? backgroundImage.trim()
-    : bgImageTablet;
+  const bgImageMobile = sanitizeCssUrl(
+    typeof config.mobileBackgroundImage === "string" && config.mobileBackgroundImage.trim() !== ""
+      ? config.mobileBackgroundImage
+      : backgroundImage
+  );
+  const bgImageTablet = sanitizeCssUrl(
+    typeof config.tabletBackgroundImage === "string" && config.tabletBackgroundImage.trim() !== ""
+      ? config.tabletBackgroundImage
+      : bgImageMobile
+  );
+  const bgImageDesktop = sanitizeCssUrl(
+    typeof backgroundImage === "string" && backgroundImage.trim() !== ""
+      ? backgroundImage
+      : bgImageTablet
+  );
 
   const overlayMobile = typeof config.mobileOverlayColor === 'string' && config.mobileOverlayColor.trim() !== ''
     ? config.mobileOverlayColor
@@ -277,7 +284,7 @@ export default function Section({ block, layout: _layout, colWidths: _colWidths,
             padding-left: ${plMobile} !important;
             padding-right: ${prMobile} !important;
             background-color: ${bgColorMobile} !important;
-            background-image: ${bgImageMobile ? `url(${bgImageMobile})` : 'none'} !important;
+            background-image: ${bgImageMobile ? `url("${bgImageMobile}")` : 'none'} !important;
             background-size: ${bgImageMobile ? bgSizeMobile : 'auto'} !important;
             border-style: ${borderStyleMobile} !important;
             border-color: ${borderColorMobile} !important;
@@ -315,7 +322,7 @@ export default function Section({ block, layout: _layout, colWidths: _colWidths,
                 padding-left: ${plTablet} !important;
                 padding-right: ${prTablet} !important;
                 background-color: ${bgColorTablet} !important;
-                background-image: ${bgImageTablet ? `url(${bgImageTablet})` : 'none'} !important;
+                background-image: ${bgImageTablet ? `url("${bgImageTablet}")` : 'none'} !important;
                 background-size: ${bgImageTablet ? bgSizeTablet : 'auto'} !important;
                 border-style: ${borderStyleTablet} !important;
                 border-color: ${borderColorTablet} !important;
@@ -354,7 +361,7 @@ export default function Section({ block, layout: _layout, colWidths: _colWidths,
                 padding-left: ${plDesktop} !important;
                 padding-right: ${prDesktop} !important;
                 background-color: ${bgColorDesktop} !important;
-                background-image: ${bgImageDesktop ? `url(${bgImageDesktop})` : 'none'} !important;
+                background-image: ${bgImageDesktop ? `url("${bgImageDesktop}")` : 'none'} !important;
                 background-size: ${bgImageDesktop ? bgSizeDesktop : 'auto'} !important;
                 border-style: ${borderStyleDesktop} !important;
                 border-color: ${borderColorDesktop} !important;

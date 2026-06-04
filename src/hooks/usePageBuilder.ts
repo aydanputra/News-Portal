@@ -7,6 +7,8 @@ import { getThemeDefaultPostBlocks } from "@/lib/post-builder-theme-registry";
 
 export type PageLocation = "home" | "post";
 
+const MAX_HISTORY = 50;
+
 export function usePageBuilder(location: PageLocation = "home") {
   const router = useRouter();
   const prefix = location === "home" ? "home" : "post"; // e.g. homeLayout vs postLayout
@@ -109,14 +111,9 @@ export function usePageBuilder(location: PageLocation = "home") {
       setHistory(prev => {
           const newBlocks = typeof newBlocksOrFn === 'function' ? newBlocksOrFn(prev.present) : newBlocksOrFn;
           
-          if (JSON.stringify(prev.present) !== JSON.stringify(newBlocks)) {
-              return {
-                  past: [...prev.past, prev.present],
-                  present: newBlocks,
-                  future: []
-              };
-          }
-          return prev;
+          if (newBlocks === prev.present) return prev;
+          const nextPast = prev.past.length >= MAX_HISTORY ? [...prev.past.slice(1), prev.present] : [...prev.past, prev.present];
+          return { past: nextPast, present: newBlocks, future: [] };
       });
   }, []);
 
@@ -912,59 +909,53 @@ export function usePageBuilder(location: PageLocation = "home") {
   async function handleSave() {
     setLoading(true);
     try {
+      const themeConfig = {
+        [`${prefix}Layout`]: layout,
+        [`${prefix}SidebarWidth`]: sidebarWidth,
+        [`${prefix}MainColumnBox`]: mainColumnBox,
+        [`${prefix}SidebarColumnBox`]: sidebarColumnBox,
+        [`${prefix}MainColumnBorderRadius`]: mainColumnBorderRadius,
+        [`${prefix}SidebarColumnBorderRadius`]: sidebarColumnBorderRadius,
+        [`${prefix}MainColumnColor`]: mainColumnColor,
+        [`${prefix}SidebarColumnColor`]: sidebarColumnColor,
+        [`${prefix}ContainerWidth`]: containerWidth,
+        [`${prefix}CustomContainerWidth`]: customContainerWidth,
+        [`${prefix}PrimaryColor`]: primaryColor,
+        [`${prefix}SecondaryColor`]: secondaryColor,
+        [`${prefix}AccentColor`]: accentColor,
+        [`${prefix}BackgroundColor`]: backgroundColor,
+        [`${prefix}HeadingColor`]: headingColor,
+        [`${prefix}ExcerptColor`]: excerptColor,
+        [`${prefix}MetaColor`]: metaColor,
+        [`${prefix}HeadingFont`]: headingFont,
+        [`${prefix}BodyFont`]: bodyFont,
+        [`${prefix}GlobalBorderRadius`]: globalBorderRadius,
+        [`${prefix}GlobalMarginTop`]: globalMarginTop,
+        [`${prefix}GlobalMarginBottom`]: globalMarginBottom,
+        [`${prefix}GlobalPaddingTop`]: globalPaddingTop,
+        [`${prefix}GlobalPaddingBottom`]: globalPaddingBottom,
+        [`${prefix}GlobalPaddingLeft`]: globalPaddingLeft,
+        [`${prefix}GlobalPaddingRight`]: globalPaddingRight,
+      };
+
       const resBlocks = await fetch(`/api/homepage?location=${location}&themeId=${activeTheme}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ blocks, location, themeId: activeTheme }),
+        body: JSON.stringify({ blocks, location, themeId: activeTheme, themeConfig }),
       });
 
-      const settingsPayload = {
-          themeId: activeTheme,
-          [`${prefix}Layout`]: layout,
-          [`${prefix}SidebarWidth`]: sidebarWidth,
-          [`${prefix}MainColumnBox`]: mainColumnBox,
-          [`${prefix}SidebarColumnBox`]: sidebarColumnBox,
-          [`${prefix}MainColumnBorderRadius`]: mainColumnBorderRadius,
-          [`${prefix}SidebarColumnBorderRadius`]: sidebarColumnBorderRadius,
-          [`${prefix}MainColumnColor`]: mainColumnColor,
-          [`${prefix}SidebarColumnColor`]: sidebarColumnColor,
-          [`${prefix}ContainerWidth`]: containerWidth,
-          [`${prefix}CustomContainerWidth`]: customContainerWidth,
-          
-          [`${prefix}PrimaryColor`]: primaryColor,
-          [`${prefix}SecondaryColor`]: secondaryColor,
-          [`${prefix}AccentColor`]: accentColor,
-          [`${prefix}BackgroundColor`]: backgroundColor,
-          [`${prefix}HeadingColor`]: headingColor,
-          [`${prefix}ExcerptColor`]: excerptColor,
-          [`${prefix}MetaColor`]: metaColor,
-          [`${prefix}HeadingFont`]: headingFont,
-          [`${prefix}BodyFont`]: bodyFont,
-          [`${prefix}GlobalBorderRadius`]: globalBorderRadius,
-
-          // Margin & Padding
-          [`${prefix}GlobalMarginTop`]: globalMarginTop,
-          [`${prefix}GlobalMarginBottom`]: globalMarginBottom,
-          [`${prefix}GlobalPaddingTop`]: globalPaddingTop,
-          [`${prefix}GlobalPaddingBottom`]: globalPaddingBottom,
-          [`${prefix}GlobalPaddingLeft`]: globalPaddingLeft,
-          [`${prefix}GlobalPaddingRight`]: globalPaddingRight
-      };
-
-      const resSettings = await fetch("/api/admin/settings", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(settingsPayload),
-      });
-
-      if (resBlocks.ok && resSettings.ok) {
+      if (resBlocks.ok) {
+        const resFresh = await fetch(`/api/homepage?location=${location}&themeId=${activeTheme}`, { cache: "no-store" });
+        const freshBlocks = await resFresh.json();
+        if (Array.isArray(freshBlocks)) {
+          setHistory({ past: [], present: freshBlocks, future: [] });
+        }
         setToast({ message: "Konfigurasi berhasil diupdate!", type: "success" });
         router.refresh(); 
       } else {
         const errBlocks = !resBlocks.ok ? await resBlocks.json() : null;
-        const errSettings = !resSettings.ok ? await resSettings.json() : null;
-        const errMsg = (errBlocks?.error || "") + (errSettings?.error ? (errBlocks?.error ? " & " : "") + errSettings.error : "");
-        setToast({ message: "Gagal menyimpan: " + (errMsg || "Unknown Error"), type: "error" });
+        const errMsg = errBlocks?.error || "Unknown Error";
+        setToast({ message: "Gagal menyimpan: " + errMsg, type: "error" });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown";

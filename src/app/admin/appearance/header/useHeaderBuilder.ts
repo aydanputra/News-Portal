@@ -3,6 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { Block, Category, Tag } from "../../homepage/types";
 import { ConfigValue } from "@/lib/page-builder-config";
+import { useRouter } from "next/navigation";
+
+const MAX_HISTORY = 50;
 
 const DEFAULT_HEADER_BLOCKS: Block[] = [
   {
@@ -54,6 +57,7 @@ const normalizeBlocksForApi = (blocks: Block[]) =>
   }));
 
 export function useHeaderBuilder() {
+  const router = useRouter();
   const [showSectionPicker, setShowSectionPicker] = useState(false);
   const [history, setHistory] = useState<{ past: Block[][]; present: Block[]; future: Block[][] }>({ past: [], present: [], future: [] });
   const blocks = history.present;
@@ -96,10 +100,9 @@ export function useHeaderBuilder() {
   const setBlocksWithHistory = useCallback((newBlocksOrFn: Block[] | ((prev: Block[]) => Block[])) => {
     setHistory((prev) => {
       const nextBlocks = typeof newBlocksOrFn === "function" ? (newBlocksOrFn as any)(prev.present) : newBlocksOrFn;
-      if (JSON.stringify(prev.present) !== JSON.stringify(nextBlocks)) {
-        return { past: [...prev.past, prev.present], present: nextBlocks, future: [] };
-      }
-      return prev;
+      if (nextBlocks === prev.present) return prev;
+      const nextPast = prev.past.length >= MAX_HISTORY ? [...prev.past.slice(1), prev.present] : [...prev.past, prev.present];
+      return { past: nextPast, present: nextBlocks, future: [] };
     });
   }, []);
 
@@ -167,13 +170,19 @@ export function useHeaderBuilder() {
         const err = await res.json().catch(() => null);
         throw new Error(err?.error || "Gagal menyimpan header");
       }
+      const resFresh = await fetch(`/api/homepage?location=header&themeId=${encodeURIComponent(activeTheme)}`, { cache: "no-store" });
+      const freshBlocks = await resFresh.json();
+      if (Array.isArray(freshBlocks)) {
+        setHistory({ past: [], present: freshBlocks as Block[], future: [] });
+      }
+      router.refresh();
       setToast({ message: "Header disimpan", type: "success" });
     } catch (e: any) {
       setToast({ message: e?.message || "Gagal menyimpan header", type: "error" });
     } finally {
       setLoading(false);
     }
-  }, [activeTheme, blocks]);
+  }, [activeTheme, blocks, router]);
 
   const resetAllSettings = useCallback(() => {
     setBlocksWithHistory(DEFAULT_HEADER_BLOCKS);

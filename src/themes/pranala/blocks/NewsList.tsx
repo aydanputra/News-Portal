@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool } from "./responsive";
 import { resolveWidgetRadius } from "./radius";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
 
 type NewsListCategory = {
   slug: string;
@@ -252,9 +253,13 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const boxColorMobile = normalizeColor(cfg.mobileBoxColor ?? cfg.boxColor, 'var(--bg-elevated, #ffffff)');
   const boxColorTablet = normalizeColor(cfg.tabletBoxColor ?? cfg.boxColor ?? cfg.mobileBoxColor, 'var(--bg-elevated, #ffffff)');
   const boxColorDesktop = normalizeColor(cfg.boxColor ?? cfg.tabletBoxColor ?? cfg.mobileBoxColor, 'var(--bg-elevated, #ffffff)');
-  const boxBgImageDesktop = typeof cfg.backgroundImage === 'string' ? cfg.backgroundImage.trim() : '';
-  const boxBgImageTablet = typeof cfg.tabletBackgroundImage === 'string' && cfg.tabletBackgroundImage.trim() !== '' ? cfg.tabletBackgroundImage.trim() : boxBgImageDesktop;
-  const boxBgImageMobile = typeof cfg.mobileBackgroundImage === 'string' && cfg.mobileBackgroundImage.trim() !== '' ? cfg.mobileBackgroundImage.trim() : boxBgImageDesktop;
+  const boxBgImageDesktop = sanitizeCssUrl(typeof cfg.backgroundImage === "string" ? cfg.backgroundImage : "");
+  const boxBgImageTablet = sanitizeCssUrl(
+    typeof cfg.tabletBackgroundImage === "string" && cfg.tabletBackgroundImage.trim() !== "" ? cfg.tabletBackgroundImage : boxBgImageDesktop
+  );
+  const boxBgImageMobile = sanitizeCssUrl(
+    typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage : boxBgImageDesktop
+  );
 
   const boxRadiusKeyMobile = typeof cfg.mobileBoxBorderRadius === 'string' ? cfg.mobileBoxBorderRadius : (typeof cfg.boxBorderRadius === 'string' ? cfg.boxBorderRadius : 'default');
   const boxRadiusKeyTablet = typeof cfg.tabletBoxBorderRadius === 'string' ? cfg.tabletBoxBorderRadius : boxRadiusKeyMobile;
@@ -770,7 +775,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
           border-radius: ${useBoxMobile ? getRadius(boxRadiusKeyMobile) : '0'};
           border: ${useBoxMobile ? 'var(--box-border, 1px solid #f3f4f6)' : 'none'};
           box-shadow: ${useBoxMobile ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'};
-          background-image: ${useBoxMobile && boxBgImageMobile ? `url(${boxBgImageMobile})` : 'none'};
+          background-image: ${useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : 'none'};
           background-size: ${useBoxMobile && boxBgImageMobile ? 'cover' : 'initial'};
           background-position: ${useBoxMobile && boxBgImageMobile ? 'center' : 'initial'};
           background-repeat: ${useBoxMobile && boxBgImageMobile ? 'no-repeat' : 'repeat'};
@@ -863,7 +868,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
             border-radius: ${useBoxTablet ? getRadius(boxRadiusKeyTablet) : '0'};
             border: ${useBoxTablet ? 'var(--box-border, 1px solid #f3f4f6)' : 'none'};
             box-shadow: ${useBoxTablet ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'};
-            background-image: ${useBoxTablet && boxBgImageTablet ? `url(${boxBgImageTablet})` : 'none'};
+            background-image: ${useBoxTablet && boxBgImageTablet ? `url("${boxBgImageTablet}")` : 'none'};
             background-size: ${useBoxTablet && boxBgImageTablet ? 'cover' : 'initial'};
             background-position: ${useBoxTablet && boxBgImageTablet ? 'center' : 'initial'};
             background-repeat: ${useBoxTablet && boxBgImageTablet ? 'no-repeat' : 'repeat'};
@@ -910,7 +915,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
             border-radius: ${useBoxDesktop ? getRadius(boxRadiusKeyDesktop) : '0'};
             border: ${useBoxDesktop ? 'var(--box-border, 1px solid #f3f4f6)' : 'none'};
             box-shadow: ${useBoxDesktop ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'};
-            background-image: ${useBoxDesktop && boxBgImageDesktop ? `url(${boxBgImageDesktop})` : 'none'};
+            background-image: ${useBoxDesktop && boxBgImageDesktop ? `url("${boxBgImageDesktop}")` : 'none'};
             background-size: ${useBoxDesktop && boxBgImageDesktop ? 'cover' : 'initial'};
             background-position: ${useBoxDesktop && boxBgImageDesktop ? 'center' : 'initial'};
             background-repeat: ${useBoxDesktop && boxBgImageDesktop ? 'no-repeat' : 'repeat'};

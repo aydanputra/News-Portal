@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
 
 type NewsGridSliderPost = {
   id?: string;
@@ -421,9 +422,13 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const boxColorDesktop = (cfg.boxColor as string) || "var(--bg-elevated, #ffffff)";
   const boxColorTablet = (cfg.tabletBoxColor as string) || boxColorDesktop;
   const boxColorMobile = (cfg.mobileBoxColor as string) || boxColorDesktop;
-  const boxBgImageDesktop = typeof cfg.backgroundImage === "string" ? cfg.backgroundImage.trim() : "";
-  const boxBgImageTablet = typeof cfg.tabletBackgroundImage === "string" && cfg.tabletBackgroundImage.trim() !== "" ? cfg.tabletBackgroundImage.trim() : boxBgImageDesktop;
-  const boxBgImageMobile = typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage.trim() : boxBgImageDesktop;
+  const boxBgImageDesktop = sanitizeCssUrl(typeof cfg.backgroundImage === "string" ? cfg.backgroundImage : "");
+  const boxBgImageTablet = sanitizeCssUrl(
+    typeof cfg.tabletBackgroundImage === "string" && cfg.tabletBackgroundImage.trim() !== "" ? cfg.tabletBackgroundImage : boxBgImageDesktop
+  );
+  const boxBgImageMobile = sanitizeCssUrl(
+    typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage : boxBgImageDesktop
+  );
   const activeUseBox = device === "mobile" ? useBoxMobile : (device === "tablet" ? useBoxTablet : useBoxDesktop);
   const activeBoxColor = device === "mobile" ? boxColorMobile : (device === "tablet" ? boxColorTablet : boxColorDesktop);
   const activeBoxBgImage = device === "mobile" ? boxBgImageMobile : (device === "tablet" ? boxBgImageTablet : boxBgImageDesktop);
@@ -517,7 +522,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
         borderRadius: activeUseBox ? activeBoxRadius : "0",
         border: activeUseBox ? "var(--box-border, 1px solid var(--border))" : "none",
         boxShadow: activeUseBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
-        backgroundImage: activeUseBox && activeBoxBgImage ? `url(${activeBoxBgImage})` : "none",
+        backgroundImage: activeUseBox && activeBoxBgImage ? `url("${activeBoxBgImage}")` : "none",
         backgroundSize: activeUseBox && activeBoxBgImage ? "cover" : undefined,
         backgroundPosition: activeUseBox && activeBoxBgImage ? "center" : undefined,
         backgroundRepeat: activeUseBox && activeBoxBgImage ? "no-repeat" : undefined,

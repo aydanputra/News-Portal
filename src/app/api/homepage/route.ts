@@ -1,24 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
 import { revalidatePath, revalidateTag } from "next/cache";
-import { HomepageBlockConfigSchema } from "@/lib/schemas";
+import { BuilderLocationSchema, HomepageBlocksInputSchema, HomepageBlockConfigSchema } from "@/lib/schemas";
 import { logActivity } from "@/lib/audit";
 import { normalizeHomepageBlocks } from "@/lib/homepage-block-migrations";
+import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
 
 // GET: Ambil konfigurasi blok
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const location = searchParams.get("location") || "home";
-    const themeId = searchParams.get("themeId") || "modern"; // Default ke modern jika tidak ada
+    const rawLocation = searchParams.get("location") || "home";
+    const rawThemeId = searchParams.get("themeId") || "modern";
+    const parsedLocation = BuilderLocationSchema.safeParse(rawLocation);
+    const location = parsedLocation.success ? parsedLocation.data : "home";
+    const themeId = typeof rawThemeId === "string" ? rawThemeId.trim().slice(0, 80) : "modern";
 
     const blocks = await prisma.homepageBlock.findMany({
-      where: { 
-          location,
-          // @ts-ignore: Prisma client type update lag
-          themeId: themeId // Filter berdasarkan tema
+      where: {
+        location,
+        themeId,
       },
       orderBy: { order: "asc" },
     });
@@ -32,13 +33,17 @@ export async function GET(request: Request) {
 // PUT: Update konfigurasi (Full Sync: Hapus semua lalu buat ulang berdasarkan lokasi & tema)
 export async function PUT(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-
-    // Hanya ADMIN & SUPER_ADMIN yang boleh atur homepage
-    if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    const admin = await requireAdmin();
+    if (!admin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rl = assertRateLimit(request, "builder:homepage:write", { windowMs: 60_000, max: 20 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -46,63 +51,111 @@ export async function PUT(request: Request) {
     const queryThemeId = searchParams.get("themeId"); // Ambil themeId dari query params
 
     const body = await request.json();
-    const { blocks, location: bodyLocation, themeId: bodyThemeId } = body; 
-    const location = bodyLocation || queryLocation || "home";
-    const themeId = bodyThemeId || queryThemeId || "modern";
-    const normalizedBlocks = Array.isArray(blocks)
-      ? normalizeHomepageBlocks(blocks as Array<Record<string, unknown>>)
-      : [];
-
-    // Validasi input
-    if (!Array.isArray(blocks)) {
-        return NextResponse.json({ error: "Invalid data format" }, { status: 400 });
+    const rawStringified = (() => {
+      try {
+        return JSON.stringify(body);
+      } catch {
+        return "";
+      }
+    })();
+    if (rawStringified && rawStringified.length > 1_000_000) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
     }
 
-    // Zod Validation Check
-    try {
-        for (const block of normalizedBlocks) {
-            if (block.config) {
-                // Parse will throw if invalid
-                HomepageBlockConfigSchema.parse(block.config);
-            }
-        }
-    } catch (e: any) {
-        console.error("Validation Error:", e.errors);
-        return NextResponse.json({ error: "Data konfigurasi tidak valid (Schema mismatch)" }, { status: 400 });
+    const { blocks: rawBlocks, location: bodyLocation, themeId: bodyThemeId, themeConfig } = body || {};
+    const locationParsed = BuilderLocationSchema.safeParse(bodyLocation || queryLocation || "home");
+    if (!locationParsed.success) {
+      return NextResponse.json({ error: "Invalid location" }, { status: 400 });
+    }
+    const location = locationParsed.data;
+    const themeIdRaw = typeof (bodyThemeId || queryThemeId) === "string" ? String(bodyThemeId || queryThemeId) : "modern";
+    const themeId = themeIdRaw.trim().slice(0, 80) || "modern";
+
+    const parsedBlocks = HomepageBlocksInputSchema.safeParse(rawBlocks);
+    if (!parsedBlocks.success) {
+      return NextResponse.json({ error: "Invalid blocks payload" }, { status: 400 });
     }
 
-    // Gunakan Transaction untuk operasi atomik
-    await prisma.$transaction(async (tx: any) => {
-      // 1. Hapus semua blok lama PADA LOKASI INI DAN TEMA INI
-      await tx.homepageBlock.deleteMany({
-        where: { 
-            location,
-            themeId
-        }
+    const normalizedBlocks = normalizeHomepageBlocks(parsedBlocks.data).map((block, index) => {
+      const configValue = (block as any)?.config ?? {};
+      const config = configValue && typeof configValue === "object" && !Array.isArray(configValue) ? configValue : {};
+      const parsedConfig = HomepageBlockConfigSchema.parse(config);
+      return {
+        id: block.id,
+        type: block.type,
+        title: typeof block.title === "string" ? block.title : block.title === null ? null : undefined,
+        order: index + 1,
+        isActive: (block as any).isActive ?? (block as any).isVisible ?? true,
+        placement: typeof (block as any).placement === "string" && (block as any).placement.trim() !== "" ? (block as any).placement.trim() : "main",
+        config: parsedConfig,
+      };
+    });
+
+    await prisma.$transaction(async (tx) => {
+      const existing = await tx.homepageBlock.findMany({
+        where: { location, themeId },
+        select: { id: true },
       });
+      const existingIds = new Set(existing.map((b) => b.id));
+      const incomingIds = new Set(normalizedBlocks.map((b) => b.id));
 
-      // 2. Buat blok baru sesuai urutan yang dikirim
-      for (const [index, block] of normalizedBlocks.entries()) {
-        await tx.homepageBlock.create({
-          data: {
-            // Jangan gunakan block.id dari frontend karena bisa jadi "new_..."
-            // Biarkan Prisma generate ID baru
-            type: block.type,
-            title: block.title,
-            order: index + 1, // Urutkan ulang berdasarkan index array
-            isActive: block.isActive ?? true,
-            config: block.config || {},
-            placement: block.placement || "main",
-            location: location,
-            themeId: themeId, // Simpan ID tema
+      for (const block of normalizedBlocks) {
+        if (existingIds.has(block.id)) {
+          await tx.homepageBlock.update({
+            where: { id: block.id },
+            data: {
+              type: block.type,
+              title: block.title ?? null,
+              order: block.order,
+              isActive: Boolean(block.isActive),
+              config: (block.config || {}) as any,
+              placement: block.placement || "main",
+              location,
+              themeId,
+            },
+          });
+        } else {
+          await tx.homepageBlock.create({
+            data: {
+              id: block.id,
+              type: block.type,
+              title: block.title ?? null,
+              order: block.order,
+              isActive: Boolean(block.isActive),
+              config: (block.config || {}) as any,
+              placement: block.placement || "main",
+              location,
+              themeId,
+            },
+          });
+        }
+      }
+
+      if (incomingIds.size === 0) {
+        await tx.homepageBlock.deleteMany({ where: { location, themeId } });
+      } else {
+        await tx.homepageBlock.deleteMany({
+          where: {
+            location,
+            themeId,
+            id: { notIn: Array.from(incomingIds) },
           },
+        });
+      }
+
+      if (themeConfig && typeof themeConfig === "object" && !Array.isArray(themeConfig) && themeId) {
+        await (tx as any).themeConfig.upsert({
+          where: { themeId },
+          update: { config: themeConfig as object },
+          create: { themeId, config: themeConfig as object },
         });
       }
     });
 
-    await logActivity(user.id, "UPDATE", "Homepage", location, { themeId }, request);
+    await logActivity(admin.id, "UPDATE", "Homepage", location, { themeId }, request);
 
     revalidateTag("homepage");
+    revalidateTag("settings");
     revalidateTag("posts");
     revalidatePath("/", "layout");
 
