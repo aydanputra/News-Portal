@@ -608,7 +608,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                   rel={rel}
                   aria-label={l.key}
                 >
-                  <Icon className="w-[length:var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,18px))] h-[length:var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,18px))] md:w-[length:var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,18px))] md:h-[length:var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,18px))]" />
+                  <Icon className="w-[var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,18px))] h-[var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,18px))] md:w-[var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,18px))] md:h-[var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,18px))]" />
                 </a>
               );
             })}
