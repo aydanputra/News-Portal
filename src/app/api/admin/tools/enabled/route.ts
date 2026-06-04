@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isToolEnabledForRequest, isToolsAllowlistActive, requireAdmin, type ToolId } from "@/lib/api-guards";
+import { getToolsAllowlistSource, getToolsRequestHost, isToolEnabledForRequest, isToolsAllowlistActive, requireAdmin, type ToolId } from "@/lib/api-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -10,11 +10,15 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const allowlistActive = isToolsAllowlistActive();
+  const source = getToolsAllowlistSource();
+  const host = getToolsRequestHost(request);
 
   const enabledTools = ALL_TOOLS.filter((t) => isToolEnabledForRequest(request, t));
 
   return NextResponse.json({
     allowlistActive,
+    source,
+    host,
     enabledTools,
   });
 }

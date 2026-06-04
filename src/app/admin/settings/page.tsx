@@ -84,6 +84,8 @@ export default function SettingsPage() {
   } | null>(null);
   const [systemTools, setSystemTools] = useState<{
     allowlistActive: boolean;
+    source?: "instance" | "host" | "none";
+    host?: string;
     enabledTools: string[];
   } | null>(null);
 
@@ -156,6 +158,11 @@ export default function SettingsPage() {
       } else {
         setSystemTools({
           allowlistActive: Boolean(toolsJson?.allowlistActive),
+          source:
+            toolsJson?.source === "instance" || toolsJson?.source === "host" || toolsJson?.source === "none"
+              ? toolsJson.source
+              : undefined,
+          host: typeof toolsJson?.host === "string" ? toolsJson.host : undefined,
           enabledTools: Array.isArray(toolsJson?.enabledTools) ? toolsJson.enabledTools.map((x: any) => String(x)) : [],
         });
       }
@@ -317,6 +324,18 @@ export default function SettingsPage() {
                     <span className="font-semibold text-[var(--fg-secondary)]">Allowlist aktif:</span>{" "}
                     <span className="font-bold text-[var(--fg-primary)]">{systemTools?.allowlistActive ? "Ya" : "Tidak"}</span>
                   </div>
+                  <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Sumber kontrol:</span>{" "}
+                    <span className="font-bold text-[var(--fg-primary)]">
+                      {systemTools?.source === "instance" ? "TOOLS_ENABLED (per website)" : systemTools?.source === "host" ? "TENANT_TOOLS_ALLOWLIST (per domain)" : "Tidak ada"}
+                    </span>
+                  </div>
+                  {systemTools?.host ? (
+                    <div>
+                      <span className="font-semibold text-[var(--fg-secondary)]">Host terdeteksi:</span>{" "}
+                      <span className="font-bold text-[var(--fg-primary)]">{systemTools.host}</span>
+                    </div>
+                  ) : null}
                   <div>
                     <span className="font-semibold text-[var(--fg-secondary)]">Enabled tools:</span>
                     <div className="mt-2 flex flex-wrap gap-2">

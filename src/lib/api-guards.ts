@@ -156,3 +156,15 @@ export function isToolsAllowlistActive(): boolean {
   const hostRaw = process.env.TENANT_TOOLS_ALLOWLIST;
   return typeof hostRaw === "string" && hostRaw.trim() !== "";
 }
+
+export function getToolsAllowlistSource(): "instance" | "host" | "none" {
+  const instanceRaw = process.env.TOOLS_ENABLED;
+  if (typeof instanceRaw === "string" && instanceRaw.trim() !== "") return "instance";
+  const hostRaw = process.env.TENANT_TOOLS_ALLOWLIST;
+  if (typeof hostRaw === "string" && hostRaw.trim() !== "") return "host";
+  return "none";
+}
+
+export function getToolsRequestHost(request: Request): string {
+  return getRequestHost(request);
+}
