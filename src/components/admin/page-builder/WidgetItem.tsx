@@ -8,6 +8,7 @@ import { ConfigValue } from "@/lib/page-builder-config";
 
 interface WidgetItemProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
+    previewMode?: "stable" | "visual";
     child: Block;
     parentIndex: number;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
@@ -49,6 +50,7 @@ interface WidgetItemProps {
 
 function WidgetItem({
     builderLocation = "home",
+    previewMode = "stable",
     child,
     parentIndex,
     moveChildBlock,
@@ -311,6 +313,7 @@ function WidgetItem({
         return (
             <SectionBlock
                 builderLocation={builderLocation as any}
+                previewMode={previewMode}
                 activeTheme={activeTheme}
                 activeDeviceTab={activeDeviceTab}
                 block={child}
@@ -498,6 +501,59 @@ function WidgetItem({
             </div>
         );
     };
+
+    if (previewMode === "stable" && context !== "post" && !isArchiveWidget) {
+        const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
+        const limitValue = getResponsiveValue("limit");
+        const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
+        const badgeClass = widgetBadgeClassMap[child.type] || "bg-gray-500";
+        const displayTitle = widgetLabelMap[child.type] || child.title || child.type;
+        const badgeText = widgetBadgeTextMap[child.type] || displayTitle.toUpperCase();
+        const showMetaSummary = activeDeviceTab !== "mobile";
+        const moveControlsBelow = isCompactLayout;
+        const controlIconSize = moveControlsBelow ? 12 : 14;
+        const controlPad = moveControlsBelow ? "p-1" : "p-1.5";
+        const wrapperClass = "bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 shadow-sm hover:border-[var(--accent)] group/item relative transition-all";
+
+        return (
+            <div ref={containerRef} className={wrapperClass}>
+                <div className={`mb-2 gap-2 ${moveControlsBelow ? "flex flex-col items-stretch" : "flex items-start justify-between"}`}>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <div className={`shrink-0 p-1 rounded text-white text-[10px] font-bold ${badgeClass}`}>
+                            {badgeText}
+                        </div>
+                        <span className="text-xs font-bold text-[var(--fg-primary)] truncate min-w-0 flex-1">{displayTitle}</span>
+                    </div>
+                    <div className={`shrink-0 bg-[var(--bg-base)] rounded-md border border-[var(--border)] overflow-hidden ${moveControlsBelow ? "flex flex-wrap items-center justify-end self-end" : "flex items-center"}`}>
+                        {columnCount > 1 && (
+                            <>
+                                <button onClick={() => handleMoveColumn("left")} disabled={currentColumnIndex === 0} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all rounded-l-md border-r border-[var(--border)] ${currentColumnIndex === 0 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kiri"><ArrowLeft size={controlIconSize} /></button>
+                                <button onClick={() => handleMoveColumn("right")} disabled={currentColumnIndex === columnCount - 1} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${currentColumnIndex === columnCount - 1 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kanan"><ArrowRight size={controlIconSize} /></button>
+                            </>
+                        )}
+                        <button onClick={() => handleMove("up")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${columnCount <= 1 ? "rounded-l-md" : ""}`} title="Geser Atas"><ArrowUp size={controlIconSize} /></button>
+                        <button onClick={() => handleMove("down")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Geser Bawah"><ArrowDown size={controlIconSize} /></button>
+                        {canOpenWidgetSettings && (
+                            <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title={builderLocation === "header" || builderLocation === "footer" ? "Pengaturan" : "Edit Konten"}>
+                                {builderLocation === "header" || builderLocation === "footer" ? <Settings size={controlIconSize} /> : <Edit size={controlIconSize} />}
+                            </button>
+                        )}
+                        <button onClick={handleDuplicate} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Duplikasi"><Copy size={controlIconSize} /></button>
+                        <button onClick={handleDelete} className={`${controlPad} text-[var(--fg-muted)] hover:text-red-600 hover:bg-[var(--bg-elevated)] transition-all rounded-r-md`} title="Hapus"><Trash2 size={controlIconSize} /></button>
+                    </div>
+                </div>
+                {showMetaSummary && (
+                    <div className="text-[10px] text-[var(--fg-muted)] space-y-1">
+                        <div className="flex justify-between gap-2">
+                            {widgetType ? <span>mode: {widgetType}</span> : <span>{child.type}</span>}
+                            {Number.isFinite(limit) && <span>limit: {limit}</span>}
+                        </div>
+                        <span className="text-gray-400 italic">Preview dimatikan (mode stabil)</span>
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     if (context === "post" || isArchiveWidget) {
         const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";

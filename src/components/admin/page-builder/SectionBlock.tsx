@@ -10,6 +10,7 @@ import { getThemeArchiveWidgetGroups } from "@/lib/archive-builder-theme-registr
 
 interface SectionBlockProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
+    previewMode?: "stable" | "visual";
     block: Block;
     index: number;
     updateBlockConfig: (index: number, key: string, value: ConfigValue) => void;
@@ -68,6 +69,7 @@ interface WidgetDefinition {
 
 function SectionBlock({
     builderLocation = "home",
+    previewMode = "stable",
     block,
     index,
     updateBlockConfig,
@@ -247,7 +249,7 @@ function SectionBlock({
     const dividerLeftPercent = hasMainSidebarLayout
         ? (layoutRatios[0] / (layoutRatios[0] + layoutRatios[1])) * 100
         : null;
-    const suppressSectionVisualPreview = context === "post";
+    const suppressSectionVisualPreview = context === "post" || previewMode === "stable";
 
     // Padding & Margin Logic (Desktop Preview)
     const paddingYMap: Record<string, string> = {
@@ -483,6 +485,7 @@ function SectionBlock({
                                             <div key={child.id} className={wrapperClass}>
                                                 <SectionBlock 
                                                     builderLocation={builderLocation}
+                                                    previewMode={previewMode}
                                                     key={child.id}
                                                     block={child}
                                                     index={index}
@@ -529,6 +532,7 @@ function SectionBlock({
                                         <div key={child.id} className={wrapperClass}>
                                             <WidgetItem 
                                                 builderLocation={builderLocation}
+                                                previewMode={previewMode}
                                                 key={child.id}
                                                 child={child}
                                                 parentIndex={index}
