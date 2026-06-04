@@ -1,10 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Upload, FileText, Check, AlertCircle, Loader2, Image as ImageIcon, Download, Wrench, RefreshCw } from "lucide-react";
 
 export default function ImportPage() {
     const [activeTab, setActiveTab] = useState<'xml' | 'media' | 'tools'>('xml');
+    const [toolsFlags, setToolsFlags] = useState<{ allowlistActive: boolean; enabledTools: string[] } | null>(null);
+    const enabledSet = useMemo(() => new Set(toolsFlags?.enabledTools || []), [toolsFlags]);
+    const allowlistActive = toolsFlags?.allowlistActive ?? false;
+    const canXml = !allowlistActive || enabledSet.has("wp_import");
+    const canMedia = !allowlistActive || enabledSet.has("media_migration");
+    const canBackfill = !allowlistActive || enabledSet.has("backfill_excerpts");
+    const hasAnyTool = canXml || canMedia || canBackfill;
     
     // XML State
     const [file, setFile] = useState<File | null>(null);
@@ -23,6 +30,35 @@ export default function ImportPage() {
     // Tools State
     const [backfillStatus, setBackfillStatus] = useState<'idle' | 'processing' | 'completed' | 'error'>('idle');
     const [backfillResult, setBackfillResult] = useState<{ scanned: number; updated: number } | null>(null);
+
+    useEffect(() => {
+        let active = true;
+        fetch("/api/admin/tools/enabled", { cache: "no-store" })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((data) => {
+                if (!active || !data) return;
+                const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : [];
+                setToolsFlags({ allowlistActive: Boolean(data.allowlistActive), enabledTools });
+            })
+            .catch(() => {});
+        return () => {
+            active = false;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!allowlistActive) return;
+        if (activeTab === "xml" && !canXml) {
+            if (canMedia) setActiveTab("media");
+            else if (canBackfill) setActiveTab("tools");
+        } else if (activeTab === "media" && !canMedia) {
+            if (canXml) setActiveTab("xml");
+            else if (canBackfill) setActiveTab("tools");
+        } else if (activeTab === "tools" && !canBackfill) {
+            if (canXml) setActiveTab("xml");
+            else if (canMedia) setActiveTab("media");
+        }
+    }, [activeTab, allowlistActive, canBackfill, canMedia, canXml]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -184,6 +220,20 @@ export default function ImportPage() {
         }
     };
 
+    if (allowlistActive && !hasAnyTool) {
+        return (
+            <div className="p-6 md:p-8 bg-[var(--bg-base)] min-h-screen">
+                <div className="card p-6">
+                    <div className="font-display text-lg font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                        <Wrench className="w-5 h-5" />
+                        Import WordPress
+                    </div>
+                    <div className="mt-3 text-sm text-[var(--fg-muted)]">Fitur ini belum diaktifkan untuk website ini.</div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="p-4 md:p-6 lg:p-8 bg-[var(--bg-base)] min-h-screen">
             <div className="flex items-center gap-3 mb-6">
@@ -198,27 +248,33 @@ export default function ImportPage() {
             
             {/* TABS */}
             <div className="flex gap-2 mb-6 bg-[var(--bg-elevated)] p-1 rounded-lg border border-[var(--border)] w-fit">
-                <button 
-                    onClick={() => setActiveTab('xml')}
-                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2 ${activeTab === 'xml' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]'}`}
-                >
-                    <FileText size={16} />
-                    Artikel
-                </button>
-                <button 
-                    onClick={() => setActiveTab('media')}
-                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2 ${activeTab === 'media' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]'}`}
-                >
-                    <ImageIcon size={16} />
-                    Media
-                </button>
-                <button 
-                    onClick={() => setActiveTab('tools')}
-                    className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2 ${activeTab === 'tools' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]'}`}
-                >
-                    <Wrench size={16} />
-                    Tools
-                </button>
+                {canXml && (
+                    <button 
+                        onClick={() => setActiveTab('xml')}
+                        className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2 ${activeTab === 'xml' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]'}`}
+                    >
+                        <FileText size={16} />
+                        Artikel
+                    </button>
+                )}
+                {canMedia && (
+                    <button 
+                        onClick={() => setActiveTab('media')}
+                        className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2 ${activeTab === 'media' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]'}`}
+                    >
+                        <ImageIcon size={16} />
+                        Media
+                    </button>
+                )}
+                {canBackfill && (
+                    <button 
+                        onClick={() => setActiveTab('tools')}
+                        className={`px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2 ${activeTab === 'tools' ? 'bg-[var(--accent)] text-white shadow-sm' : 'text-[var(--fg-muted)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-surface)]'}`}
+                    >
+                        <Wrench size={16} />
+                        Tools
+                    </button>
+                )}
             </div>
 
             {/* --- TAB 1: XML IMPORT --- */}

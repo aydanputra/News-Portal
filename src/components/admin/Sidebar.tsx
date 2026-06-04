@@ -18,6 +18,7 @@ export default function Sidebar() {
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userAvatar, setUserAvatar] = useState<string | null>(null);
+  const [toolsFlags, setToolsFlags] = useState<{ allowlistActive: boolean; enabledTools: string[] } | null>(null);
   const initials = useMemo(() => {
     const name = userName || "Admin User";
     const parts = name.trim().split(/\s+/);
@@ -71,8 +72,33 @@ export default function Sidebar() {
   }, []);
 
   useEffect(() => {
+    if (!canSeeTools) return;
+    let active = true;
+    fetch("/api/admin/tools/enabled", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!active || !data) return;
+        const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : [];
+        setToolsFlags({
+          allowlistActive: Boolean(data.allowlistActive),
+          enabledTools,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [canSeeTools]);
+
+  useEffect(() => {
     if (pathname.startsWith("/admin/settings")) {
       setIsSettingsOpen(true);
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    if (pathname.startsWith("/admin/tools")) {
+      setIsToolsOpen(true);
     }
   }, [pathname]);
 
@@ -80,6 +106,16 @@ export default function Sidebar() {
   const settingsTab = pathname === "/admin/settings" 
     ? (rawTab === "insert-code" || rawTab === "notifications" ? rawTab : "general") 
     : "general";
+
+  const toolsEnabledSet = useMemo(() => new Set(toolsFlags?.enabledTools || []), [toolsFlags]);
+  const allowlistActive = toolsFlags?.allowlistActive ?? false;
+  const canUseImportTools =
+    !allowlistActive ||
+    toolsEnabledSet.has("wp_import") ||
+    toolsEnabledSet.has("media_migration") ||
+    toolsEnabledSet.has("backfill_excerpts");
+  const canUsePrintTools = !allowlistActive || toolsEnabledSet.has("print_tools");
+  const showToolsSection = canSeeTools && (canUseImportTools || canUsePrintTools);
 
   const handleLogout = async () => {
     try {
@@ -150,7 +186,7 @@ export default function Sidebar() {
           </div>
         )}
 
-        {canSeeTools && (
+        {showToolsSection && (
           <div className="mx-3 mt-1">
             <button 
                 onClick={() => setIsToolsOpen(!isToolsOpen)}
@@ -165,8 +201,12 @@ export default function Sidebar() {
             
             {isToolsOpen && (
                 <div className="mt-1 space-y-1">
-                    <NavItem href="/admin/tools/import" label="Import WordPress" active={pathname === "/admin/tools/import"} size="sm" />
-                    <NavItem href="/admin/tools/print" label="Print Artikel" active={pathname === "/admin/tools/print"} size="sm" />
+                    {canUseImportTools && (
+                      <NavItem href="/admin/tools/import" label="Import WordPress" active={pathname === "/admin/tools/import"} size="sm" />
+                    )}
+                    {canUsePrintTools && (
+                      <NavItem href="/admin/tools/print" label="Print Artikel" active={pathname === "/admin/tools/print"} size="sm" />
+                    )}
                 </div>
             )}
           </div>

@@ -64,6 +64,7 @@ export default function AdminPrintToolsPage() {
   const [openHeaderMedia, setOpenHeaderMedia] = useState(false);
   const [headerUploading, setHeaderUploading] = useState(false);
   const [headerImageError, setHeaderImageError] = useState<string | null>(null);
+  const [printAllowed, setPrintAllowed] = useState<boolean | null>(null);
 
   const printPath = useMemo(() => formatPrintPathFromArticleUrl(articleUrl), [articleUrl]);
 
@@ -88,8 +89,41 @@ export default function AdminPrintToolsPage() {
   };
 
   useEffect(() => {
-    load();
+    let active = true;
+    fetch("/api/admin/tools/enabled", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!active) return;
+        if (!data) {
+          setPrintAllowed(true);
+          return;
+        }
+        const allowlistActive = Boolean(data.allowlistActive);
+        const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : [];
+        if (!allowlistActive) {
+          setPrintAllowed(true);
+          return;
+        }
+        setPrintAllowed(enabledTools.includes("print_tools"));
+      })
+      .catch(() => {
+        if (active) setPrintAllowed(true);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
+
+  useEffect(() => {
+    if (printAllowed === null) return;
+    if (!printAllowed) {
+      setLoading(false);
+      setSettings(null);
+      setError("Fitur ini belum diaktifkan untuk website ini.");
+      return;
+    }
+    load();
+  }, [printAllowed]);
 
   const save = async () => {
     if (!settings) return;
