@@ -151,6 +151,41 @@ export const sanitizePageContent = (html: string): string => {
   });
 };
 
+export function sanitizeInsertCode(raw: unknown, target: "head" | "body" | "footer"): string {
+  const value = typeof raw === "string" ? raw : "";
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+
+  const maxLen = 200_000;
+  const bounded = trimmed.length > maxLen ? trimmed.slice(0, maxLen) : trimmed;
+
+  const allowedTags =
+    target === "head"
+      ? ["script", "meta", "link", "noscript", "div", "span"]
+      : ["script", "noscript", "iframe", "div", "span", "img"];
+
+  return sanitizeHtml(bounded, {
+    allowedTags,
+    disallowedTagsMode: "discard",
+    allowedAttributes: {
+      script: ["src", "async", "defer", "type", "id", "crossorigin", "referrerpolicy"],
+      meta: ["charset", "name", "content", "http-equiv", "property"],
+      link: ["rel", "href", "as", "type", "sizes", "media", "crossorigin", "referrerpolicy"],
+      iframe: ["src", "width", "height", "allow", "allowfullscreen", "loading", "referrerpolicy", "sandbox", "title"],
+      img: ["src", "alt", "width", "height", "loading"],
+      "*": ["id", "class"],
+    },
+    allowedSchemes: ["http", "https"],
+    allowedSchemesByTag: {
+      script: ["http", "https"],
+      iframe: ["http", "https"],
+      img: ["http", "https"],
+      link: ["http", "https"],
+    },
+    allowProtocolRelative: false,
+  });
+}
+
 export function sanitizeExternalUrl(raw: unknown): string {
   if (typeof raw !== "string") return "";
   const value = raw.trim();

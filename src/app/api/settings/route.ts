@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidateTag, revalidatePath } from "next/cache";
 import crypto from "crypto";
 import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
+import { sanitizeInsertCode } from "@/lib/sanitizer";
 
 function deriveKey(masterKey: string) {
   return crypto.scryptSync(masterKey, "news-portal-ai-openai", 32);
@@ -292,6 +293,20 @@ export async function PUT(request: Request) {
           : encryptSecret(rawAiKey.trim(), process.env.MASTER_KEY as string)
         : undefined;
 
+    const wantsInsertCodeUpdate = ["insertCodeHead", "insertCodeBody", "insertCodeFooter"].some((key) =>
+      Object.prototype.hasOwnProperty.call(data, key),
+    );
+    if (wantsInsertCodeUpdate && admin.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const insertCodeHeadUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode((data as any).insertCodeHead, "head") : undefined;
+    const insertCodeBodyUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode((data as any).insertCodeBody, "body") : undefined;
+    const insertCodeFooterUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode((data as any).insertCodeFooter, "footer") : undefined;
+    const insertCodeHeadCreate = sanitizeInsertCode((data as any).insertCodeHead ?? "", "head");
+    const insertCodeBodyCreate = sanitizeInsertCode((data as any).insertCodeBody ?? "", "body");
+    const insertCodeFooterCreate = sanitizeInsertCode((data as any).insertCodeFooter ?? "", "footer");
+
     // Validate baseFontSize to ensure it's a number
     const baseFontSize = parseInt(data.baseFontSize);
     if (isNaN(baseFontSize)) {
@@ -389,9 +404,9 @@ export async function PUT(request: Request) {
         logoUrl: data.logoUrl,
         faviconUrl: data.faviconUrl,
         activeTheme: data.activeTheme,
-        insertCodeHead: data.insertCodeHead,
-        insertCodeBody: data.insertCodeBody,
-        insertCodeFooter: data.insertCodeFooter,
+        insertCodeHead: insertCodeHeadUpdate,
+        insertCodeBody: insertCodeBodyUpdate,
+        insertCodeFooter: insertCodeFooterUpdate,
 
         primaryColor: data.primaryColor,
         secondaryColor: data.secondaryColor,
@@ -559,9 +574,9 @@ export async function PUT(request: Request) {
         logoUrl: data.logoUrl,
         faviconUrl: data.faviconUrl,
         activeTheme: data.activeTheme,
-        insertCodeHead: data.insertCodeHead,
-        insertCodeBody: data.insertCodeBody,
-        insertCodeFooter: data.insertCodeFooter,
+        insertCodeHead: insertCodeHeadCreate,
+        insertCodeBody: insertCodeBodyCreate,
+        insertCodeFooter: insertCodeFooterCreate,
 
         primaryColor: data.primaryColor,
         secondaryColor: data.secondaryColor,

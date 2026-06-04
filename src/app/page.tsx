@@ -6,7 +6,7 @@ import { unstable_cache } from "next/cache";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
 
-export const revalidate = 120;
+export const dynamic = "force-dynamic";
 
 function hashString(input: string) {
   let hash = 2166136261;

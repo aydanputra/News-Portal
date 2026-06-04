@@ -591,7 +591,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                   rel={rel}
                   aria-label={l.key}
                 >
-                  <Icon className="w-[length:var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,20px))] h-[length:var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,20px))] md:w-[length:var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,20px))] md:h-[length:var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,20px))]" />
+                  <Icon className="w-[var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,20px))] h-[var(--fb-sl-size-mobile,var(--fb-sl-size-desktop,20px))] md:w-[var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,20px))] md:h-[var(--fb-sl-size-tablet,var(--fb-sl-size-desktop,20px))]" />
                 </a>
               );
             })}
