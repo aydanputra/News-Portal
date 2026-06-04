@@ -7,6 +7,7 @@ import { SidebarSourceBlocksMap } from "@/lib/sidebar-reference";
 
 interface BlockListProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
+    previewMode?: "stable" | "visual";
     blocks: Block[];
     updateBlockConfig: (index: number, key: string, value: ConfigValue) => void;
     deleteBlock: (index: number) => void;
@@ -46,6 +47,7 @@ interface BlockListProps {
 
 function BlockList({
     builderLocation = "home",
+    previewMode = "stable",
     blocks,
     updateBlockConfig,
     deleteBlock,
@@ -111,6 +113,7 @@ function BlockList({
                 return (
                     <SectionBlock 
                         builderLocation={builderLocation}
+                        previewMode={previewMode}
                         key={block.id}
                         activeTheme={activeTheme}
                         activeDeviceTab={activeDeviceTab}

@@ -1,8 +1,12 @@
+"use client";
+
 import React from "react";
 import BlockList from "./BlockList";
 import { Block, Tag } from "./types";
 import { ConfigValue } from "@/lib/page-builder-config";
 import { SidebarSourceBlocksMap } from "@/lib/sidebar-reference";
+
+type PreviewMode = "stable" | "visual";
 
 interface PreviewPanelProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
@@ -82,6 +86,8 @@ export default function PreviewPanel({
     homeCustomContainerWidth,
     sourceBlocksByLocation
 }: PreviewPanelProps) {
+    const [previewMode, setPreviewMode] = React.useState<PreviewMode>("stable");
+
     const deviceCanvasClass =
         activeDeviceTab === "mobile"
             ? "max-w-[430px]"
@@ -93,6 +99,34 @@ export default function PreviewPanel({
 
     return (
         <div className="space-y-6">
+            <div className="flex justify-center">
+                <div className={`${deviceCanvasClass} w-full`}>
+                    <div className="flex justify-end">
+                        <div className="inline-flex items-center gap-1 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-1 shadow-sm">
+                            {([
+                                { id: "stable" as const, label: "Stabil" },
+                                { id: "visual" as const, label: "Preview" },
+                            ]).map((mode) => {
+                                const isActive = previewMode === mode.id;
+                                return (
+                                    <button
+                                        key={mode.id}
+                                        type="button"
+                                        onClick={() => setPreviewMode(mode.id)}
+                                        className={`px-3 py-2 rounded-md text-[11px] font-bold uppercase transition-colors ${
+                                            isActive
+                                                ? "bg-[var(--bg-base)] text-[var(--accent)] border border-[var(--border)]"
+                                                : "text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"
+                                        }`}
+                                    >
+                                        {mode.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
             {blocks.length === 0 ? (
                 <div className="flex justify-center">
                     <div className={`${canvasClass} transition-all duration-300 border-2 border-dashed border-[var(--border)] rounded-xl bg-[var(--bg-surface)] flex flex-col items-center justify-center py-20`}>
@@ -105,6 +139,7 @@ export default function PreviewPanel({
                     <div className={`${canvasClass} transition-all duration-300 bg-[var(--bg-surface)] rounded-xl overflow-hidden shadow-sm border border-[var(--border)]`}>
                         <BlockList
                             builderLocation={builderLocation}
+                            previewMode={previewMode}
                             blocks={blocks}
                             updateBlockConfig={updateBlockConfig}
                             deleteBlock={deleteBlock}
