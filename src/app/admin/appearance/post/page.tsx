@@ -9,7 +9,6 @@ import PreviewPanel from "@/components/admin/page-builder/PreviewPanel";
 import { usePageBuilder } from "@/hooks/usePageBuilder";
 import { useSidebarSourceBlocks } from "@/hooks/useSidebarSourceBlocks";
 import ThemeStyles from "@/themes/classic/components/ThemeStyles";
-import { useSidebarSourceBlocks } from "@/hooks/useSidebarSourceBlocks";
 
 export default function PostBuilderPage() {
   const { state, actions } = usePageBuilder("post");
