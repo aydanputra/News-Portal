@@ -11,6 +11,10 @@ import { getThemeArchiveWidgetGroups } from "@/lib/archive-builder-theme-registr
 interface SectionBlockProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
     previewMode?: "stable" | "visual";
+    previewPosts?: any[];
+    previewCategories?: any[];
+    previewPost?: any | null;
+    previewArchiveMeta?: any | null;
     block: Block;
     index: number;
     updateBlockConfig: (index: number, key: string, value: ConfigValue) => void;
@@ -70,6 +74,10 @@ interface WidgetDefinition {
 function SectionBlock({
     builderLocation = "home",
     previewMode = "stable",
+    previewPosts,
+    previewCategories,
+    previewPost,
+    previewArchiveMeta,
     block,
     index,
     updateBlockConfig,
@@ -249,7 +257,7 @@ function SectionBlock({
     const dividerLeftPercent = hasMainSidebarLayout
         ? (layoutRatios[0] / (layoutRatios[0] + layoutRatios[1])) * 100
         : null;
-    const suppressSectionVisualPreview = context === "post" || previewMode === "stable";
+    const suppressSectionVisualPreview = previewMode === "stable";
 
     // Padding & Margin Logic (Desktop Preview)
     const paddingYMap: Record<string, string> = {
@@ -486,6 +494,10 @@ function SectionBlock({
                                                 <SectionBlock 
                                                     builderLocation={builderLocation}
                                                     previewMode={previewMode}
+                                                    previewPosts={previewPosts}
+                                                    previewCategories={previewCategories}
+                                                    previewPost={previewPost}
+                                                    previewArchiveMeta={previewArchiveMeta}
                                                     key={child.id}
                                                     block={child}
                                                     index={index}
@@ -533,6 +545,10 @@ function SectionBlock({
                                             <WidgetItem 
                                                 builderLocation={builderLocation}
                                                 previewMode={previewMode}
+                                                previewPosts={previewPosts}
+                                                previewCategories={previewCategories}
+                                                previewPost={previewPost}
+                                                previewArchiveMeta={previewArchiveMeta}
                                                 key={child.id}
                                                 child={child}
                                                 parentIndex={index}

@@ -9,6 +9,10 @@ import { ConfigValue } from "@/lib/page-builder-config";
 interface WidgetItemProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
     previewMode?: "stable" | "visual";
+    previewPosts?: any[];
+    previewCategories?: any[];
+    previewPost?: any | null;
+    previewArchiveMeta?: any | null;
     child: Block;
     parentIndex: number;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
@@ -51,6 +55,10 @@ interface WidgetItemProps {
 function WidgetItem({
     builderLocation = "home",
     previewMode = "stable",
+    previewPosts,
+    previewCategories,
+    previewPost,
+    previewArchiveMeta,
     child,
     parentIndex,
     moveChildBlock,
@@ -314,6 +322,10 @@ function WidgetItem({
             <SectionBlock
                 builderLocation={builderLocation as any}
                 previewMode={previewMode}
+                previewPosts={previewPosts}
+                previewCategories={previewCategories}
+                previewPost={previewPost}
+                previewArchiveMeta={previewArchiveMeta}
                 activeTheme={activeTheme}
                 activeDeviceTab={activeDeviceTab}
                 block={child}
@@ -346,7 +358,7 @@ function WidgetItem({
 
     // --- RENDER CONTENT (WYSIWYG) ---
     const renderContent = () => {
-        if (context === "post") {
+        if (context === "post" && previewMode !== "visual") {
             const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
             const limitValue = getResponsiveValue("limit");
             const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
@@ -370,17 +382,59 @@ function WidgetItem({
             );
         }
 
+        const effectiveCategories =
+            previewMode === "visual" && Array.isArray(previewCategories) && previewCategories.length > 0
+                ? previewCategories
+                : mockCategories;
+        const effectivePosts =
+            previewMode === "visual" && Array.isArray(previewPosts) && previewPosts.length > 0
+                ? previewPosts
+                : mockPosts;
+
         // --- 1. DYNAMIC THEME BLOCKS (Homepage & Archive Widgets) ---
         const blockDef = getBlockDefinition(child.type, activeTheme || "classic");
         
         if (blockDef) {
-            const Component = blockDef.component as React.ComponentType<{
-                block: Block;
-                posts?: unknown[];
-                categories?: unknown[];
-                customTitle?: string;
-                accentColor?: string;
-            }>;
+            const Component = blockDef.component as any;
+
+            if (previewMode === "visual" && child.type === "archive_header") {
+                const title = typeof previewArchiveMeta?.categoryName === "string" && previewArchiveMeta.categoryName.trim()
+                    ? previewArchiveMeta.categoryName
+                    : "Arsip";
+                const description = typeof previewArchiveMeta?.categoryDescription === "string" && previewArchiveMeta.categoryDescription.trim()
+                    ? previewArchiveMeta.categoryDescription
+                    : undefined;
+                const totalPosts = typeof previewArchiveMeta?.total === "number" && Number.isFinite(previewArchiveMeta.total)
+                    ? previewArchiveMeta.total
+                    : effectivePosts.length;
+                return (
+                    <div className="relative pointer-events-none">
+                        <Component block={child} title={title} description={description} totalPosts={totalPosts} />
+                    </div>
+                );
+            }
+
+            if (previewMode === "visual" && child.type === "archive_pagination") {
+                const currentPage = typeof previewArchiveMeta?.page === "number" && Number.isFinite(previewArchiveMeta.page) ? previewArchiveMeta.page : 1;
+                const totalPages = typeof previewArchiveMeta?.totalPages === "number" && Number.isFinite(previewArchiveMeta.totalPages) ? previewArchiveMeta.totalPages : 1;
+                const basePath = typeof previewArchiveMeta?.basePath === "string" && previewArchiveMeta.basePath.trim()
+                    ? previewArchiveMeta.basePath
+                    : "/";
+                return (
+                    <div className="relative pointer-events-none">
+                        <Component block={child} currentPage={currentPage} totalPages={totalPages} basePath={basePath} />
+                    </div>
+                );
+            }
+
+            if (previewMode === "visual" && child.type === "archive_empty_state") {
+                const isEmpty = effectivePosts.length === 0;
+                return (
+                    <div className="relative pointer-events-none">
+                        <Component block={child} isEmpty={isEmpty} />
+                    </div>
+                );
+            }
             
             const mockData: {
                 posts?: unknown[];
@@ -388,7 +442,7 @@ function WidgetItem({
                 customTitle?: string;
                 accentColor?: string;
             } = {
-                categories: mockCategories,
+                categories: effectiveCategories,
                 customTitle: typeof child.title === "string" ? child.title : (typeof child.config?.title === "string" ? child.config.title : undefined),
                 accentColor: safeAccent
             };
@@ -397,16 +451,18 @@ function WidgetItem({
             const limit = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 8)) : 6;
 
             if (child.type === "tag_cloud") {
-                mockData.posts = mockTagCloud;
+                mockData.posts = effectivePosts;
             } else if (child.type === "sidebar_widget") {
                 const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "popular_posts";
                 if (widgetType === "category_list") {
-                    mockData.posts = mockCategories.map((category, index) => ({ ...category, postCount: 4 + index * 3 }));
+                    mockData.posts = effectiveCategories.map((category, index) => ({ ...category, postCount: 4 + index * 3 }));
                 } else {
-                    mockData.posts = mockPosts.slice(0, limit);
+                    mockData.posts = effectivePosts.slice(0, limit);
                 }
+            } else if (child.type.startsWith("archive_")) {
+                mockData.posts = effectivePosts;
             } else if (['list', 'grid', 'hero'].includes(blockDef.category)) {
-                mockData.posts = mockPosts.slice(0, limit);
+                mockData.posts = effectivePosts.slice(0, limit);
             }
             
             return (
@@ -427,6 +483,7 @@ function WidgetItem({
         const relatedCount = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 6)) : 3;
 
         if (isPostWidgetType) {
+            const resolvedPost = previewMode === "visual" && previewPost ? previewPost : null;
             const mockPostForPreview = {
                 id: "preview-post",
                 title: "Contoh Judul Artikel untuk Preview Post Builder",
@@ -454,11 +511,18 @@ function WidgetItem({
                 next_post: { title: "Artikel Selanjutnya", slug: "artikel-selanjutnya", category: { slug: "nasional" }, image: "/placeholder.jpg" },
                 image: "/placeholder.jpg"
             };
-            const previewRelatedItems = mockPosts.slice(0, relatedCount).map((item) => ({ ...item, category: { slug: item.category.slug } }));
+            const postForRenderer = resolvedPost || mockPostForPreview;
+            const previewRelatedItems = effectivePosts
+                .filter((item: any) => item && item.id && item.id !== postForRenderer.id)
+                .slice(0, relatedCount)
+                .map((item: any) => ({
+                    ...item,
+                    category: item?.category?.slug ? item.category : { ...(item.category || {}), slug: item?.category?.slug || "" },
+                }));
             return (
                 <PostWidgetRenderer
                     widget={child}
-                    post={mockPostForPreview}
+                    post={postForRenderer}
                     headingColor={safeHeading}
                     metaColor={safeMeta}
                     contentColor={safeExcerpt}
@@ -472,7 +536,7 @@ function WidgetItem({
         }
 
         // --- 3. ARCHIVE COMPONENTS (Fallback UI) ---
-        if (isArchiveWidget) {
+        if (isArchiveWidget && previewMode !== "visual") {
             const limit = getConfigNumber("limit");
             const offset = getConfigNumber("offset");
             return (
@@ -555,7 +619,7 @@ function WidgetItem({
         );
     }
 
-    if (context === "post" || isArchiveWidget) {
+    if ((context === "post" || isArchiveWidget) && previewMode !== "visual") {
         const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
         const limitValue = getResponsiveValue("limit");
         const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
