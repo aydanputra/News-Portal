@@ -36,7 +36,7 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState("");
   const [faviconUrl, setFaviconUrl] = useState("");
   // const [primaryColor, setPrimaryColor] = useState("#2563eb"); // Removed
-  const [activeTheme, setActiveTheme] = useState("modern");
+  const [activeTheme, setActiveTheme] = useState("classic");
   const [insertCodeHead, setInsertCodeHead] = useState("");
   const [insertCodeBody, setInsertCodeBody] = useState("");
   const [insertCodeFooter, setInsertCodeFooter] = useState("");
@@ -89,7 +89,7 @@ export default function SettingsPage() {
         setLogoUrl(data.logoUrl || "");
         setFaviconUrl(data.faviconUrl || "");
         // setPrimaryColor(data.primaryColor || "#2563eb");
-        setActiveTheme(data.activeTheme || "modern");
+        setActiveTheme(data.activeTheme || "classic");
         setInsertCodeHead(typeof data.insertCodeHead === "string" ? data.insertCodeHead : "");
         setInsertCodeBody(typeof data.insertCodeBody === "string" ? data.insertCodeBody : "");
         setInsertCodeFooter(typeof data.insertCodeFooter === "string" ? data.insertCodeFooter : "");

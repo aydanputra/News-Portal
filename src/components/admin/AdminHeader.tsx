@@ -1,12 +1,59 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Search, LayoutDashboard, Eye } from "lucide-react";
 import ThemeToggle from "@/components/admin/ThemeToggle";
 import NotificationBell from "@/components/admin/NotificationBell";
 
 export default function AdminHeader() {
+  const [updateInfo, setUpdateInfo] = useState<{
+    currentVersion: string;
+    latestVersion: string | null;
+    updateAvailable: boolean;
+    changelogUrl: string | null;
+  } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/version", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!active || !json) return;
+        setUpdateInfo({
+          currentVersion: String(json.currentVersion || "unknown"),
+          latestVersion: typeof json.latestVersion === "string" ? json.latestVersion : null,
+          updateAvailable: Boolean(json.updateAvailable),
+          changelogUrl: typeof json.changelogUrl === "string" ? json.changelogUrl : null,
+        });
+      })
+      .catch(() => null);
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--border)] backdrop-blur-lg bg-[color:var(--bg-base)/0.8]">
+      {updateInfo?.updateAvailable && (
+        <div className="px-4 md:px-6 py-2 border-b border-[var(--border)] bg-[var(--bg-elevated)]">
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[12px] text-[var(--fg-secondary)]">
+              Update CMS tersedia: <span className="font-bold text-[var(--fg-primary)]">{updateInfo.latestVersion}</span>{" "}
+              <span className="text-[var(--fg-muted)]">(saat ini: {updateInfo.currentVersion})</span>
+            </div>
+            {updateInfo.changelogUrl ? (
+              <a
+                href={updateInfo.changelogUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[12px] font-bold text-[var(--accent)] hover:underline"
+              >
+                Lihat Rilis
+              </a>
+            ) : null}
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between h-16 px-4 md:px-6">
         <div className="flex items-center gap-3 hide-desktop">
           <div className="w-8 h-8 rounded-md bg-[var(--accent)] flex items-center justify-center text-black">

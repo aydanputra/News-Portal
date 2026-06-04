@@ -4,6 +4,7 @@ import { parseStringPromise } from "xml2js";
 import { Role, PostStatus, PostType } from "@prisma/client";
 import fs from "fs";
 import path from "path";
+import { assertRateLimit, isToolEnabledForRequest, requireAdmin } from "@/lib/api-guards";
 
 // Simple slugify fallback if utils doesn't have it
 function simpleSlugify(text: string) {
@@ -60,6 +61,17 @@ function wpAutoP(content: string) {
 
 export async function POST(req: NextRequest) {
     try {
+        const admin = await requireAdmin();
+        if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        if (!isToolEnabledForRequest(req, "wp_import")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        const rl = assertRateLimit(req, "tools:wp_import", { windowMs: 60_000, max: 5 });
+        if (!rl.ok) {
+            return NextResponse.json(
+                { error: "Too Many Requests" },
+                { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+            );
+        }
+
         const formData = await req.formData();
         const file = formData.get("file") as File;
         const mode = formData.get("mode") as string; // 'analyze' | 'import'

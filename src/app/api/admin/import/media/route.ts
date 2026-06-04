@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from 'uuid';
+import { assertRateLimit, isToolEnabledForRequest, requireAdmin } from "@/lib/api-guards";
 
 // Utility to download image
 async function downloadImage(url: string, uploadDir: string): Promise<{ url: string; filename: string; size: number; mime: string } | null> {
@@ -41,6 +42,17 @@ async function downloadImage(url: string, uploadDir: string): Promise<{ url: str
 }
 
 export async function GET(req: NextRequest) {
+    const admin = await requireAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isToolEnabledForRequest(req, "media_migration")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const rl = assertRateLimit(req, "tools:media_scan", { windowMs: 60_000, max: 30 });
+    if (!rl.ok) {
+        return NextResponse.json(
+            { error: "Too Many Requests" },
+            { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+        );
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const action = searchParams.get('action');
 
@@ -114,6 +126,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+    const admin = await requireAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isToolEnabledForRequest(req, "media_migration")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const rl = assertRateLimit(req, "tools:media_migrate", { windowMs: 60_000, max: 5 });
+    if (!rl.ok) {
+        return NextResponse.json(
+            { error: "Too Many Requests" },
+            { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+        );
+    }
+
     const searchParams = req.nextUrl.searchParams;
     const action = searchParams.get('action');
 

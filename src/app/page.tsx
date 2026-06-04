@@ -481,7 +481,7 @@ async function getData() {
 
 export default async function HomePage() {
   const data = await getData();
-  const activeTheme = data.setting?.activeTheme || "modern";
+  const activeTheme = data.setting?.activeTheme || "classic";
   const ThemeComponent = getThemeComponent(activeTheme);
 
   // @ts-ignore

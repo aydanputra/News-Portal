@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth";
+import { assertRateLimit, isToolEnabledForRequest, requireAdmin } from "@/lib/api-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +30,6 @@ const DEFAULT_PRINT_SETTINGS = {
     customImageUrl: "",
   },
 } as const;
-
-function isAdminRole(role: unknown) {
-  const r = String(role || "");
-  return r === "ADMIN" || r === "SUPER_ADMIN";
-}
 
 function coerceBoolean(v: unknown, fallback: boolean) {
   return typeof v === "boolean" ? v : fallback;
@@ -95,13 +89,11 @@ function normalizePrintSettings(input: any) {
   return base;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!isAdminRole((user as any)?.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const admin = await requireAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isToolEnabledForRequest(request, "print_tools")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const settings = (await (prisma as any).setting.findUnique({ where: { id: "default" } })) as any;
     const normalized = normalizePrintSettings(settings?.printSettings);
@@ -113,11 +105,16 @@ export async function GET() {
 
 export async function PUT(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!isAdminRole((user as any)?.role)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const admin = await requireAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isToolEnabledForRequest(request, "print_tools")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const rl = assertRateLimit(request, "tools:print_settings_write", { windowMs: 60_000, max: 30 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
+    }
 
     const body = await request.json().catch(() => null);
     const normalized = normalizePrintSettings(body?.data);

@@ -175,7 +175,7 @@ export function useArchiveBuilder() {
             // Step A: Get Global Settings to find Active Theme
             const resGlobal = await fetch("/api/admin/settings");
             const globalData = await resGlobal.json();
-            const currentTheme = globalData.activeTheme || "modern";
+            const currentTheme = globalData.activeTheme || "classic";
             setActiveTheme(currentTheme);
 
             // Step B: Get Full Theme Config

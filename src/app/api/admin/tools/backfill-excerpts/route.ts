@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth";
+import { assertRateLimit, isToolEnabledForRequest, requireAdmin } from "@/lib/api-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -28,11 +27,15 @@ function makeExcerpt(text: string, limit = 180): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-    if (!user || !["ADMIN", "SUPER_ADMIN", "EDITOR"].includes(user.role)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const admin = await requireAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isToolEnabledForRequest(req, "backfill_excerpts")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const rl = assertRateLimit(req, "tools:backfill_excerpts", { windowMs: 60_000, max: 10 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
     }
 
     // Optional query: limit

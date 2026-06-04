@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 
 type Role = "SUPER_ADMIN" | "ADMIN" | "EDITOR" | "WRITER";
+export type ToolId = "wp_import" | "media_migration" | "print_tools" | "backfill_excerpts";
 
 type RateState = {
   count: number;
@@ -71,3 +72,57 @@ export async function requireAdmin() {
   return user;
 }
 
+function normalizeHost(raw: string): string {
+  const value = String(raw || "").trim().toLowerCase();
+  if (!value) return "";
+  if (value.includes(",")) return normalizeHost(value.split(",")[0] || "");
+  return value.replace(/^https?:\/\//, "").split("/")[0]!.split(":")[0]!;
+}
+
+function getRequestHost(request: Request): string {
+  const xfh = request.headers.get("x-forwarded-host");
+  if (xfh) return normalizeHost(xfh);
+  const host = request.headers.get("host");
+  if (host) return normalizeHost(host);
+  return "";
+}
+
+function isLocalHost(host: string): boolean {
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function parseToolAllowlistEnv(): Record<string, ToolId[]> | null {
+  const raw = process.env.TENANT_TOOLS_ALLOWLIST;
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  try {
+    const json = JSON.parse(raw);
+    if (!json || typeof json !== "object") return null;
+    const out: Record<string, ToolId[]> = {};
+    for (const [k, v] of Object.entries(json as Record<string, unknown>)) {
+      const host = normalizeHost(k);
+      if (!host) continue;
+      const arr = Array.isArray(v) ? v : [];
+      const tools = arr
+        .map((x) => String(x))
+        .filter((x): x is ToolId => x === "wp_import" || x === "media_migration" || x === "print_tools" || x === "backfill_excerpts");
+      out[host] = tools;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+const TOOL_ALLOWLIST_BY_HOST = parseToolAllowlistEnv();
+
+export function isToolEnabledForRequest(request: Request, toolId: ToolId): boolean {
+  const host = getRequestHost(request);
+  if (isLocalHost(host)) return true;
+  if (!TOOL_ALLOWLIST_BY_HOST) return true;
+
+  const direct = TOOL_ALLOWLIST_BY_HOST[host];
+  if (Array.isArray(direct)) return direct.includes(toolId);
+  const wildcard = TOOL_ALLOWLIST_BY_HOST["*"];
+  if (Array.isArray(wildcard)) return wildcard.includes(toolId);
+  return false;
+}

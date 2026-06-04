@@ -30,7 +30,7 @@ export const getSettings = unstable_cache(
         });
       }
 
-      const activeTheme = setting.activeTheme || "modern";
+      const activeTheme = setting.activeTheme || "classic";
       const themeConfig = await (prisma as any).themeConfig.findUnique({
           where: { themeId: activeTheme }
       });
