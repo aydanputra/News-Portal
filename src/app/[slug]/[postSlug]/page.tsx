@@ -694,11 +694,11 @@ export async function generateMetadata(
   };
   const ogImageRaw = post.image || post.featuredImage?.fileUrl;
   const ogImageUrl = toAbsoluteUrl(ogImageRaw);
-  const ogImageUrl = toAbsoluteUrl(ogImageRaw);
   const ogImageAlt = typeof post.title === "string" && post.title.trim() ? post.title : "Gambar berita";
   const ogImage =
     ogImageUrl
       ? [{
+          url: ogImageUrl,
           width: typeof (post as any)?.featuredImage?.width === "number" ? (post as any).featuredImage.width : undefined,
           height: typeof (post as any)?.featuredImage?.height === "number" ? (post as any).featuredImage.height : undefined,
           alt: ogImageAlt,
