@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValue, getResponsiveValues, type ResponsiveDevice } from "./responsive";
 import { resolveWidgetRadius } from "./radius";
-import { sanitizeContent, sanitizeCssUrl } from "@/lib/sanitizer";
+import { safeStyleTagCss, sanitizeContent, sanitizeCssUrl } from "@/lib/sanitizer";
 
 interface SidebarWidgetProps {
   block: {
@@ -570,13 +570,13 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
 
   return (
     <div id={`sidebar-widget-${block.id}`} className={`${visibilityClass}`} style={containerStyle}>
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         #sidebar-widget-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; --sw-thumb-radius: ${thumbRadiusMobile}; background-color: ${useBoxMobile ? boxColorMobile : 'transparent'} !important; border-radius: ${useBoxMobile ? boxBorderRadiusMobile : '0'} !important; border: ${useBoxMobile ? 'var(--box-border, 1px solid var(--border))' : 'none'} !important; box-shadow: ${useBoxMobile ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'} !important; background-image: ${useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : 'none'} !important; background-size: ${useBoxMobile && boxBgImageMobile ? 'cover' : 'initial'} !important; background-position: ${useBoxMobile && boxBgImageMobile ? 'center' : 'initial'} !important; background-repeat: ${useBoxMobile && boxBgImageMobile ? 'no-repeat' : 'repeat'} !important; }
         @media (min-width: 768px) { #sidebar-widget-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; --sw-thumb-radius: ${thumbRadiusTablet}; background-color: ${useBoxTablet ? boxColorTablet : 'transparent'} !important; border-radius: ${useBoxTablet ? boxBorderRadiusTablet : '0'} !important; border: ${useBoxTablet ? 'var(--box-border, 1px solid var(--border))' : 'none'} !important; box-shadow: ${useBoxTablet ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'} !important; background-image: ${useBoxTablet && boxBgImageTablet ? `url("${boxBgImageTablet}")` : 'none'} !important; background-size: ${useBoxTablet && boxBgImageTablet ? 'cover' : 'initial'} !important; background-position: ${useBoxTablet && boxBgImageTablet ? 'center' : 'initial'} !important; background-repeat: ${useBoxTablet && boxBgImageTablet ? 'no-repeat' : 'repeat'} !important; } }
         @media (min-width: 1025px) { #sidebar-widget-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; --sw-thumb-radius: ${thumbRadiusDesktop}; background-color: ${useBoxDesktop ? boxColorDesktop : 'transparent'} !important; border-radius: ${useBoxDesktop ? boxBorderRadiusDesktop : '0'} !important; border: ${useBoxDesktop ? 'var(--box-border, 1px solid var(--border))' : 'none'} !important; box-shadow: ${useBoxDesktop ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'} !important; background-image: ${useBoxDesktop && boxBgImageDesktop ? `url("${boxBgImageDesktop}")` : 'none'} !important; background-size: ${useBoxDesktop && boxBgImageDesktop ? 'cover' : 'initial'} !important; background-position: ${useBoxDesktop && boxBgImageDesktop ? 'center' : 'initial'} !important; background-repeat: ${useBoxDesktop && boxBgImageDesktop ? 'no-repeat' : 'repeat'} !important; } }
-      `}} />
+      `) }} />
       {isPostListWidget && (
-        <style dangerouslySetInnerHTML={{__html: `
+        <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
           #sidebar-widget-${block.id} .popular-thumb-link { display: ${showThumbMobile ? 'block' : 'none'}; }
           #sidebar-widget-${block.id} .popular-index--with-image { display: ${showThumbMobile ? 'none' : 'flex'}; }
           #sidebar-widget-${block.id} .popular-category { display: ${showCategoryMobile ? 'inline-block' : 'none'}; }
@@ -742,7 +742,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
               color: ${rankNumberColorDesktop || '#ffffff'};
             }
           }
-        `}} />
+        `) }} />
       )}
       {(config.showTitle !== false) && (
           <h3 className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center theme-widget-title">

@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { getResponsiveBoolValues, getResponsiveValue, getResponsiveValues, pickResponsiveValue, type ResponsiveDevice } from "./responsive";
 import { resolveWidgetRadius } from "./radius";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface TagCloudProps {
   block: {
@@ -298,7 +299,7 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
   if (tags.length === 0) {
       return (
           <div id={`tag-cloud-${block.id}`} className={`${visibilityClass}`} style={containerStyle}>
-              <style dangerouslySetInnerHTML={{__html: `
+              <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
                 #tag-cloud-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; }
                 @media (min-width: 768px) { #tag-cloud-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; } }
                 @media (min-width: 1025px) { #tag-cloud-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; } }
@@ -314,7 +315,7 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
                   color: var(--fg-primary, #f8fafc) !important;
                   border-color: rgba(148, 163, 184, 0.5) !important;
                 }
-              `}} />
+              `) }} />
               {(config.showTitle !== false) && (
                   <h3 className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center theme-widget-title">
                       <div className="widget-title-bar w-1 h-5 mr-3" style={{ borderRadius: 'var(--home-main-box-radius, 0.75rem)' }}></div>
@@ -328,12 +329,12 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
 
   return (
     <div id={`tag-cloud-${block.id}`} className={`${visibilityClass}`} style={containerStyle}>
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         #tag-cloud-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; }
         @media (min-width: 768px) { #tag-cloud-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; } }
         @media (min-width: 1025px) { #tag-cloud-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; } }
         html.public-dark #tag-cloud-${block.id} .theme-widget-title { border-bottom-color: var(--border) !important; }
-      `}} />
+      `) }} />
       {(config.showTitle !== false) && (
           <h3 className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center theme-widget-title">
               <div className="widget-title-bar w-1 h-5 mr-3" style={{ borderRadius: 'var(--home-main-box-radius, 0.75rem)' }}></div>

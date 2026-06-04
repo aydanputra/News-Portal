@@ -11,6 +11,7 @@ import { extractFirstSidebarSection, resolveSectionChildrenWithSidebarSource } f
 import SidebarWidgetRenderer from "../components/SidebarWidgetRenderer";
 import SidebarDebugPanel from "../components/SidebarDebugPanel";
 import { getYouTubeEmbedUrl } from "@/lib/utils";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface PranalaSinglePostProps {
   post: any;
@@ -586,7 +587,7 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
         headerConfig={headerConfig}
       />
       <SidebarDebugPanel pageKind="single-post" />
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         @media (max-width: 767px) {
             .hide-mobile-widget { display: none !important; }
         }
@@ -722,7 +723,7 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
         html.public-dark .post-content-body .prose > *:not(.inline-related-root) strong {
             color: var(--post-content-widget-heading-color, var(--fg-primary)) !important;
         }
-      `}} />
+      `) }} />
       <main className={`flex-grow ${hasBuilderBlocks ? "w-full" : containerClass} pt-0 pb-12`} style={hasBuilderBlocks ? undefined : containerStyle}>
         {hasBuilderBlocks ? [...blocks].filter(isVisible).sort((a, b) => getOrder(a) - getOrder(b)).map((block) => {
           if (block.type === "section") return renderSection(block);

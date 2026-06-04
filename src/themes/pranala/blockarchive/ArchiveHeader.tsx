@@ -1,4 +1,5 @@
 import React from "react";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface ArchiveHeaderProps {
   block: any;
@@ -150,7 +151,7 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
     <div id={rootId}>
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #${rootId} {
               --archive-header-title-color: ${titleColorMobile};
               --archive-header-description-color: ${descriptionColorMobile};
@@ -185,7 +186,7 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
                 --archive-header-panel-border: ${panelBorderDesktop};
               }
             }
-          `
+          `)
         }}
       />
       <>

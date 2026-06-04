@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { getResponsiveBoolValues, getResponsiveValues } from "./responsive";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 type BulletListPost = {
   id?: string;
@@ -249,7 +250,7 @@ export default function BulletList({ block, posts }: BulletListProps) {
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #bullet-list-${block.id} {
               background-color: ${useBoxMobile ? boxColorMobile : "transparent"};
               border-radius: ${useBoxMobile ? boxRadiusMobile : "0"};
@@ -361,7 +362,7 @@ export default function BulletList({ block, posts }: BulletListProps) {
               #bullet-list-${block.id} .bullet-list-link:hover { color: ${titleHoverDesktop}; }
               #bullet-list-${block.id} .bullet-list-bullet { color: ${bulletColorDesktop}; font-size: ${bulletSizeDesktop}; line-height: 1; }
             }
-          `,
+          `),
         }}
       />
 

@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBoolValues, getResponsiveValues } from "./responsive";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface HeroProps {
   block: any;
@@ -384,7 +385,7 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   return (
     <>
     {/* Explicit Style Tag Injection to bypass styled-jsx limitations */}
-    <style dangerouslySetInnerHTML={{__html: `
+    <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         /* Mobile First (Base) */
         #hero-title-${block.id} {
             display: block !important;
@@ -626,7 +627,7 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
                 box-shadow: ${useBoxDesktop ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none'} !important;
             }
         }
-    `}} />
+    `) }} />
 
     <div 
         id={`hero-root-${block.id}`}

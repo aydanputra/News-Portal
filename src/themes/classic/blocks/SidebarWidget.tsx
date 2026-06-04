@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { sanitizeContent } from "@/lib/sanitizer";
 
 interface SidebarWidgetProps {
   block: {
@@ -103,7 +104,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
                 }}
             >
                 {config?.adCode ? (
-                    <div dangerouslySetInnerHTML={{ __html: config.adCode }} />
+                    <div dangerouslySetInnerHTML={{ __html: sanitizeContent(config.adCode) }} />
                 ) : (
                     <span>Iklan (Space Iklan)</span>
                 )}

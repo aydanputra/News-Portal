@@ -1,10 +1,10 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
+import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
+import { sanitizeExternalUrl } from "@/lib/sanitizer";
 
 const ALLOWED_PAGE_TYPES = new Set([
   "HOME",
@@ -61,12 +61,17 @@ const toNullableDate = (value: unknown): Date | null => {
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-
-    if (!user) {
+    const admin = await requireAdmin();
+    if (!admin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rl = assertRateLimit(request, "ads:update", { windowMs: 60_000, max: 40 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
     }
 
     const body = adUpdateBodySchema.parse(await request.json());
@@ -76,6 +81,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const targetTagSlugs = normalizeStringArray(body?.targetTagSlugs, true);
     const targetPageSlugs = normalizeStringArray(body?.targetPageSlugs, true);
 
+    if (type === "SCRIPT" && admin.role !== "SUPER_ADMIN") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const scriptMax = 120_000;
+    if (type === "SCRIPT" && typeof scriptCode === "string" && scriptCode.length > scriptMax) {
+      return NextResponse.json({ error: "Kode script terlalu panjang" }, { status: 400 });
+    }
+
+    const safeLinkUrl = linkUrl === undefined ? undefined : (sanitizeExternalUrl(linkUrl) || null);
+
     const ad = await prisma.advertisement.update({
       where: { id },
       data: {
@@ -84,7 +100,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         mediaId,
         scriptCode,
         position,
-        linkUrl,
+        linkUrl: safeLinkUrl,
         isActive,
         startDate: toNullableDate(startDate),
         endDate: toNullableDate(endDate),
@@ -110,12 +126,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-
-    if (!user) {
+    const admin = await requireAdmin();
+    if (!admin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const rl = assertRateLimit(request, "ads:delete", { windowMs: 60_000, max: 30 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: "Too Many Requests" },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+      );
     }
 
     await prisma.advertisement.delete({

@@ -8,6 +8,7 @@ import Footer from "../components/Footer";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import SidebarWidgetRenderer from "../components/SidebarWidgetRenderer";
 import SidebarDebugPanel from "../components/SidebarDebugPanel";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface HomepageProps {
   data: {
@@ -346,7 +347,7 @@ export default function PranalaHomepage({ data }: HomepageProps) {
       <SidebarDebugPanel pageKind="homepage" />
       
       {/* Global Theme Styles */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         @media (max-width: 767px) {
             .hide-mobile-widget { display: none !important; }
         }
@@ -463,7 +464,7 @@ export default function PranalaHomepage({ data }: HomepageProps) {
         .popular-meta a:hover {
             color: var(--home-hover-color);
         }
-      `}} />
+      `) }} />
 
       <main className="flex-grow">
         {(!blocks || blocks.length === 0) ? (

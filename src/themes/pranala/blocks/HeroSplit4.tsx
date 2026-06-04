@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues } from "./responsive";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
 
 type HeroSplitPost = {
   id?: string;
@@ -692,7 +692,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #hero-split-4-${block.id} .theme-widget-title span { color: ${blockTitleColorMobile}; font-size: ${blockTitleFsMobile}; }
             #hero-split-4-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderMobile}; }
             #hero-split-4-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; background-color: ${useBoxMobile ? boxColorMobile : "transparent"} !important; border-radius: ${useBoxMobile ? boxRadiusMobile : "0"} !important; border: ${useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : "none"} !important; background-size: ${useBoxMobile && boxBgImageMobile ? "cover" : "initial"} !important; background-position: ${useBoxMobile && boxBgImageMobile ? "center" : "initial"} !important; background-repeat: ${useBoxMobile && boxBgImageMobile ? "no-repeat" : "repeat"} !important; }
@@ -818,7 +818,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
               #hero-split-4-${block.id} .hs-mini-grid { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(${miniColsDesktop}, minmax(0, 1fr)); overflow-x: visible; scroll-snap-type: none; }
               #hero-split-4-${block.id} .hs-mini-grid > article { scroll-snap-align: none; }
             }
-          `
+          `)
         }}
       />
 

@@ -179,3 +179,12 @@ export function sanitizeCssUrl(raw: unknown): string {
   if (value.startsWith("http://") || value.startsWith("https://")) return value;
   return "";
 }
+
+export function safeStyleTagCss(raw: string): string {
+  const value = typeof raw === "string" ? raw : "";
+  if (!value) return "";
+  return value
+    .replace(/\u0000/g, "")
+    .replace(/<\/style/gi, "<\\/style")
+    .replace(/<\/script/gi, "<\\/script");
+}

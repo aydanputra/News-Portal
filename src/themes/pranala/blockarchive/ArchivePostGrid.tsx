@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import React from "react";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface ArchivePostGridProps {
   block: any;
@@ -74,7 +75,7 @@ export default function ArchivePostGrid({ block, posts }: ArchivePostGridProps) 
     <div id={rootId} className={`grid gap-6 ${toGridClass(columns)}`}>
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #${rootId} {
               --archive-grid-title-color: ${titleColorMobile};
               --archive-grid-meta-color: ${metaColorMobile};
@@ -106,7 +107,7 @@ export default function ArchivePostGrid({ block, posts }: ArchivePostGridProps) 
                 --archive-grid-box-color: ${boxColorDesktop};
               }
             }
-          `
+          `)
         }}
       />
       {items.map((post) => {

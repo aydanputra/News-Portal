@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues, type ResponsiveDevice } from "./responsive";
+import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface HeadlineBigProps {
   block: any;
@@ -411,7 +412,7 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
       "--widget-title-border-color-tablet": blockTitleBorderTablet,
       "--widget-title-border-color-desktop": blockTitleBorderDesktop,
     } as React.CSSProperties}>
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
         #headline-big-${block.id} { margin-top: ${mTopMobile}; margin-right: ${mRightMobile}; margin-bottom: ${mBottomMobile}; margin-left: ${mLeftMobile}; padding-top: ${pTopMobile}; padding-right: ${pRightMobile}; padding-bottom: ${pBottomMobile}; padding-left: ${pLeftMobile}; background-color: ${useBoxMobile ? boxColorMobile : "transparent"}; border-radius: ${useBoxMobile ? effectiveRadius : "0"}; border: ${useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none"}; box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"}; }
         #headline-big-${block.id} .headline-big-thumb { position: relative; display: block; width: 100%; height: ${imageHeightMobile}; border-radius: ${imageRadius}; overflow: hidden; background: color-mix(in oklab, var(--bg-base) 92%, #000 8%); }
         #headline-big-${block.id} .headline-big-category { display: ${showCategoryMobile ? "inline-flex" : "none"}; color: ${categoryColorMobile}; background: ${categoryBgMobile}; border-radius: ${categoryRadiusMobile}; font-size: ${categoryFsMobile}; font-weight: 700; line-height: ${categoryLhMobile}; }
@@ -453,7 +454,7 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
           #headline-big-${block.id} .headline-big-readmore { display: ${showReadMoreDesktop ? "inline-flex" : "none"}; color: ${readMoreTextColorDesktop}; background: ${readMoreBgDesktop}; border-color: ${readMoreBorderDesktop}; border-radius: ${readMoreRadiusDesktop}; font-size: ${readMoreFsDesktop}; }
           #headline-big-${block.id} .headline-big-readmore:hover { background-color: ${readMoreHoverBgDesktop}; border-color: ${readMoreHoverBorderDesktop}; color: ${readMoreHoverTextColorDesktop}; }
         }
-      ` }} />
+      `) }} />
 
       {post ? (
         <article>

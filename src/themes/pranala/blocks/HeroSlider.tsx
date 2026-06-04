@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
 
 type HeroSliderPost = {
   id?: string;
@@ -528,7 +528,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             #hero-slider-${block.id} .hsl-wrap { height: ${imageHMobile}; }
             #hero-slider-${block.id} .theme-widget-title { margin-bottom: ${blockTitleMbMobile}; padding-bottom: ${blockTitlePbMobile}; }
             #hero-slider-${block.id} .theme-widget-title span { color: ${blockTitleColorMobile}; font-size: ${blockTitleFsMobile}; }
@@ -560,7 +560,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
               #hero-slider-${block.id} .hsl-excerpt { color: ${excerptColorDesktop}; font-size: ${excerptFsDesktop}; line-height: ${excerptLhDesktop}; }
               #hero-slider-${block.id} .hsl-category { font-size: ${categoryLabelFsDesktop}; }
             }
-          `
+          `)
         }}
       />
 
