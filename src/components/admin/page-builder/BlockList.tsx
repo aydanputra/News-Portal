@@ -83,8 +83,6 @@ function BlockList({
 }: BlockListProps) {
     const [activeAddMenu, setActiveAddMenu] = useState<{ blockId: string, colIndex: number } | null>(null);
 
-    const context = builderLocation === "post" ? "post" : "home";
-
     // Close menus on click outside
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {

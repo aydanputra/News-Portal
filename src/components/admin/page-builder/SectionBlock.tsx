@@ -1,5 +1,5 @@
 import React from "react";
-import { Trash2, Settings, Plus, Layout, ArrowUp, ArrowDown, X, Copy, List, Grid, Megaphone, Newspaper } from "lucide-react";
+import { Trash2, Settings, Plus, Layout, ArrowUp, ArrowDown, X, Copy, List, Grid, Megaphone } from "lucide-react";
 import { Block, Tag } from "./types";
 import WidgetItem from "./WidgetItem";
 import { getThemeBlocks } from "@/lib/block-registry";
@@ -108,8 +108,8 @@ function SectionBlock({
     customContainerWidth,
     sidebarContext = false,
     sourceBlocksByLocation,
-    homeContainerWidth = "boxed",
-    homeCustomContainerWidth = "1200"
+    homeContainerWidth: _homeContainerWidth = "boxed",
+    homeCustomContainerWidth: _homeCustomContainerWidth = "1200"
 }: SectionBlockProps) {
     const context = builderLocation === "post" ? "post" : "home";
     const postWidgetGroups = getThemePostWidgetGroups(activeTheme || "classic");

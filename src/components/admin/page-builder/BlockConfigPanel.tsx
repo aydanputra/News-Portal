@@ -1,9 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import { FileText, Palette, Monitor, Tablet, Smartphone, Upload, X, Copy, Image as ImageIcon } from "lucide-react";
+import { FileText, Palette, Copy } from "lucide-react";
 import { Block, Category, Tag } from "./types";
 import CustomColorPicker from "./ColorPicker";
-import RichTextEditor from "@/components/admin/RichTextEditor";
 import { ConfigValue, createConfigReaders } from "@/lib/page-builder-config";
 import MediaLibraryModal from "@/app/admin/components/MediaLibraryModal";
 
@@ -181,7 +179,7 @@ const FONT_FAMILY_OPTIONS: FontFamilyOption[] = [
     { label: "Playfair Display*", value: "Playfair Display, ui-serif, Georgia, serif", previewFamily: "Playfair Display, ui-serif, Georgia, serif" },
 ];
 
-function FontFamilyPicker({
+export function FontFamilyPicker({
     value,
     onChange,
     options = FONT_FAMILY_OPTIONS,
@@ -287,7 +285,7 @@ function FontFamilyPicker({
 }
 
 export default function BlockConfigPanel({
-    builderLocation = "post",
+    builderLocation: _builderLocation = "post",
     child,
     categories,
     tags,
@@ -300,7 +298,7 @@ export default function BlockConfigPanel({
     onUpdateTitle,
     globalSettings
 }: BlockConfigPanelProps) {
-    const [uploading, setUploading] = useState(false);
+    const [_uploading, _setUploading] = useState(false);
     const [showMediaModal, setShowMediaModal] = useState(false);
     const [mediaTargetKey, setMediaTargetKey] = useState<string | null>(null);
     const [availableAds, setAvailableAds] = useState<AdOption[]>([]);
@@ -402,27 +400,27 @@ export default function BlockConfigPanel({
             return next;
         });
     };
-    const handleResponsiveIntegerInputChange = (key: string, rawValue: string) => {
+    const _handleResponsiveIntegerInputChange = (key: string, rawValue: string) => {
         const draftKey = getNumberDraftKey(key, "responsive");
         setResponsiveNumberDrafts((prev) => ({ ...prev, [draftKey]: rawValue }));
     };
-    const clearResponsiveIntegerDraft = (key: string, min?: number) => {
+    const _clearResponsiveIntegerDraft = (key: string, min?: number) => {
         commitDraftedNumberInput(key, { scope: "responsive", parser: "int", min });
     };
-    const getResponsiveNumberInputValue = (key: string, fallback = "") => getDraftedNumberInputValue(key, fallback, "responsive");
-    const getGlobalNumberInputValue = (key: string, fallback = "") => getDraftedNumberInputValue(key, fallback, "global");
-    const handleGlobalIntegerInputChange = (key: string, rawValue: string) => {
+    const _getResponsiveNumberInputValue = (key: string, fallback = "") => getDraftedNumberInputValue(key, fallback, "responsive");
+    const _getGlobalNumberInputValue = (key: string, fallback = "") => getDraftedNumberInputValue(key, fallback, "global");
+    const _handleGlobalIntegerInputChange = (key: string, rawValue: string) => {
         const draftKey = getNumberDraftKey(key, "global");
         setResponsiveNumberDrafts((prev) => ({ ...prev, [draftKey]: rawValue }));
     };
-    const clearGlobalIntegerDraft = (key: string, min?: number, max?: number) => {
+    const _clearGlobalIntegerDraft = (key: string, min?: number, max?: number) => {
         commitDraftedNumberInput(key, { scope: "global", parser: "int", min, max });
     };
 
     // Footer states
-    const [footerCustomLinkLabel, setFooterCustomLinkLabel] = useState("");
-    const [footerCustomLinkUrl, setFooterCustomLinkUrl] = useState("");
-    const [footerCustomLinkNewTab, setFooterCustomLinkNewTab] = useState(false);
+    const [_footerCustomLinkLabel, _setFooterCustomLinkLabel] = useState("");
+    const [_footerCustomLinkUrl, _setFooterCustomLinkUrl] = useState("");
+    const [_footerCustomLinkNewTab, _setFooterCustomLinkNewTab] = useState(false);
 
     const openMediaLibraryForKey = (key: string) => {
         setMediaTargetKey(key);
@@ -437,7 +435,7 @@ export default function BlockConfigPanel({
         setMediaTargetKey(null);
     };
 
-    const getSideLabel = (side: string) => {
+    const _getSideLabel = (side: string) => {
         switch (side) {
             case 'Top': return 'Atas';
             case 'Right': return 'Kanan';
@@ -449,7 +447,7 @@ export default function BlockConfigPanel({
 
     const isArchiveNewsGrid = child.type === "archive_news_grid";
     const isArchiveHeroSlider = child.type === "archive_hero_slider";
-    const isArchiveSource = isArchiveNewsGrid || isArchiveHeroSlider;
+    const _isArchiveSource = isArchiveNewsGrid || isArchiveHeroSlider;
 
     const CONTAINER_AT_BOTTOM_WIDGETS = [
         "post_tags",

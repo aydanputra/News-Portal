@@ -2,6 +2,8 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { unstable_cache } from "next/cache";
 
+export const dynamic = "force-dynamic";
+
 function stripTrailingSlash(url: string) {
   return String(url || "").replace(/\/+$/, "");
 }

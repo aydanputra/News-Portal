@@ -121,6 +121,7 @@ function WidgetItem({
         child.type.startsWith("news_") ||
         child.type === "headline_2" ||
         child.type === "classic_hero";
+    void isNewsWidget;
     const isArchiveWidget = child.type.startsWith("archive_") || (builderLocation === "archive" && (child.type === "news_hero_slider" || child.type === "news_grid"));
     const isPostWidgetType = typeof child.type === "string" && child.type.startsWith("post_");
 
@@ -132,16 +133,10 @@ function WidgetItem({
         }
         if (activeDeviceTab === "mobile") {
             const mobileKey = `mobile${key.charAt(0).toUpperCase() + key.slice(1)}`;
-            return config[mobileKey] !== undefined ? mobileKey : config[key];
+            const tabletKey = `tablet${key.charAt(0).toUpperCase() + key.slice(1)}`;
+            return config[mobileKey] ?? config[tabletKey] ?? config[key];
         }
         return config[key];
-    };
-
-    const getConfigString = (key: string, fallback = ""): string => {
-        const value = getResponsiveValue(key);
-        if (typeof value === "string") return value;
-        if (typeof value === "number" && Number.isFinite(value)) return String(value);
-        return fallback;
     };
 
     const getConfigNumber = (key: string): number | undefined => {
@@ -154,18 +149,6 @@ function WidgetItem({
         return undefined;
     };
 
-    const getConfigBool = (key: string, fallback = false): boolean => {
-        const value = getResponsiveValue(key);
-        if (typeof value === "boolean") return value;
-        if (typeof value === "string") {
-            const normalized = value.trim().toLowerCase();
-            if (normalized === "true") return true;
-            if (normalized === "false") return false;
-        }
-        if (typeof value === "number") return value === 1;
-        return fallback;
-    };
-
     const getTextAlign = () => {
         const value = getResponsiveValue("textAlign");
         if (value === "left" || value === "center" || value === "right" || value === "justify") return value;
@@ -176,7 +159,8 @@ function WidgetItem({
         textAlign: getTextAlign() as any,
     };
 
-    const deviceLabel = activeDeviceTab === "desktop" ? "Desktop" : activeDeviceTab === "tablet" ? "Tablet" : "Mobile";
+    const _deviceLabel = activeDeviceTab === "desktop" ? "Desktop" : activeDeviceTab === "tablet" ? "Tablet" : "Mobile";
+    void _deviceLabel;
     const isTabletSidebarCompact = activeDeviceTab === "tablet" && isSidebarColumn;
     const isInnerSectionSidebarCompact = isSidebarColumn && insideInnerSection;
     const isMobileInnerSectionCompact = activeDeviceTab === "mobile" && insideInnerSection;
@@ -324,8 +308,6 @@ function WidgetItem({
     };
 
     if (isInnerSection || child.type === 'section') {
-        const controlIconSize = isCompactLayout ? 12 : 14;
-        const controlPad = isCompactLayout ? "p-1" : "p-1.5";
         return (
             <SectionBlock
                 builderLocation={builderLocation as any}

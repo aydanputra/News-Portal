@@ -4,6 +4,7 @@ import parse, { DOMNode, Element } from "html-react-parser";
 import dynamic from "next/dynamic";
 import React from "react";
 import { getYouTubeEmbedUrl } from "@/lib/utils";
+import { sanitizeContent, safeStyleTagCss } from "@/lib/sanitizer";
 
 // Lazy load PDFViewer to avoid SSR issues with canvas/window
 const PDFViewer = dynamic(() => import("@/components/ui/PDFViewer"), {
@@ -39,6 +40,7 @@ const getEmbedSrc = (url: string): string | null => {
 };
 
 export default function PostContent({ content, className, style }: PostContentProps) {
+  const safeHtml = sanitizeContent(content);
   const options = {
     replace: (domNode: DOMNode) => {
       if (domNode instanceof Element && domNode.attribs) {
@@ -119,16 +121,16 @@ export default function PostContent({ content, className, style }: PostContentPr
     >
       <style
         dangerouslySetInnerHTML={{
-          __html: `
+          __html: safeStyleTagCss(`
             .post-content-fix :where(p, span, div, li, blockquote, h1, h2, h3, h4, h5, h6) {
               background-color: transparent !important;
               background: transparent !important;
               color: inherit !important;
             }
-          `,
+          `),
         }}
       />
-      {parse(content, options)}
+      {parse(safeHtml, options)}
     </div>
   );
 }

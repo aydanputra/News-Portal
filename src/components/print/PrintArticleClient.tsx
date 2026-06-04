@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Printer, SlidersHorizontal, X } from "lucide-react";
+import { sanitizeContent } from "@/lib/sanitizer";
 
 type PrintDefaults = {
   showFeaturedImage: boolean;
@@ -78,6 +79,7 @@ export default function PrintArticleClient({
   const [pageMarginMm, setPageMarginMm] = useState(Number(defaults?.pageMarginMm || 12));
   const [featuredImageMaxHeightPx, setFeaturedImageMaxHeightPx] = useState(Number((defaults as any)?.featuredImageMaxHeightPx || 360));
   const [contentHtml, setContentHtml] = useState<string>(String(post?.content || ""));
+  const sanitizedContentHtml = useMemo(() => sanitizeContent(contentHtml), [contentHtml]);
   const [customAds, setCustomAds] = useState<Array<{ id: string; label: string; enabled: boolean }>>([]);
 
   const headerText = useMemo(() => {
@@ -908,7 +910,7 @@ export default function PrintArticleClient({
 
           <div
             className={contentClass}
-            dangerouslySetInnerHTML={{ __html: contentHtml }}
+            dangerouslySetInnerHTML={{ __html: sanitizedContentHtml }}
           />
 
           {showTags && Array.isArray(post?.tags) && post.tags.length > 0 && (
