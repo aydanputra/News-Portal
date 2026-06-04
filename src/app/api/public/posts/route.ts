@@ -15,6 +15,11 @@ const searchParamsSchema = z.object({
   tag: z.string().trim().optional(),
   sort: z.enum(["latest", "oldest", "popular", "random"]).default("latest"),
   excludeId: z.string().trim().optional(),
+  includeTags: z.preprocess((value) => {
+    if (typeof value !== "string") return false;
+    const v = value.trim().toLowerCase();
+    return v === "1" || v === "true";
+  }, z.boolean().default(false)),
 });
 
 const getTagIdBySlug = async (slug: string): Promise<string | null> => {
@@ -54,6 +59,7 @@ export async function GET(request: Request) {
       tag: searchParams.get("tag") || undefined,
       sort: searchParams.get("sort") || undefined,
       excludeId: searchParams.get("excludeId") || undefined,
+      includeTags: searchParams.get("includeTags") || undefined,
     });
     const slug = parsed.slug;
     const q = parsed.q;
@@ -63,6 +69,7 @@ export async function GET(request: Request) {
     const tagSlug = parsed.tag;
     const sortOrder = parsed.sort;
     const excludeId = parsed.excludeId;
+    const includeTags = parsed.includeTags;
 
     const skip = (page - 1) * limit;
 
@@ -194,6 +201,7 @@ export async function GET(request: Request) {
       `sort:${sortOrder}`,
       `exclude:${excludeId || ""}`,
       `q:${q || ""}`,
+      `includeTags:${includeTags ? "1" : "0"}`,
     ].join("|");
     const cached = unstable_cache(
       async () => {
@@ -214,6 +222,7 @@ export async function GET(request: Request) {
               category: true,
               featuredImage: { select: { fileUrl: true, width: true, height: true } },
               author: { select: { name: true, avatar: true, banner: true } },
+              ...(includeTags ? { tags: { select: { id: true, name: true, slug: true } } } : {}),
             },
             orderBy,
             skip,
