@@ -694,7 +694,6 @@ export async function generateMetadata(
   };
   const ogImageRaw = post.image || post.featuredImage?.fileUrl;
   const ogImageUrl = toAbsoluteUrl(ogImageRaw);
-  const ogImageUrl = toAbsoluteUrl(ogImageRaw);
   const ogImageAlt = typeof post.title === "string" && post.title.trim() ? post.title : "Gambar berita";
   const ogImage =
     ogImageUrl
