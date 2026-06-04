@@ -1,18 +1,11 @@
 import React from "react";
 import { ArrowUp, ArrowDown, Edit, Trash2, Copy, ArrowLeft, ArrowRight, Settings } from "lucide-react";
 import { Block, Tag } from "./types";
-import { getBlockDefinition } from "@/lib/block-registry";
-import PostWidgetRenderer from "@/themes/pranala/blockpost/PostWidgetRenderer";
 import SectionBlock from "./SectionBlock";
 import { ConfigValue } from "@/lib/page-builder-config";
 
 interface WidgetItemProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
-    previewMode?: "stable" | "visual";
-    previewPosts?: any[];
-    previewCategories?: any[];
-    previewPost?: any | null;
-    previewArchiveMeta?: any | null;
     child: Block;
     parentIndex: number;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
@@ -54,11 +47,6 @@ interface WidgetItemProps {
 
 function WidgetItem({
     builderLocation = "home",
-    previewMode = "stable",
-    previewPosts,
-    previewCategories,
-    previewPost,
-    previewArchiveMeta,
     child,
     parentIndex,
     moveChildBlock,
@@ -67,9 +55,9 @@ function WidgetItem({
     deleteChildBlock,
     tags,
     accentColor,
-    headingColor,
-    metaColor,
-    excerptColor,
+    headingColor: _headingColor,
+    metaColor: _metaColor,
+    excerptColor: _excerptColor,
     headingFont: _headingFont,
     bodyFont: _bodyFont,
     isInnerSection = false,
@@ -127,47 +115,7 @@ function WidgetItem({
         return () => window.removeEventListener("resize", update);
     }, [activeDeviceTab, context]);
 
-    const isNewsWidget =
-        child.type.startsWith("news_") ||
-        child.type === "headline_2" ||
-        child.type === "classic_hero";
-    void isNewsWidget;
-    const isArchiveWidget = child.type.startsWith("archive_") || (builderLocation === "archive" && (child.type === "news_hero_slider" || child.type === "news_grid"));
     const isPostWidgetType = typeof child.type === "string" && child.type.startsWith("post_");
-
-    const getResponsiveValue = (key: string): unknown => {
-        const config = child.config || {};
-        if (activeDeviceTab === "tablet") {
-            const tabletKey = `tablet${key.charAt(0).toUpperCase() + key.slice(1)}`;
-            return config[tabletKey] !== undefined ? config[tabletKey] : config[key];
-        }
-        if (activeDeviceTab === "mobile") {
-            const mobileKey = `mobile${key.charAt(0).toUpperCase() + key.slice(1)}`;
-            const tabletKey = `tablet${key.charAt(0).toUpperCase() + key.slice(1)}`;
-            return config[mobileKey] ?? config[tabletKey] ?? config[key];
-        }
-        return config[key];
-    };
-
-    const getConfigNumber = (key: string): number | undefined => {
-        const value = getResponsiveValue(key);
-        if (typeof value === "number" && Number.isFinite(value)) return value;
-        if (typeof value === "string" && value.trim() !== "") {
-            const parsed = Number(value);
-            return Number.isFinite(parsed) ? parsed : undefined;
-        }
-        return undefined;
-    };
-
-    const getTextAlign = () => {
-        const value = getResponsiveValue("textAlign");
-        if (value === "left" || value === "center" || value === "right" || value === "justify") return value;
-        return undefined;
-    };
-
-    const widgetContainerStyle: React.CSSProperties = {
-        textAlign: getTextAlign() as any,
-    };
 
     const _deviceLabel = activeDeviceTab === "desktop" ? "Desktop" : activeDeviceTab === "tablet" ? "Tablet" : "Mobile";
     void _deviceLabel;
@@ -215,35 +163,7 @@ function WidgetItem({
         }
     };
 
-    const safeAccent = typeof accentColor === "string" && accentColor.trim() !== "" ? accentColor : "var(--accent)";
-    const safeHeading = typeof headingColor === "string" && headingColor.trim() !== "" ? headingColor : "#111827";
-    const safeMeta = typeof metaColor === "string" && metaColor.trim() !== "" ? metaColor : "#6b7280";
-    const safeExcerpt = typeof excerptColor === "string" && excerptColor.trim() !== "" ? excerptColor : "#4b5563";
     const currentColumnIndex = typeof child.config?.columnIndex === "number" ? child.config.columnIndex : 0;
-
-    const mockCategories = [
-        { id: "c1", name: "Nasional", slug: "nasional" },
-        { id: "c2", name: "Ekonomi", slug: "ekonomi" },
-        { id: "c3", name: "Olahraga", slug: "olahraga" }
-    ];
-
-    const mockPosts = Array.from({ length: 8 }).map((_, i) => ({
-        id: `${i + 1}`,
-        title: `Contoh Berita ${i + 1} untuk Preview`,
-        slug: `contoh-berita-${i + 1}`,
-        excerpt: "Ini adalah contoh ringkasan berita untuk meniru tampilan frontend publik dengan akurat.",
-        image: "/placeholder.jpg",
-        publishedAt: new Date(Date.now() - i * 1000 * 60 * 60 * 3).toISOString(),
-        category: mockCategories[i % mockCategories.length],
-        author: { name: i % 2 === 0 ? "Redaksi Pranala" : "Reporter Pranala" }
-    }));
-
-    const mockTagCloud = [
-        { id: "t1", name: "politik", slug: "politik", _count: { posts: 18 } },
-        { id: "t2", name: "ekonomi", slug: "ekonomi", _count: { posts: 12 } },
-        { id: "t3", name: "internasional", slug: "internasional", _count: { posts: 9 } },
-        { id: "t4", name: "teknologi", slug: "teknologi", _count: { posts: 7 } }
-    ];
 
     const widgetLabelMap: Record<string, string> = {
         post_breadcrumb: "Breadcrumb",
@@ -321,11 +241,6 @@ function WidgetItem({
         return (
             <SectionBlock
                 builderLocation={builderLocation as any}
-                previewMode={previewMode}
-                previewPosts={previewPosts}
-                previewCategories={previewCategories}
-                previewPost={previewPost}
-                previewArchiveMeta={previewArchiveMeta}
                 activeTheme={activeTheme}
                 activeDeviceTab={activeDeviceTab}
                 block={child}
@@ -355,354 +270,43 @@ function WidgetItem({
             />
         );
     }
-
-    // --- RENDER CONTENT (WYSIWYG) ---
-    const renderContent = () => {
-        if (context === "post" && previewMode !== "visual") {
-            const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
-            const limitValue = getResponsiveValue("limit");
-            const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
-            return (
-                <div className="bg-[var(--bg-base)] border border-[var(--border)] rounded-lg px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs font-bold uppercase tracking-wide text-[var(--fg-secondary)]">
-                            {widgetLabelMap[child.type] || child.type.replaceAll("_", " ")}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--fg-muted)]">
-                            {child.type}
-                        </span>
-                    </div>
-                    <div className="mt-2 text-[11px] text-[var(--fg-muted)] flex flex-wrap gap-x-3 gap-y-1">
-                        {widgetType && <span>mode: {widgetType}</span>}
-                        {Number.isFinite(limit) && <span>limit: {limit}</span>}
-                        {typeof child.config?.categorySlug === "string" && child.config.categorySlug !== "" && <span>kategori: {child.config.categorySlug}</span>}
-                        {typeof child.config?.filterType === "string" && child.config.filterType !== "" && <span>filter: {child.config.filterType}</span>}
-                    </div>
-                </div>
-            );
-        }
-
-        const effectiveCategories =
-            previewMode === "visual" && Array.isArray(previewCategories) && previewCategories.length > 0
-                ? previewCategories
-                : mockCategories;
-        const effectivePosts =
-            previewMode === "visual" && Array.isArray(previewPosts) && previewPosts.length > 0
-                ? previewPosts
-                : mockPosts;
-
-        // --- 1. DYNAMIC THEME BLOCKS (Homepage & Archive Widgets) ---
-        const blockDef = getBlockDefinition(child.type, activeTheme || "classic");
-        
-        if (blockDef) {
-            const Component = blockDef.component as any;
-
-            if (previewMode === "visual" && child.type === "archive_header") {
-                const title = typeof previewArchiveMeta?.categoryName === "string" && previewArchiveMeta.categoryName.trim()
-                    ? previewArchiveMeta.categoryName
-                    : "Arsip";
-                const description = typeof previewArchiveMeta?.categoryDescription === "string" && previewArchiveMeta.categoryDescription.trim()
-                    ? previewArchiveMeta.categoryDescription
-                    : undefined;
-                const totalPosts = typeof previewArchiveMeta?.total === "number" && Number.isFinite(previewArchiveMeta.total)
-                    ? previewArchiveMeta.total
-                    : effectivePosts.length;
-                return (
-                    <div className="relative pointer-events-none">
-                        <Component block={child} title={title} description={description} totalPosts={totalPosts} />
-                    </div>
-                );
-            }
-
-            if (previewMode === "visual" && child.type === "archive_pagination") {
-                const currentPage = typeof previewArchiveMeta?.page === "number" && Number.isFinite(previewArchiveMeta.page) ? previewArchiveMeta.page : 1;
-                const totalPages = typeof previewArchiveMeta?.totalPages === "number" && Number.isFinite(previewArchiveMeta.totalPages) ? previewArchiveMeta.totalPages : 1;
-                const basePath = typeof previewArchiveMeta?.basePath === "string" && previewArchiveMeta.basePath.trim()
-                    ? previewArchiveMeta.basePath
-                    : "/";
-                return (
-                    <div className="relative pointer-events-none">
-                        <Component block={child} currentPage={currentPage} totalPages={totalPages} basePath={basePath} />
-                    </div>
-                );
-            }
-
-            if (previewMode === "visual" && child.type === "archive_empty_state") {
-                const isEmpty = effectivePosts.length === 0;
-                return (
-                    <div className="relative pointer-events-none">
-                        <Component block={child} isEmpty={isEmpty} />
-                    </div>
-                );
-            }
-            
-            const mockData: {
-                posts?: unknown[];
-                categories?: unknown[];
-                customTitle?: string;
-                accentColor?: string;
-            } = {
-                categories: effectiveCategories,
-                customTitle: typeof child.title === "string" ? child.title : (typeof child.config?.title === "string" ? child.config.title : undefined),
-                accentColor: safeAccent
-            };
-            
-            const limitValue = getResponsiveValue("limit");
-            const limit = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 8)) : 6;
-
-            if (child.type === "tag_cloud") {
-                mockData.posts = effectivePosts;
-            } else if (child.type === "sidebar_widget") {
-                const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "popular_posts";
-                if (widgetType === "category_list") {
-                    mockData.posts = effectiveCategories.map((category, index) => ({ ...category, postCount: 4 + index * 3 }));
-                } else {
-                    mockData.posts = effectivePosts.slice(0, limit);
-                }
-            } else if (child.type.startsWith("archive_")) {
-                mockData.posts = effectivePosts;
-            } else if (['list', 'grid', 'hero'].includes(blockDef.category)) {
-                mockData.posts = effectivePosts.slice(0, limit);
-            }
-            
-            return (
-                <div className="relative pointer-events-none">
-                    <Component 
-                        block={child} 
-                        posts={mockData.posts} 
-                        categories={mockData.categories}
-                        customTitle={mockData.customTitle}
-                        accentColor={mockData.accentColor}
-                    />
-                </div>
-            );
-        }
-        
-        // --- 2. POST COMPONENTS (Shared with Public Renderer) ---
-        const limitValue = getResponsiveValue("limit");
-        const relatedCount = typeof limitValue === "number" ? Math.max(1, Math.min(limitValue, 6)) : 3;
-
-        if (isPostWidgetType) {
-            const resolvedPost = previewMode === "visual" && previewPost ? previewPost : null;
-            const mockPostForPreview = {
-                id: "preview-post",
-                title: "Contoh Judul Artikel untuk Preview Post Builder",
-                subtitle: "Ini adalah subjudul artikel untuk simulasi preview.",
-                slug: "contoh-artikel-preview",
-                content: "<p>Paragraf contoh pertama untuk meniru konten artikel publik.</p><p>Paragraf kedua untuk menjaga ritme visual tetap realistis.</p>",
-                publishedAt: new Date().toISOString(),
-                createdAt: new Date().toISOString(),
-                views: 128,
-                viewsBase: 500,
-                commentCount: 7,
-                author: {
-                    name: "Redaksi Pranala",
-                    avatar: "/placeholder.jpg",
-                    bio: "Tim redaksi yang mengkurasi dan menulis berita harian untuk pembaca."
-                },
-                approvedBy: {
-                    name: "Editor Pranala",
-                    avatar: "/placeholder.jpg",
-                    bio: "Editor yang melakukan kurasi akhir sebelum berita dipublikasikan."
-                },
-                category: { name: "Nasional", slug: "nasional" },
-                tags: mockTagCloud.map((item) => ({ id: item.id, name: item.name, slug: item.slug })),
-                prev_post: { title: "Artikel Sebelumnya", slug: "artikel-sebelumnya", category: { slug: "nasional" }, image: "/placeholder.jpg" },
-                next_post: { title: "Artikel Selanjutnya", slug: "artikel-selanjutnya", category: { slug: "nasional" }, image: "/placeholder.jpg" },
-                image: "/placeholder.jpg"
-            };
-            const postForRenderer = resolvedPost || mockPostForPreview;
-            const previewRelatedItems = effectivePosts
-                .filter((item: any) => item && item.id && item.id !== postForRenderer.id)
-                .slice(0, relatedCount)
-                .map((item: any) => ({
-                    ...item,
-                    category: item?.category?.slug ? item.category : { ...(item.category || {}), slug: item?.category?.slug || "" },
-                }));
-            return (
-                <PostWidgetRenderer
-                    widget={child}
-                    post={postForRenderer}
-                    headingColor={safeHeading}
-                    metaColor={safeMeta}
-                    contentColor={safeExcerpt}
-                    accentColor={safeAccent}
-                    hoverColor={safeAccent}
-                    blockData={{ [child.id]: previewRelatedItems }}
-                    preview
-                    previewDeviceTab={activeDeviceTab}
-                />
-            );
-        }
-
-        // --- 3. ARCHIVE COMPONENTS (Fallback UI) ---
-        if (isArchiveWidget && previewMode !== "visual") {
-            const limit = getConfigNumber("limit");
-            const offset = getConfigNumber("offset");
-            return (
-                <div className="bg-[var(--bg-base)] border border-[var(--border)] rounded-lg px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <span className="text-xs font-bold uppercase tracking-wide text-[var(--fg-secondary)]">
-                            {widgetLabelMap[child.type] || child.type.replaceAll("_", " ")}
-                        </span>
-                        <span className="text-[10px] px-2 py-0.5 rounded bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--fg-muted)]">
-                            {child.type}
-                        </span>
-                    </div>
-                    <div className="mt-2 text-[11px] text-[var(--fg-muted)] flex flex-wrap gap-x-3 gap-y-1">
-                        <span>sumber: archive aktif</span>
-                        {limit !== undefined && <span>limit: {limit}</span>}
-                        {offset !== undefined && offset > 0 && <span>offset: {offset}</span>}
-                    </div>
-                </div>
-            );
-        }
-
-        // --- FALLBACK (Mini Config) ---
-        return (
-            <div className="text-[10px] text-gray-500 space-y-1">
-                 <span className="text-gray-400 italic">Preview belum tersedia untuk widget ini ({child.type})</span>
-            </div>
-        );
-    };
-
-    if (previewMode === "stable" && context !== "post" && !isArchiveWidget) {
-        const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
-        const limitValue = getResponsiveValue("limit");
-        const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
-        const badgeClass = widgetBadgeClassMap[child.type] || "bg-gray-500";
-        const displayTitle = widgetLabelMap[child.type] || child.title || child.type;
-        const badgeText = widgetBadgeTextMap[child.type] || displayTitle.toUpperCase();
-        const showMetaSummary = activeDeviceTab !== "mobile";
-        const moveControlsBelow = isCompactLayout;
-        const controlIconSize = moveControlsBelow ? 12 : 14;
-        const controlPad = moveControlsBelow ? "p-1" : "p-1.5";
-        const wrapperClass = "bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 shadow-sm hover:border-[var(--accent)] group/item relative transition-all";
-
-        return (
-            <div ref={containerRef} className={wrapperClass}>
-                <div className={`mb-2 gap-2 ${moveControlsBelow ? "flex flex-col items-stretch" : "flex items-start justify-between"}`}>
-                    <div className="flex min-w-0 items-center gap-2">
-                        <div className={`shrink-0 p-1 rounded text-white text-[10px] font-bold ${badgeClass}`}>
-                            {badgeText}
-                        </div>
-                        <span className="text-xs font-bold text-[var(--fg-primary)] truncate min-w-0 flex-1">{displayTitle}</span>
-                    </div>
-                    <div className={`shrink-0 bg-[var(--bg-base)] rounded-md border border-[var(--border)] overflow-hidden ${moveControlsBelow ? "flex flex-wrap items-center justify-end self-end" : "flex items-center"}`}>
-                        {columnCount > 1 && (
-                            <>
-                                <button onClick={() => handleMoveColumn("left")} disabled={currentColumnIndex === 0} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all rounded-l-md border-r border-[var(--border)] ${currentColumnIndex === 0 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kiri"><ArrowLeft size={controlIconSize} /></button>
-                                <button onClick={() => handleMoveColumn("right")} disabled={currentColumnIndex === columnCount - 1} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${currentColumnIndex === columnCount - 1 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kanan"><ArrowRight size={controlIconSize} /></button>
-                            </>
-                        )}
-                        <button onClick={() => handleMove("up")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${columnCount <= 1 ? "rounded-l-md" : ""}`} title="Geser Atas"><ArrowUp size={controlIconSize} /></button>
-                        <button onClick={() => handleMove("down")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Geser Bawah"><ArrowDown size={controlIconSize} /></button>
-                        {canOpenWidgetSettings && (
-                            <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title={builderLocation === "header" || builderLocation === "footer" ? "Pengaturan" : "Edit Konten"}>
-                                {builderLocation === "header" || builderLocation === "footer" ? <Settings size={controlIconSize} /> : <Edit size={controlIconSize} />}
-                            </button>
-                        )}
-                        <button onClick={handleDuplicate} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Duplikasi"><Copy size={controlIconSize} /></button>
-                        <button onClick={handleDelete} className={`${controlPad} text-[var(--fg-muted)] hover:text-red-600 hover:bg-[var(--bg-elevated)] transition-all rounded-r-md`} title="Hapus"><Trash2 size={controlIconSize} /></button>
-                    </div>
-                </div>
-                {showMetaSummary && (
-                    <div className="text-[10px] text-[var(--fg-muted)] space-y-1">
-                        <div className="flex justify-between gap-2">
-                            {widgetType ? <span>mode: {widgetType}</span> : <span>{child.type}</span>}
-                            {Number.isFinite(limit) && <span>limit: {limit}</span>}
-                        </div>
-                        <span className="text-gray-400 italic">Preview dimatikan (mode stabil)</span>
-                    </div>
-                )}
-            </div>
-        );
-    }
-
-    if ((context === "post" || isArchiveWidget) && previewMode !== "visual") {
-        const widgetType = typeof child.config?.widgetType === "string" ? child.config.widgetType : "";
-        const limitValue = getResponsiveValue("limit");
-        const limit = typeof limitValue === "number" ? limitValue : (typeof limitValue === "string" ? Number(limitValue) : undefined);
-        const badgeClass = widgetBadgeClassMap[child.type] || "bg-gray-500";
-        const displayTitle = widgetLabelMap[child.type] || child.title || child.type;
-        const badgeText = widgetBadgeTextMap[child.type] || displayTitle.toUpperCase();
-        const showMetaSummary = activeDeviceTab !== "mobile";
-        const moveControlsBelow = isCompactLayout;
-        const controlIconSize = moveControlsBelow ? 12 : 14;
-        const controlPad = moveControlsBelow ? "p-1" : "p-1.5";
-        const wrapperClass = "bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 shadow-sm hover:border-[var(--accent)] group/item relative transition-all";
-
-        return (
-            <div ref={containerRef} className={wrapperClass}>
-                <div className={`mb-2 gap-2 ${moveControlsBelow ? "flex flex-col items-stretch" : "flex items-start justify-between"}`}>
-                    <div className="flex min-w-0 items-center gap-2">
-                        <div className={`shrink-0 p-1 rounded text-white text-[10px] font-bold ${badgeClass}`}>
-                            {badgeText}
-                        </div>
-                        <span className="text-xs font-bold text-[var(--fg-primary)] truncate min-w-0 flex-1">{displayTitle}</span>
-                    </div>
-                    <div className={`shrink-0 bg-[var(--bg-base)] rounded-md border border-[var(--border)] overflow-hidden ${moveControlsBelow ? "flex flex-wrap items-center justify-end self-end" : "flex items-center"}`}>
-                        {columnCount > 1 && (
-                            <>
-                                <button onClick={() => handleMoveColumn("left")} disabled={currentColumnIndex === 0} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all rounded-l-md border-r border-[var(--border)] ${currentColumnIndex === 0 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kiri"><ArrowLeft size={controlIconSize} /></button>
-                                <button onClick={() => handleMoveColumn("right")} disabled={currentColumnIndex === columnCount - 1} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${currentColumnIndex === columnCount - 1 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kanan"><ArrowRight size={controlIconSize} /></button>
-                            </>
-                        )}
-                        <button onClick={() => handleMove("up")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${columnCount <= 1 ? "rounded-l-md" : ""}`} title="Geser Atas"><ArrowUp size={controlIconSize} /></button>
-                        <button onClick={() => handleMove("down")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Geser Bawah"><ArrowDown size={controlIconSize} /></button>
-                        
-                        {canOpenWidgetSettings && (
-                            <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title={builderLocation === "header" ? "Pengaturan" : "Edit Konten"}>
-                                {builderLocation === "header" ? <Settings size={controlIconSize} /> : <Edit size={controlIconSize} />}
-                            </button>
-                        )}
-
-                        <button onClick={handleDuplicate} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Duplikasi"><Copy size={controlIconSize} /></button>
-                        <button onClick={handleDelete} className={`${controlPad} text-[var(--fg-muted)] hover:text-red-600 hover:bg-[var(--bg-elevated)] transition-all rounded-r-md`} title="Hapus"><Trash2 size={controlIconSize} /></button>
-                    </div>
-                </div>
-                {showMetaSummary && (
-                    <div className="text-[10px] text-[var(--fg-muted)] space-y-1">
-                        <div className="flex justify-between gap-2">
-                            {widgetType ? <span>mode: {widgetType}</span> : <span>{child.type}</span>}
-                            {Number.isFinite(limit) && <span>limit: {limit}</span>}
-                        </div>
-                        {typeof child.config?.categorySlug === "string" && child.config.categorySlug !== "" && <span>kategori: {child.config.categorySlug}</span>}
-                        {typeof child.config?.filterType === "string" && child.config.filterType !== "" && <span>filter: {child.config.filterType}</span>}
-                        {isArchiveWidget && <span>sumber: archive aktif</span>}
-                    </div>
-                )}
-            </div>
-        );
-    }
+    const badgeClass = widgetBadgeClassMap[child.type] || "bg-gray-500";
+    const displayTitle = widgetLabelMap[child.type] || child.title || child.type;
+    const badgeText = widgetBadgeTextMap[child.type] || String(displayTitle).toUpperCase();
+    const moveControlsBelow = isCompactLayout;
+    const controlIconSize = moveControlsBelow ? 12 : 14;
+    const controlPad = moveControlsBelow ? "p-1" : "p-1.5";
+    const wrapperClass = "bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-3 shadow-sm hover:border-[var(--accent)] group/item relative transition-all";
 
     return (
-        <div className={`relative group/item ${isPostWidgetType ? "mb-0" : "mb-4"}`}>
-             {/* HOVER CONTROLS (Overlay) */}
-             <div className="absolute -top-3 left-0 right-0 z-20 flex justify-between items-center opacity-0 group-hover/item:opacity-100 transition-opacity px-2 pointer-events-none">
-                 <div className="flex items-center gap-1 pointer-events-auto">
-                   <span className="text-[10px] font-bold text-white bg-[var(--accent)] px-2 py-0.5 rounded shadow-sm uppercase">{child.type.replace('_', ' ')}</span>
-                 </div>
-                <div className="flex items-center bg-[var(--bg-elevated)] rounded-md border border-[var(--border)] shadow-sm pointer-events-auto">
-                  {columnCount > 1 && (
-                    <>
-                      <button onClick={() => handleMoveColumn("left")} disabled={currentColumnIndex === 0} className={`p-1 text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all border-r border-[var(--border)] ${currentColumnIndex === 0 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kiri"><ArrowLeft size={12} /></button>
-                      <button onClick={() => handleMoveColumn("right")} disabled={currentColumnIndex === columnCount - 1} className={`p-1 text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all border-r border-[var(--border)] ${currentColumnIndex === columnCount - 1 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kanan"><ArrowRight size={12} /></button>
-                    </>
-                  )}
-                   <button onClick={() => handleMove("up")} className="p-1 text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all rounded-l-md border-r border-[var(--border)]" title="Geser Atas"><ArrowUp size={12} /></button>
-                   <button onClick={() => handleMove("down")} className="p-1 text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all border-r border-[var(--border)]" title="Geser Bawah"><ArrowDown size={12} /></button>
-                   <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className="p-1 text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all border-r border-[var(--border)]" title="Edit Konten"><Edit size={12} /></button>
-                  <button onClick={handleDuplicate} className="p-1 text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-surface)] transition-all border-r border-[var(--border)]" title="Duplikasi"><Copy size={12} /></button>
-                   <button onClick={handleDelete} className="p-1 text-[var(--fg-muted)] hover:text-red-600 hover:bg-red-50 transition-all rounded-r-md" title="Hapus"><Trash2 size={12} /></button>
+        <div ref={containerRef} className={`${wrapperClass} ${isPostWidgetType ? "mb-0" : ""}`}>
+            <div className={`gap-2 ${moveControlsBelow ? "flex flex-col items-stretch" : "flex items-start justify-between"}`}>
+                <div className="flex min-w-0 items-center gap-2">
+                    <div className={`shrink-0 p-1 rounded text-white text-[10px] font-bold ${badgeClass}`}>
+                        {badgeText}
+                    </div>
+                    <span className="text-xs font-bold text-[var(--fg-primary)] truncate min-w-0 flex-1">{displayTitle}</span>
                 </div>
-             </div>
-
-            {/* LIVE PREVIEW CONTAINER */}
-            <div className={`border border-transparent rounded transition-all ${isPostWidgetType ? "group-hover/item:border-[color:var(--accent)/0.25]" : "group-hover/item:border-[color:var(--accent)/0.4] group-hover/item:bg-[color:var(--accent)/0.06]"}`}>
-                <div style={widgetContainerStyle}>
-                    {renderContent()}
+                <div className={`shrink-0 bg-[var(--bg-base)] rounded-md border border-[var(--border)] overflow-hidden ${moveControlsBelow ? "flex flex-wrap items-center justify-end self-end" : "flex items-center"}`}>
+                    {columnCount > 1 && (
+                        <>
+                            <button onClick={() => handleMoveColumn("left")} disabled={currentColumnIndex === 0} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all rounded-l-md border-r border-[var(--border)] ${currentColumnIndex === 0 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kiri"><ArrowLeft size={controlIconSize} /></button>
+                            <button onClick={() => handleMoveColumn("right")} disabled={currentColumnIndex === columnCount - 1} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${currentColumnIndex === columnCount - 1 ? "opacity-30 cursor-not-allowed" : ""}`} title="Geser Kanan"><ArrowRight size={controlIconSize} /></button>
+                        </>
+                    )}
+                    <button onClick={() => handleMove("up")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${columnCount <= 1 ? "rounded-l-md" : ""}`} title="Geser Atas"><ArrowUp size={controlIconSize} /></button>
+                    <button onClick={() => handleMove("down")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Geser Bawah"><ArrowDown size={controlIconSize} /></button>
+                    {canOpenWidgetSettings && (
+                        <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title={builderLocation === "header" ? "Pengaturan" : "Edit Konten"}>
+                            {builderLocation === "header" ? <Settings size={controlIconSize} /> : <Edit size={controlIconSize} />}
+                        </button>
+                    )}
+                    <button onClick={handleDuplicate} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Duplikasi"><Copy size={controlIconSize} /></button>
+                    <button onClick={handleDelete} className={`${controlPad} text-[var(--fg-muted)] hover:text-red-600 hover:bg-[var(--bg-elevated)] transition-all rounded-r-md`} title="Hapus"><Trash2 size={controlIconSize} /></button>
                 </div>
+            </div>
+            <div className="mt-2 text-[10px] text-[var(--fg-muted)]">
+                Tampilan builder selalu stabil (tanpa preview)
             </div>
         </div>
     );

@@ -10,11 +10,6 @@ import { getThemeArchiveWidgetGroups } from "@/lib/archive-builder-theme-registr
 
 interface SectionBlockProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
-    previewMode?: "stable" | "visual";
-    previewPosts?: any[];
-    previewCategories?: any[];
-    previewPost?: any | null;
-    previewArchiveMeta?: any | null;
     block: Block;
     index: number;
     updateBlockConfig: (index: number, key: string, value: ConfigValue) => void;
@@ -73,11 +68,6 @@ interface WidgetDefinition {
 
 function SectionBlock({
     builderLocation = "home",
-    previewMode = "stable",
-    previewPosts,
-    previewCategories,
-    previewPost,
-    previewArchiveMeta,
     block,
     index,
     updateBlockConfig,
@@ -114,8 +104,8 @@ function SectionBlock({
     moveChildBlockColumnById,
     deleteChildBlockById,
     duplicateChildBlockById,
-    containerWidth,
-    customContainerWidth,
+    containerWidth: _containerWidth,
+    customContainerWidth: _customContainerWidth,
     sidebarContext = false,
     sourceBlocksByLocation,
     homeContainerWidth: _homeContainerWidth = "boxed",
@@ -137,15 +127,6 @@ function SectionBlock({
         if (activeDeviceTab === "mobile") return `mobile${cap(key)}`;
         if (activeDeviceTab === "tablet") return `tablet${cap(key)}`;
         return key;
-    };
-    const getChildResponsiveValue = (child: Block | undefined | null, key: string): unknown => {
-        const cfg: any = child?.config || {};
-        const base = cfg?.[key];
-        const tablet = cfg?.[`tablet${cap(key)}`];
-        const mobile = cfg?.[`mobile${cap(key)}`];
-        if (activeDeviceTab === "mobile") return mobile ?? tablet ?? base;
-        if (activeDeviceTab === "tablet") return tablet ?? base;
-        return base;
     };
     const handleUpdateResponsiveConfig = (key: string, value: ConfigValue) => {
         handleUpdateConfig(getResponsiveConfigKey(key), value);
@@ -192,37 +173,22 @@ function SectionBlock({
         switch(layout) {
             case '100': return ['w-full'];
             case '50-50': return ['w-1/2', 'w-1/2'];
-            case '33-66': return ['w-1/3', 'w-2/3'];
-            case '66-33': return ['w-2/3', 'w-1/3'];
+            case '33-66': return ['w-1/2', 'w-1/2'];
+            case '66-33': return ['w-1/2', 'w-1/2'];
             case '33-33-33': return ['w-1/3', 'w-1/3', 'w-1/3'];
             case '25-25-25-25': return ['w-1/4', 'w-1/4', 'w-1/4', 'w-1/4'];
             default: return ['w-full'];
         }
     };
 
-    // --- STYLE LOGIC (Preview Mode) ---
     const config = block.config || {};
-    const isTruthy = (value: unknown) => value === true || value === "true" || value === 1 || value === "1";
-    const isHiddenOnActiveDevice = (cfg: any) => {
-        if (!cfg) return false;
-        if (activeDeviceTab === "mobile") return isTruthy(cfg.hideOnMobile);
-        if (activeDeviceTab === "tablet") return isTruthy(cfg.hideOnTablet);
-        return isTruthy(cfg.hideOnDesktop);
-    };
-    if (isHiddenOnActiveDevice(config)) return null;
     const getResponsiveValue = (key: string) => {
-        const base = config[key];
-        const tablet = config[`tablet${cap(key)}`];
-        const mobile = config[`mobile${cap(key)}`];
+        const base = (config as any)?.[key];
+        const tablet = (config as any)?.[`tablet${cap(key)}`];
+        const mobile = (config as any)?.[`mobile${cap(key)}`];
         if (activeDeviceTab === "mobile") return mobile ?? tablet ?? base;
         if (activeDeviceTab === "tablet") return tablet ?? base;
         return base;
-    };
-    const hasResponsiveValue = (key: string) => {
-        const value = getResponsiveValue(key);
-        if (value === undefined || value === null) return false;
-        if (typeof value === "string") return value.trim() !== "";
-        return true;
     };
     const getConfigString = (key: string, fallback = ""): string => {
         const value = getResponsiveValue(key);
@@ -230,156 +196,10 @@ function SectionBlock({
         if (typeof value === "number" && Number.isFinite(value)) return String(value);
         return fallback;
     };
-    const getConfigNumber = (key: string, fallback = 0): number => {
-        const value = getResponsiveValue(key);
-        if (typeof value === "number" && Number.isFinite(value)) return value;
-        if (typeof value === "string" && value.trim() !== "") {
-            const parsed = Number(value);
-            if (Number.isFinite(parsed)) return parsed;
-        }
-        return fallback;
-    };
-    const getConfigBool = (key: string, fallback = false): boolean => {
-        const value = getResponsiveValue(key);
-        if (typeof value === "boolean") return value;
-        if (typeof value === "string") {
-            const v = value.trim().toLowerCase();
-            if (v === "true" || v === "1" || v === "yes") return true;
-            if (v === "false" || v === "0" || v === "no") return false;
-        }
-        return fallback;
-    };
+
     const layoutConfig = getConfigString("layout", "100");
     const columns = getColumnStructure(layoutConfig);
-    const layoutRatios = layoutConfig.split("-").map((part) => Number(part)).filter((part) => Number.isFinite(part) && part > 0);
-    const isTwoColumnLayout = layoutRatios.length === 2;
-    const hasMainSidebarLayout = isTwoColumnLayout && layoutRatios[0] !== layoutRatios[1];
-    const dividerLeftPercent = hasMainSidebarLayout
-        ? (layoutRatios[0] / (layoutRatios[0] + layoutRatios[1])) * 100
-        : null;
-    const suppressSectionVisualPreview = previewMode === "stable";
-
-    // Padding & Margin Logic (Desktop Preview)
-    const paddingYMap: Record<string, string> = {
-        'none': '0px',
-        'sm': '16px',
-        'md': '32px',
-        'lg': '48px',
-        'xl': '80px',
-    };
-    
-    // Determine default padding Y if no specific top/bottom set
-    const defaultPaddingY = (!hasResponsiveValue("paddingTop") && !hasResponsiveValue("paddingBottom"))
-        ? (paddingYMap[getConfigString("paddingY", "none")] || '0px') 
-        : '0px';
-
-    // --- CONTAINER WIDTH LOGIC ---
-    const sectionContainerWidth = getConfigString("containerWidth", containerWidth || "boxed");
-    let maxWidth = "100%";
-    if (sectionContainerWidth === 'boxed') {
-        maxWidth = "1100px";
-    } else if (sectionContainerWidth === 'narrow') {
-        maxWidth = "1000px";
-    } else if (sectionContainerWidth === 'custom') {
-        const rawWidth = getConfigString("customContainerWidth", customContainerWidth || "1200").toString().trim();
-        maxWidth = /^\d+$/.test(rawWidth) ? `${rawWidth}px` : rawWidth;
-    }
-
-    // Background fallback: treat pure white as transparent so dark builder theme shows through
-    const normalize = (val?: string) => (val || '').trim().toLowerCase().replace(/\s+/g, '');
-    const isPureWhite = (val?: string) => {
-        const c = normalize(val);
-        return c === '#fff' || c === '#ffffff' || c === 'white' || c === 'rgb(255,255,255)' || c === 'rgba(255,255,255,1)' || c === 'rgb(255,255,255,1)';
-    };
-    const backgroundColor = getConfigString("backgroundColor");
-    const backgroundImage = getConfigString("backgroundImage");
-    const backgroundSize = getConfigString("backgroundSize", "cover");
-    const overlayColor = getConfigString("overlayColor");
-    const useBox = getConfigBool("useBox", false);
-    const borderStyle = getConfigString("borderStyle", "none");
-    const borderColor = getConfigString("borderColor", "transparent");
-    const borderTopWidth = getConfigNumber("borderTopWidth", 0);
-    const borderBottomWidth = getConfigNumber("borderBottomWidth", 0);
-    const borderLeftWidth = getConfigNumber("borderLeftWidth", 0);
-    const borderRightWidth = getConfigNumber("borderRightWidth", 0);
-    const boxPaddingY = getConfigString("boxPaddingY");
-    const boxPaddingX = getConfigString("boxPaddingX");
-    const borderRadiusValue = getConfigString("borderRadius", "none");
-    const shadowValue = getConfigString("boxShadow", "none");
-    const blockGap = getConfigNumber("blockGap", 6);
-    const columnGap = getConfigNumber("columnGap", 6);
-    const effectiveBg = isPureWhite(backgroundColor) ? 'transparent' : backgroundColor;
-    const marginTop = getConfigNumber("marginTop", 0);
-    const marginBottom = getConfigNumber("marginBottom", 0);
-    const marginLeft = getConfigNumber("marginLeft", 0);
-    const marginRight = getConfigNumber("marginRight", 0);
-    const paddingTop = getConfigNumber("paddingTop", 0);
-    const paddingBottom = getConfigNumber("paddingBottom", 0);
-    const paddingLeft = getConfigNumber("paddingLeft", 0);
-    const paddingRight = getConfigNumber("paddingRight", 0);
-
-    const shadowMap: Record<string, string> = {
-        none: "none",
-        sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-        md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
-        lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)",
-        xl: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04)",
-        "2xl": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
-        inner: "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)"
-    };
-    const radiusMap: Record<string, string> = {
-        none: "0",
-        sm: "0.125rem",
-        md: "0.375rem",
-        lg: "0.5rem",
-        xl: "0.75rem",
-        "2xl": "1rem",
-        full: "9999px"
-    };
-
-    const sectionStyle: React.CSSProperties = {
-        marginTop: hasResponsiveValue("marginTop") ? `${marginTop}px` : undefined,
-        marginBottom: hasResponsiveValue("marginBottom") ? `${marginBottom}px` : undefined,
-        marginLeft: hasResponsiveValue("marginLeft") ? `${marginLeft}px` : 'auto',
-        marginRight: hasResponsiveValue("marginRight") ? `${marginRight}px` : 'auto',
-        
-        paddingTop: hasResponsiveValue("paddingTop") ? `${paddingTop}px` : (defaultPaddingY !== '0px' ? defaultPaddingY : '0px'),
-        paddingBottom: hasResponsiveValue("paddingBottom") ? `${paddingBottom}px` : (defaultPaddingY !== '0px' ? defaultPaddingY : '0px'),
-        paddingLeft: hasResponsiveValue("paddingLeft") ? `${paddingLeft}px` : '16px',
-        paddingRight: hasResponsiveValue("paddingRight") ? `${paddingRight}px` : '16px',
-        
-        backgroundColor: effectiveBg || undefined,
-        backgroundImage: backgroundImage ? `url(${backgroundImage})` : undefined,
-        backgroundSize: backgroundImage ? backgroundSize : undefined,
-        backgroundPosition: backgroundImage ? 'center' : undefined,
-        backgroundRepeat: backgroundImage ? 'no-repeat' : undefined,
-        maxWidth: maxWidth,
-    };
-    const boxStyle: React.CSSProperties = useBox ? {
-        borderStyle,
-        borderColor,
-        borderTopWidth: `${borderTopWidth}px`,
-        borderBottomWidth: `${borderBottomWidth}px`,
-        borderLeftWidth: `${borderLeftWidth}px`,
-        borderRightWidth: `${borderRightWidth}px`,
-        boxShadow: shadowMap[shadowValue] || "none",
-        borderRadius: radiusMap[borderRadiusValue] || "0",
-        paddingTop: boxPaddingY || undefined,
-        paddingBottom: boxPaddingY || undefined,
-        paddingLeft: boxPaddingX || undefined,
-        paddingRight: boxPaddingX || undefined,
-        backgroundColor: backgroundColor || "transparent"
-    } : {};
-    const normalizedSectionStyle: React.CSSProperties = suppressSectionVisualPreview
-        ? { maxWidth }
-        : sectionStyle;
-    const previewBoxStyle: React.CSSProperties = suppressSectionVisualPreview ? {} : boxStyle;
-    const previewUseBox = suppressSectionVisualPreview ? false : useBox;
     const isStackedLayout = activeDeviceTab === "mobile";
-    const gridGapStyle: React.CSSProperties = {
-        columnGap: suppressSectionVisualPreview ? undefined : `${columnGap * 0.25}rem`,
-        rowGap: `${blockGap * 0.25}rem`
-    };
 
     return (
         <div className="relative group bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl shadow-sm hover:shadow-md transition-all">
@@ -412,35 +232,20 @@ function SectionBlock({
                 </div>
             </div>
 
-            {/* Columns Container with Preview Styles */}
-            <div style={normalizedSectionStyle} className="rounded-b-xl overflow-hidden transition-all p-3 overflow-x-auto">
+            <div className="rounded-b-xl overflow-hidden p-3 overflow-x-auto">
                 <div
-                    className={`relative flex min-h-[150px] transition-all duration-300 ${isStackedLayout ? "flex-col" : "flex-row"} ${!previewUseBox ? "bg-[var(--bg-surface)]" : ""}`}
-                    style={{ ...previewBoxStyle, ...gridGapStyle }}
+                    className={`relative flex min-h-[150px] ${isStackedLayout ? "flex-col" : "flex-row"} gap-3`}
                 >
-                    {!isStackedLayout && hasMainSidebarLayout && dividerLeftPercent !== null && (
-                        <div
-                            className="absolute top-0 bottom-0 w-px bg-[var(--border)] pointer-events-none z-[1]"
-                            style={{ left: `${dividerLeftPercent}%` }}
-                        />
-                    )}
-                    {!suppressSectionVisualPreview && backgroundImage && overlayColor && (
-                        <div className="absolute inset-0 pointer-events-none" style={{ backgroundColor: overlayColor }} />
-                    )}
                     {columns.map((widthClass, colIndex) => {
                         const resolvedSectionChildren = builderLocation === "header" || builderLocation === "footer"
                           ? ((block.config as any)?.children || [])
                           : resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, builderLocation as any);
-                        const visibleSectionChildren = resolvedSectionChildren.filter((c: Block) => !isHiddenOnActiveDevice(c?.config));
-                        const colChildren = visibleSectionChildren.filter((c: Block) => (c.config?.columnIndex || 0) === colIndex);
+                        const colChildren = resolvedSectionChildren.filter((c: Block) => (c.config?.columnIndex || 0) === colIndex);
                         const isEmpty = colChildren.length === 0;
-                        const minRatio = isTwoColumnLayout ? Math.min(...layoutRatios) : 0;
-                        const sidebarIndex = isTwoColumnLayout ? layoutRatios.indexOf(minRatio) : -1;
-                        const isSidebarColumn = hasMainSidebarLayout && colIndex === sidebarIndex;
-                        const effectiveSidebarContext = sidebarContext || isSidebarColumn;
+                        const effectiveSidebarContext = sidebarContext;
 
                         return (
-                        <div key={colIndex} className={`${isStackedLayout ? "w-full" : widthClass} p-3 ${previewUseBox ? "bg-transparent" : "bg-[var(--bg-surface)]"} relative group/col`}>
+                        <div key={colIndex} className={`${isStackedLayout ? "w-full" : widthClass} p-3 bg-[var(--bg-surface)] relative group/col`}>
                             {/* Empty State Placeholder */}
                             {isEmpty && (
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -451,53 +256,15 @@ function SectionBlock({
                             )}
 
                             {/* Column Content */}
-                            <div
-                                className={(() => {
-                                    const childrenDirection = getConfigString("childrenDirection", "vertical") === "horizontal" ? "horizontal" : "vertical";
-                                    const childrenAlignRaw = getConfigString("childrenAlign", "left");
-                                    const childrenAlign = childrenAlignRaw === "right" ? "right" : childrenAlignRaw === "center" ? "center" : "left";
-                                    const childrenVerticalAlignRaw = getConfigString("childrenVerticalAlign", "top");
-                                    const childrenVerticalAlign =
-                                        childrenVerticalAlignRaw === "bottom"
-                                            ? "bottom"
-                                            : childrenVerticalAlignRaw === "center" || childrenVerticalAlignRaw === "middle"
-                                                ? "center"
-                                                : "top";
-                                    const directionClass = childrenDirection === "horizontal" ? "flex-row flex-wrap" : "flex-col";
-                                    const alignMainAxisClass = childrenDirection === "horizontal"
-                                        ? (childrenAlign === "center" ? "justify-center" : childrenAlign === "right" ? "justify-end" : "justify-start")
-                                        : `items-stretch ${childrenAlign === "center" ? "text-center" : childrenAlign === "right" ? "text-right" : "text-left"}`;
-                                    const alignCrossAxisClass = childrenDirection === "horizontal"
-                                        ? (childrenVerticalAlign === "center" ? "items-center" : childrenVerticalAlign === "bottom" ? "items-end" : "items-start")
-                                        : (childrenVerticalAlign === "center" ? "justify-center" : childrenVerticalAlign === "bottom" ? "justify-end" : "justify-start");
-                                    return `relative z-10 flex ${directionClass} ${alignMainAxisClass} ${alignCrossAxisClass}`.trim();
-                                })()}
-                                style={{ gap: `${blockGap * 0.25}rem` }}
-                            >
+                            <div className="relative z-10 flex flex-col items-stretch justify-start gap-3">
                                 {colChildren.map((child: Block) => {
-                                    const childrenDirection = getConfigString("childrenDirection", "vertical") === "horizontal" ? "horizontal" : "vertical";
-                                    const childrenSizing = getConfigString("childrenSizing", "auto") === "grow" ? "grow" : "auto";
-                                    const itemClass = childrenDirection === "horizontal" && childrenSizing === "grow" ? "flex-1 basis-0 min-w-0" : "";
-                                    const verticalAlignRaw = getChildResponsiveValue(child, "verticalAlign");
-                                    const verticalAlign =
-                                        verticalAlignRaw === "bottom"
-                                            ? "bottom"
-                                            : verticalAlignRaw === "center" || verticalAlignRaw === "middle"
-                                                ? "center"
-                                                : "top";
-                                    const selfClass = verticalAlign === "center" ? "self-center" : verticalAlign === "bottom" ? "self-end" : "self-start";
-                                    const wrapperClass = `${itemClass} ${childrenDirection === "horizontal" ? selfClass : ""}`.trim();
+                                    const wrapperClass = "";
                                     if (child.type === 'section') {
                                         // Recursive Render for Nested Sections
                                         return (
                                             <div key={child.id} className={wrapperClass}>
                                                 <SectionBlock 
                                                     builderLocation={builderLocation}
-                                                    previewMode={previewMode}
-                                                    previewPosts={previewPosts}
-                                                    previewCategories={previewCategories}
-                                                    previewPost={previewPost}
-                                                    previewArchiveMeta={previewArchiveMeta}
                                                     key={child.id}
                                                     block={child}
                                                     index={index}
@@ -544,11 +311,6 @@ function SectionBlock({
                                         <div key={child.id} className={wrapperClass}>
                                             <WidgetItem 
                                                 builderLocation={builderLocation}
-                                                previewMode={previewMode}
-                                                previewPosts={previewPosts}
-                                                previewCategories={previewCategories}
-                                                previewPost={previewPost}
-                                                previewArchiveMeta={previewArchiveMeta}
                                                 key={child.id}
                                                 child={child}
                                                 parentIndex={index}
