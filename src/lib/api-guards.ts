@@ -5,6 +5,8 @@ import { verifyToken } from "@/lib/auth";
 type Role = "SUPER_ADMIN" | "ADMIN" | "EDITOR" | "WRITER";
 export type ToolId = "wp_import" | "media_migration" | "print_tools" | "backfill_excerpts";
 
+const ALL_TOOL_IDS: ToolId[] = ["wp_import", "media_migration", "print_tools", "backfill_excerpts"];
+
 type RateState = {
   count: number;
   resetAt: number;
@@ -104,7 +106,7 @@ function parseToolAllowlistEnv(): Record<string, ToolId[]> | null {
       const arr = Array.isArray(v) ? v : [];
       const tools = arr
         .map((x) => String(x))
-        .filter((x): x is ToolId => x === "wp_import" || x === "media_migration" || x === "print_tools" || x === "backfill_excerpts");
+        .filter((x): x is ToolId => (ALL_TOOL_IDS as string[]).includes(x));
       out[host] = tools;
     }
     return out;
@@ -115,9 +117,30 @@ function parseToolAllowlistEnv(): Record<string, ToolId[]> | null {
 
 const TOOL_ALLOWLIST_BY_HOST = parseToolAllowlistEnv();
 
+type InstanceToolsMode = { mode: "all" } | { mode: "list"; tools: ToolId[] };
+
+function parseInstanceToolsEnv(): InstanceToolsMode | null {
+  const raw = process.env.TOOLS_ENABLED;
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  const value = raw.trim().toLowerCase();
+  if (value === "*" || value === "all") return { mode: "all" };
+  const parts = raw
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const tools = parts.filter((x): x is ToolId => (ALL_TOOL_IDS as string[]).includes(x));
+  return { mode: "list", tools };
+}
+
+const INSTANCE_TOOLS = parseInstanceToolsEnv();
+
 export function isToolEnabledForRequest(request: Request, toolId: ToolId): boolean {
   const host = getRequestHost(request);
   if (isLocalHost(host)) return true;
+  if (INSTANCE_TOOLS) {
+    if (INSTANCE_TOOLS.mode === "all") return true;
+    return INSTANCE_TOOLS.tools.includes(toolId);
+  }
   if (!TOOL_ALLOWLIST_BY_HOST) return true;
 
   const direct = TOOL_ALLOWLIST_BY_HOST[host];
@@ -125,4 +148,11 @@ export function isToolEnabledForRequest(request: Request, toolId: ToolId): boole
   const wildcard = TOOL_ALLOWLIST_BY_HOST["*"];
   if (Array.isArray(wildcard)) return wildcard.includes(toolId);
   return false;
+}
+
+export function isToolsAllowlistActive(): boolean {
+  const instanceRaw = process.env.TOOLS_ENABLED;
+  if (typeof instanceRaw === "string" && instanceRaw.trim() !== "") return true;
+  const hostRaw = process.env.TENANT_TOOLS_ALLOWLIST;
+  return typeof hostRaw === "string" && hostRaw.trim() !== "";
 }

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isToolEnabledForRequest, requireAdmin, type ToolId } from "@/lib/api-guards";
+import { isToolEnabledForRequest, isToolsAllowlistActive, requireAdmin, type ToolId } from "@/lib/api-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +9,7 @@ export async function GET(request: Request) {
   const user = await requireAdmin();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const allowlistRaw = process.env.TENANT_TOOLS_ALLOWLIST;
-  const allowlistActive = typeof allowlistRaw === "string" && allowlistRaw.trim() !== "";
+  const allowlistActive = isToolsAllowlistActive();
 
   const enabledTools = ALL_TOOLS.filter((t) => isToolEnabledForRequest(request, t));
 
@@ -19,4 +18,3 @@ export async function GET(request: Request) {
     enabledTools,
   });
 }
-
