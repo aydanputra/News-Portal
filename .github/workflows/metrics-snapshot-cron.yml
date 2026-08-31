@@ -1,0 +1,34 @@
+name: Metrics Snapshot Cron
+
+on:
+  schedule:
+    - cron: "55 23 * * *"
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate configuration
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$APP_BASE_URL" ]; then
+            echo "APP_BASE_URL secret is not configured"
+            exit 1
+          fi
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET secret is not configured"
+            exit 1
+          fi
+
+      - name: Run metrics snapshot
+        env:
+          APP_BASE_URL: ${{ secrets.APP_BASE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail --show-error --silent \
+            -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$APP_BASE_URL/api/cron/metrics/snapshot"

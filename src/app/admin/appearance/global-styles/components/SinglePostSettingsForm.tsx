@@ -1,6 +1,53 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp, RotateCcw } from "lucide-react";
 import CustomColorPicker from "@/components/admin/page-builder/ColorPicker";
+import FontSelectCustom from "./FontSelectCustom";
+import MediaLibraryModal from "@/app/admin/components/MediaLibraryModal";
+import Image from "next/image";
+import { Image as ImageIcon, X } from "lucide-react";
+
+const FONT_OPTIONS = [
+    { value: "Inter", label: "Inter (Default)" },
+    { value: "Roboto", label: "Roboto" },
+    { value: "Open Sans", label: "Open Sans" },
+    { value: "Lato", label: "Lato" },
+    { value: "Montserrat", label: "Montserrat" },
+    { value: "Poppins", label: "Poppins" },
+    { value: "Merriweather", label: "Merriweather (Serif)" },
+    { value: "Playfair Display", label: "Playfair Display (Serif)" },
+    { value: "Nunito", label: "Nunito" },
+    { value: "Raleway", label: "Raleway" },
+    { value: "PT Sans", label: "PT Sans" },
+    { value: "Lora", label: "Lora (Serif)" },
+    { value: "Rubik", label: "Rubik" },
+    { value: "Work Sans", label: "Work Sans" },
+    { value: "Fira Sans", label: "Fira Sans" },
+    { value: "Quicksand", label: "Quicksand" },
+    { value: "Barlow", label: "Barlow" },
+    { value: "Mulish", label: "Mulish" },
+    { value: "Titillium Web", label: "Titillium Web" },
+    { value: "Ubuntu", label: "Ubuntu" },
+];
+
+const FontPreviewLoader = () => {
+    const fonts = FONT_OPTIONS.filter((font) => font.value !== "Inter").map((font) => font.value);
+    const chunks = [];
+    const chunkSize = 10;
+
+    for (let index = 0; index < fonts.length; index += chunkSize) {
+        chunks.push(fonts.slice(index, index + chunkSize));
+    }
+
+    return (
+        <>
+            {chunks.map((chunk, index) => {
+                const query = chunk.map((font) => `family=${font.replace(/ /g, "+")}:wght@400;500;600;700;800`).join("&");
+                const url = `https://fonts.googleapis.com/css2?${query}&display=swap`;
+                return <link key={index} rel="stylesheet" href={url} />;
+            })}
+        </>
+    );
+};
 
 interface SinglePostSettingsFormProps {
     settings: any;
@@ -9,6 +56,7 @@ interface SinglePostSettingsFormProps {
 
 export default function SinglePostSettingsForm({ settings, handleChange }: SinglePostSettingsFormProps) {
     const [expandedSection, setExpandedSection] = useState<string | null>("inline_related");
+    const [showWatermarkMediaModal, setShowWatermarkMediaModal] = useState(false);
     
     // Custom Switch Component (Simple implementation if @headlessui/react is not available or we prefer custom)
     const Toggle = ({ checked, onChange, label, desc, disabled = false }: { checked: boolean, onChange: (val: boolean) => void, label: string, desc?: string, disabled?: boolean }) => (
@@ -37,8 +85,13 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
         handleChange("postInlineRelatedGridColumns", 2);
         handleChange("postInlineRelatedCardColumns", 1);
         handleChange("postInlineRelatedTitleFontSize", 16);
+        handleChange("postInlineRelatedTitleFont", settings.postTitleFont || settings.postWidgetTitleFont || "Inter");
         handleChange("postInlineRelatedTitleFontWeight", "700");
         handleChange("postInlineRelatedTitleLineHeight", "1.35");
+        handleChange("postInlineRelatedHeadingText", "Baca Juga");
+        handleChange("postInlineRelatedHeadingFont", settings.postTitleFont || settings.postWidgetTitleFont || "Inter");
+        handleChange("postInlineRelatedHeadingFontWeight", "700");
+        handleChange("postInlineRelatedHeadingLetterSpacing", "0");
         handleChange("postInlineRelatedFontSize", 14);
         handleChange("postInlineRelatedBgColor", "#f9fafb");
         handleChange("postInlineRelatedHeaderBgColor", "#f9fafb");
@@ -52,9 +105,34 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
         handleChange("postInlineAds", false);
         handleChange("postInlineAdPositions", "3");
     };
+    const handleResetImageWatermark = () => {
+        if (!confirm("Apakah Anda yakin ingin mereset pengaturan watermark foto ke default?")) return;
+
+        handleChange("postImageWatermarkUrl", "");
+        handleChange("postImageWatermarkOpacity", 35);
+        handleChange("postImageWatermarkSize", 24);
+        handleChange("postImageWatermarkPosition", "center");
+        handleChange("postImageWatermarkPaddingTop", 24);
+        handleChange("postImageWatermarkPaddingRight", 24);
+        handleChange("postImageWatermarkPaddingBottom", 24);
+        handleChange("postImageWatermarkPaddingLeft", 24);
+    };
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <>
+            {showWatermarkMediaModal && (
+                <MediaLibraryModal
+                    onClose={() => setShowWatermarkMediaModal(false)}
+                    onSelect={(media) => {
+                        handleChange("postImageWatermarkUrl", media.fileUrl);
+                        setShowWatermarkMediaModal(false);
+                    }}
+                    allowedTypes="image"
+                />
+            )}
+
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+                <FontPreviewLoader />
             
             {/* 1. Inline Related Post */}
             <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-visible">
@@ -194,6 +272,71 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
                                     <h4 className="font-bold text-[var(--fg-primary)] mb-3 text-sm uppercase tracking-wide">Tampilan & Warna</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div>
+                                            <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Teks Heading Inline Related</label>
+                                            <input
+                                                type="text"
+                                                className="input w-full"
+                                                value={settings.postInlineRelatedHeadingText || "Baca Juga"}
+                                                onChange={(e) => handleChange("postInlineRelatedHeadingText", e.target.value)}
+                                                placeholder="Contoh: Baca Juga"
+                                            />
+                                            <p className="text-xs text-[var(--fg-muted)] mt-1">Teks heading yang tampil di atas blok Inline Related.</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Jenis Font Heading</label>
+                                            <FontSelectCustom
+                                                value={settings.postInlineRelatedHeadingFont || settings.postInlineRelatedTitleFont || settings.postTitleFont || "Inter"}
+                                                onChange={(value) => handleChange("postInlineRelatedHeadingFont", value)}
+                                                options={FONT_OPTIONS}
+                                            />
+                                            <p className="text-xs text-[var(--fg-muted)] mt-1">Dropdown menampilkan preview asli tiap font untuk heading `Baca Juga`.</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Ukuran Font Heading</label>
+                                            <div className="flex items-center gap-2">
+                                                <input 
+                                                    type="number" 
+                                                    className="input w-full"
+                                                    value={settings.postInlineRelatedFontSize || 14}
+                                                    onChange={(e) => handleChange("postInlineRelatedFontSize", parseInt(e.target.value))}
+                                                />
+                                                <span className="text-sm text-[var(--fg-muted)]">px</span>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Font Weight Heading</label>
+                                            <select
+                                                className="input w-full"
+                                                value={settings.postInlineRelatedHeadingFontWeight || "700"}
+                                                onChange={(e) => handleChange("postInlineRelatedHeadingFontWeight", e.target.value)}
+                                            >
+                                                <option value="500">500 Medium</option>
+                                                <option value="600">600 Semi Bold</option>
+                                                <option value="700">700 Bold</option>
+                                                <option value="800">800 Extra Bold</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Letter Spacing Heading</label>
+                                            <input
+                                                type="text"
+                                                className="input w-full"
+                                                value={settings.postInlineRelatedHeadingLetterSpacing || "0"}
+                                                onChange={(e) => handleChange("postInlineRelatedHeadingLetterSpacing", e.target.value)}
+                                                placeholder="Contoh: 0, 0.08em, 1px"
+                                            />
+                                            <p className="text-xs text-[var(--fg-muted)] mt-1">Mendukung nilai seperti `0`, `0.08em`, atau `1px`.</p>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Jenis Font Judul Berita Related</label>
+                                            <FontSelectCustom
+                                                value={settings.postInlineRelatedTitleFont || settings.postTitleFont || settings.postWidgetTitleFont || "Inter"}
+                                                onChange={(value) => handleChange("postInlineRelatedTitleFont", value)}
+                                                options={FONT_OPTIONS}
+                                            />
+                                            <p className="text-xs text-[var(--fg-muted)] mt-1">Dropdown menampilkan preview asli tiap font untuk judul berita terkait.</p>
+                                        </div>
+                                        <div>
                                             <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Ukuran Font Judul Berita</label>
                                             <div className="flex items-center gap-2">
                                                 <input 
@@ -233,20 +376,6 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Ukuran Font Heading Baca Juga</label>
-                                            <div className="flex items-center gap-2">
-                                                <input 
-                                                    type="number" 
-                                                    className="input w-full"
-                                                    value={settings.postInlineRelatedFontSize || 14}
-                                                    onChange={(e) => handleChange("postInlineRelatedFontSize", parseInt(e.target.value))}
-                                                />
-                                                <span className="text-sm text-[var(--fg-muted)]">px</span>
-                                            </div>
-                                            <p className="text-xs text-[var(--fg-muted)] mt-1">Mengatur ukuran teks heading `Baca Juga` pada blok Inline Related.</p>
-                                        </div>
-                                        
-                                        <div>
                                             <CustomColorPicker 
                                                 label="Warna Background" 
                                                 value={settings.postInlineRelatedBgColor}
@@ -266,10 +395,10 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
 
                                         <div>
                                             <CustomColorPicker 
-                                                label="Warna Judul (Baca Juga)" 
+                                                label="Warna Heading" 
                                                 value={settings.postInlineRelatedTitleColor}
                                                 onChange={(val) => handleChange("postInlineRelatedTitleColor", val)}
-                                                globalDefault="#1f2937"
+                                                globalDefault={settings.postWidgetTitleColor || settings.headingColor || "#1f2937"}
                                             />
                                         </div>
 
@@ -278,7 +407,7 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
                                                 label="Warna Teks Judul Berita" 
                                                 value={settings.postInlineRelatedTextColor}
                                                 onChange={(val) => handleChange("postInlineRelatedTextColor", val)}
-                                                globalDefault="#1f2937"
+                                                globalDefault={settings.postWidgetTitleColor || settings.headingColor || "#1f2937"}
                                             />
                                         </div>
 
@@ -299,7 +428,159 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
                 )}
             </div>
 
-            {/* 2. Gallery Settings */}
+            {/* 2. Watermark Foto */}
+            <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-visible">
+                <div
+                    className="p-6 flex justify-between items-center cursor-pointer hover:bg-[color:var(--fg-muted)/0.05] transition-colors"
+                    onClick={() => setExpandedSection(prev => prev === 'image_watermark' ? null : 'image_watermark')}
+                >
+                    <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-bold text-[var(--fg-primary)]">Watermark Foto Artikel</h3>
+                        <span className="text-xs font-semibold bg-[color:var(--accent)/0.1] text-[var(--accent)] border border-[color:var(--accent)/0.2] px-2.5 py-0.5 rounded-full">
+                            Single Post
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {expandedSection === 'image_watermark' && (
+                            <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); handleResetImageWatermark(); }}
+                                className="flex items-center gap-1.5 text-xs font-medium text-[var(--fg-muted)] border border-[var(--border)] hover:text-amber-600 hover:border-amber-500/50 hover:bg-amber-500/10 mr-3 px-3 py-1.5 rounded-lg transition-all group"
+                                title="Kembalikan pengaturan ke default"
+                            >
+                                <RotateCcw size={13} className="group-hover:-rotate-180 transition-transform duration-500" />
+                                Reset Default
+                            </button>
+                        )}
+                        <button type="button" className="text-[var(--fg-muted)] hover:text-[var(--fg-primary)]">
+                            {expandedSection === 'image_watermark' ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                        </button>
+                    </div>
+                </div>
+
+                {expandedSection === 'image_watermark' && (
+                    <div className="px-6 pb-6 pt-0 border-t border-[var(--border)]">
+                        <div className="mt-6 grid grid-cols-1 lg:grid-cols-[260px_minmax(0,1fr)] gap-6 items-start">
+                            <div className="space-y-4">
+                                <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-[var(--border)] bg-[var(--bg-base)] group">
+                                    {settings.postImageWatermarkUrl ? (
+                                        <>
+                                            <Image
+                                                src={settings.postImageWatermarkUrl}
+                                                alt="Preview watermark"
+                                                fill
+                                                unoptimized
+                                                className="object-contain p-4"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => handleChange("postImageWatermarkUrl", "")}
+                                                className="absolute top-2 right-2 rounded-full bg-red-500 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <div className="flex h-full items-center justify-center text-[var(--fg-muted)]">
+                                            <ImageIcon size={36} />
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowWatermarkMediaModal(true)}
+                                    className="btn btn-secondary w-full"
+                                >
+                                    {settings.postImageWatermarkUrl ? "Ganti Gambar Watermark" : "Upload / Pilih Watermark"}
+                                </button>
+                                <p className="text-xs text-[var(--fg-muted)]">
+                                    Watermark akan tampil di foto utama artikel dan galeri foto pada halaman Single Post.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Opacity Watermark</label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="100"
+                                            className="w-full"
+                                            value={settings.postImageWatermarkOpacity ?? 35}
+                                            onChange={(e) => handleChange("postImageWatermarkOpacity", parseInt(e.target.value, 10))}
+                                        />
+                                        <span className="w-14 text-right text-sm text-[var(--fg-secondary)]">{settings.postImageWatermarkOpacity ?? 35}%</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Ukuran Watermark</label>
+                                    <div className="flex items-center gap-3">
+                                        <input
+                                            type="range"
+                                            min="5"
+                                            max="80"
+                                            className="w-full"
+                                            value={settings.postImageWatermarkSize ?? 24}
+                                            onChange={(e) => handleChange("postImageWatermarkSize", parseInt(e.target.value, 10))}
+                                        />
+                                        <span className="w-14 text-right text-sm text-[var(--fg-secondary)]">{settings.postImageWatermarkSize ?? 24}%</span>
+                                    </div>
+                                    <p className="text-xs text-[var(--fg-muted)] mt-1">Nilai ukuran dihitung dari lebar area foto.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">Posisi Watermark</label>
+                                    <select
+                                        className="input w-full"
+                                        value={settings.postImageWatermarkPosition || "center"}
+                                        onChange={(e) => handleChange("postImageWatermarkPosition", e.target.value)}
+                                    >
+                                        <option value="top">Atas</option>
+                                        <option value="bottom">Bawah</option>
+                                        <option value="left">Kiri</option>
+                                        <option value="right">Kanan</option>
+                                        <option value="center">Tengah</option>
+                                    </select>
+                                </div>
+                                <div className="rounded-xl border border-[var(--border)] bg-[var(--bg-base)] p-4">
+                                    <div className="text-sm font-medium text-[var(--fg-primary)] mb-2">Info Posisi</div>
+                                    <p className="text-xs text-[var(--fg-muted)]">
+                                        Padding di bawah akan membantu menggeser watermark dari sisi foto sesuai posisi yang dipilih.
+                                    </p>
+                                </div>
+                                <div className="md:col-span-2">
+                                    <h4 className="text-sm font-bold text-[var(--fg-primary)] mb-3 uppercase tracking-wide">Padding Manual Watermark</h4>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        {[
+                                            { key: "postImageWatermarkPaddingTop", label: "Top" },
+                                            { key: "postImageWatermarkPaddingRight", label: "Right" },
+                                            { key: "postImageWatermarkPaddingBottom", label: "Bottom" },
+                                            { key: "postImageWatermarkPaddingLeft", label: "Left" },
+                                        ].map((item) => (
+                                            <div key={item.key}>
+                                                <label className="block text-sm font-medium text-[var(--fg-primary)] mb-2">{item.label}</label>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        max="240"
+                                                        className="input w-full"
+                                                        value={settings[item.key] ?? 24}
+                                                        onChange={(e) => handleChange(item.key, parseInt(e.target.value || "0", 10))}
+                                                    />
+                                                    <span className="text-sm text-[var(--fg-muted)]">px</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            {/* 3. Gallery Settings */}
             <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-hidden">
                 <div 
                     className="p-6 flex justify-between items-center cursor-pointer hover:bg-[color:var(--fg-muted)/0.05] transition-colors"
@@ -368,7 +649,7 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
                 )}
             </div>
 
-            {/* 2. Inline Ads */}
+            {/* 4. Inline Ads */}
             <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border)] overflow-visible">
                 <div
                     className="p-6 flex justify-between items-center cursor-pointer hover:bg-[color:var(--fg-muted)/0.05] transition-colors"
@@ -437,6 +718,7 @@ export default function SinglePostSettingsForm({ settings, handleChange }: Singl
                 )}
             </div>
 
-        </div>
+            </div>
+        </>
     );
 }

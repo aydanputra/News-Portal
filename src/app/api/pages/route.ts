@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
 import { sanitizePageContent } from "@/lib/sanitizer";
 
 const createPageSchema = z.object({
@@ -11,7 +11,7 @@ const createPageSchema = z.object({
   published: z.boolean().default(false),
   metaTitle: z.string().optional(),
   metaDesc: z.string().optional(),
-  featuredImage: z.string().optional(),
+  featuredImage: z.string().optional().nullable(),
   template: z.string().default("default"),
   blocks: z.any().optional(),
 });
@@ -49,13 +49,51 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const publishedOnly = searchParams.get("published") === "true";
+  const q = (searchParams.get("q") || "").trim();
+  const pageRaw = Number(searchParams.get("page") || "1");
+  const limitRaw = Number(searchParams.get("limit") || "20");
+  const page = Number.isFinite(pageRaw) ? Math.max(1, Math.floor(pageRaw)) : 1;
+  const limit = Number.isFinite(limitRaw) ? Math.min(100, Math.max(1, Math.floor(limitRaw))) : 20;
+  const skip = (page - 1) * limit;
+
+  const where = {
+    ...(publishedOnly ? { published: true } : {}),
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: "insensitive" as const } },
+            { slug: { contains: q, mode: "insensitive" as const } },
+          ],
+        }
+      : {}),
+  };
 
   try {
-    const pages = await prisma.page.findMany({
-      where: publishedOnly ? { published: true } : undefined,
-      orderBy: { updatedAt: "desc" },
+    const [pages, total] = await Promise.all([
+      prisma.page.findMany({
+        where,
+        orderBy: { updatedAt: "desc" },
+        skip,
+        take: limit,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          published: true,
+          updatedAt: true,
+        },
+      }),
+      prisma.page.count({ where }),
+    ]);
+    return NextResponse.json({
+      data: pages,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / limit)),
+      },
     });
-    return NextResponse.json(pages);
   } catch (error) {
     console.error("GET /api/pages error:", error);
     return NextResponse.json({ error: "Gagal mengambil halaman" }, { status: 500 });
@@ -93,6 +131,7 @@ export async function POST(request: Request) {
         ...validatedData,
         slug: normalizedSlug,
         content: typeof validatedData.content === "string" ? sanitizePageContent(validatedData.content) : undefined,
+        featuredImage: validatedData.featuredImage ?? undefined,
       },
     });
 

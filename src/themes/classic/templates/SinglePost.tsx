@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import PostContent from "@/components/PostContent";
 import { getYouTubeEmbedUrl } from "@/lib/utils";
+import { normalizeGalleryItems, resolveInfographicHeaderImageUrl } from "@/lib/post-type-media";
+import { buildPostWatermarkedImageUrl } from "@/lib/post-image-watermark";
 
 interface SinglePostProps {
   post: any;
@@ -14,14 +16,40 @@ interface SinglePostProps {
   menusByLocation?: any;
 }
 
+const formatDateId = (value?: string | Date | null) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
+};
+
 export default function ClassicSinglePost({ post, setting, categories, footerConfig, menusByLocation }: SinglePostProps) {
   const siteName = setting?.siteName || "Portal Berita";
   
   if (!post) return <div className="p-10 text-center">Post not found</div>;
 
   const isInfographicPost = String(post?.type || "").toUpperCase() === "INFOGRAPHIC";
-  const imageUrl = isInfographicPost ? (post.featuredImage?.fileUrl || post.image) : (post.image || post.featuredImage?.fileUrl);
+  const isGalleryPost = String(post?.type || "").toUpperCase() === "GALLERY";
+  const galleryItems = normalizeGalleryItems(post?.gallery);
+  const infographicHeaderImageUrl = isInfographicPost ? resolveInfographicHeaderImageUrl(post) : undefined;
+  const imageUrl = isGalleryPost
+    ? (galleryItems[0]?.url || post.image || post.featuredImage?.fileUrl)
+    : isInfographicPost
+      ? (infographicHeaderImageUrl || post.image)
+      : (post.image || post.featuredImage?.fileUrl);
   const videoEmbedSrc = post?.type === "VIDEO" && typeof post?.videoUrl === "string" ? getYouTubeEmbedUrl(post.videoUrl) : null;
+  const featuredImageAlt =
+    typeof post?.featuredImageAlt === "string" && post.featuredImageAlt.trim() !== ""
+      ? post.featuredImageAlt.trim()
+      : post.title;
+  const watermarkEnabled = post?.postImageWatermarkEnabled === true;
+  const getRenderImageUrl = (src?: string) => buildPostWatermarkedImageUrl(src, setting, watermarkEnabled) || src || "";
 
   // Container Logic
   const containerMode = setting?.postContainerWidth || 'boxed';
@@ -67,9 +95,7 @@ export default function ClassicSinglePost({ post, setting, categories, footerCon
              )}
              <span>•</span>
              <time dateTime={post.publishedAt}>
-                {new Date(post.publishedAt).toLocaleDateString('id-ID', {
-                    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
-                })}
+                {formatDateId(post.publishedAt)}
              </time>
              <span>•</span>
              <a
@@ -84,7 +110,10 @@ export default function ClassicSinglePost({ post, setting, categories, footerCon
 
           {/* Featured Image */}
           {videoEmbedSrc ? (
-            <div className="relative w-full aspect-video mb-10 rounded-xl overflow-hidden shadow-sm bg-black">
+            <div
+              className="relative w-full aspect-video mb-10 overflow-hidden shadow-sm bg-black"
+              style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
+            >
               <iframe
                 src={videoEmbedSrc}
                 title={post.title || "Video"}
@@ -94,11 +123,62 @@ export default function ClassicSinglePost({ post, setting, categories, footerCon
                 loading="lazy"
               />
             </div>
+          ) : isGalleryPost && galleryItems.length > 0 ? (
+            <div className="mb-10 space-y-4">
+              <div
+                className="relative w-full aspect-video overflow-hidden shadow-sm"
+                style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
+              >
+                <Image
+                  src={getRenderImageUrl(galleryItems[0].url)}
+                  alt={post.title}
+                  fill
+                  quality={90}
+                  className="object-cover"
+                  priority
+                  sizes="(max-width: 768px) 100vw, 1250px"
+                />
+                {galleryItems[0]?.caption && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 text-center">
+                    {galleryItems[0].caption}
+                  </div>
+                )}
+              </div>
+              {galleryItems.length > 1 && (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {galleryItems.map((item, index) => (
+                    <figure key={`${item.url}-${index}`} className="space-y-2">
+                      <div
+                        className="relative aspect-video overflow-hidden bg-gray-100"
+                        style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
+                      >
+                        <Image
+                          src={getRenderImageUrl(item.url)}
+                          alt={item.caption || `${post.title} ${index + 1}`}
+                          fill
+                          quality={85}
+                          className="object-cover"
+                          sizes="(max-width: 768px) 50vw, 33vw"
+                        />
+                      </div>
+                      {item.caption && (
+                        <figcaption className="text-xs text-center text-gray-500">
+                          {item.caption}
+                        </figcaption>
+                      )}
+                    </figure>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : imageUrl ? (
-            <div className="relative w-full aspect-video mb-10 rounded-xl overflow-hidden shadow-sm">
+            <div
+              className="relative w-full aspect-video mb-10 overflow-hidden shadow-sm"
+              style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
+            >
                <Image 
-                 src={imageUrl} 
-                 alt={post.title} 
+                 src={getRenderImageUrl(imageUrl)} 
+                 alt={featuredImageAlt} 
                  fill 
                  quality={90}
                  className="object-cover"

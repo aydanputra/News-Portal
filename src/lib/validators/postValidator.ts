@@ -35,6 +35,8 @@ export const postSchema = z.object({
     .string({ required_error: "Judul wajib diisi" })
     .min(3, "Judul minimal 3 karakter")
     .trim(),
+  
+  slug: z.string().optional().nullable(),
     
   subtitle: z.string().optional().nullable(),
   
@@ -72,9 +74,13 @@ export const postSchema = z.object({
   // --- Media & Images ---
   featuredImageId: z.string().optional().nullable(), // For relation
   image: z.string().optional().nullable(), // For thumbnail (legacy)
+  featuredImageAlt: z.string().optional().nullable(),
+  postImageWatermarkEnabled: z.boolean().optional(),
   imageCaption: z.string().optional().nullable(),
 
   // --- SEO Fields ---
+  focusKeyword: z.string().optional().nullable(),
+  canonicalUrl: z.string().url("Canonical URL tidak valid").optional().nullable().or(z.literal("")),
   metaTitle: z.string().optional().nullable(),
   metaDesc: z.string().optional().nullable(),
 

@@ -4,48 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Block, Category, Tag } from "../../homepage/types";
 import { ConfigValue } from "@/lib/page-builder-config";
 import { useRouter } from "next/navigation";
+import { getThemeDefaultHeaderBlocks } from "@/lib/header-footer-builder-theme-registry";
 
 const MAX_HISTORY = 50;
-
-const DEFAULT_HEADER_BLOCKS: Block[] = [
-  {
-    id: "section_header_desktop",
-    type: "section",
-    title: "Header Desktop",
-    order: 1,
-    isVisible: true,
-    placement: "main",
-    config: {
-      layout: "33-33-33",
-      children: [
-        { id: "header_logo_1", type: "header_logo", title: "Logo", order: 1, isVisible: true, config: { columnIndex: 0 } },
-        { id: "header_menu_primary_1", type: "header_menu_primary", title: "Menu Primary", order: 2, isVisible: true, config: { columnIndex: 1 } },
-        { id: "header_theme_toggle_1", type: "header_theme_toggle", title: "Theme Toggle", order: 3, isVisible: true, config: { columnIndex: 2 } },
-        { id: "header_search_1", type: "header_search", title: "Search", order: 4, isVisible: true, config: { columnIndex: 2 } },
-        { id: "header_login_1", type: "header_login", title: "Tombol Masuk", order: 5, isVisible: true, config: { columnIndex: 2 } },
-      ],
-      hideOnMobile: true,
-    },
-  },
-  {
-    id: "section_header_mobile",
-    type: "section",
-    title: "Header Mobile",
-    order: 2,
-    isVisible: true,
-    placement: "main",
-    config: {
-      layout: "66-33",
-      children: [
-        { id: "header_mobile_toggle_1", type: "header_mobile_menu_toggle", title: "Tombol Menu", order: 1, isVisible: true, config: { columnIndex: 0 } },
-        { id: "header_logo_2", type: "header_logo", title: "Logo", order: 2, isVisible: true, config: { columnIndex: 0 } },
-        { id: "header_search_2", type: "header_search", title: "Search", order: 3, isVisible: true, config: { columnIndex: 1 } },
-      ],
-      hideOnDesktop: true,
-      hideOnTablet: true,
-    },
-  },
-];
 
 const normalizeBlocksForApi = (blocks: Block[]) =>
   blocks.map((b, idx) => ({
@@ -70,12 +31,21 @@ export function useHeaderBuilder() {
   const [activeTheme, setActiveTheme] = useState("classic");
   const [accentColor, setAccentColor] = useState("#f59e0b");
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
+  const [headingColor, setHeadingColor] = useState("#1e293b");
+  const [excerptColor, setExcerptColor] = useState("#64748b");
+  const [metaColor, setMetaColor] = useState("#94a3b8");
+  const [homeWidgetTitleColor, setHomeWidgetTitleColor] = useState("#1e293b");
+  const [homeNewsTitleColor, setHomeNewsTitleColor] = useState("#111827");
+  const [homeHoverColor, setHomeHoverColor] = useState("#2563eb");
+  const [homeExcerptColor, setHomeExcerptColor] = useState("#4b5563");
+  const [homeMetaColor, setHomeMetaColor] = useState("#9ca3af");
+  const [globalBorderRadius, setGlobalBorderRadius] = useState("0.5rem");
   const [homeContainerWidth, _setHomeContainerWidth] = useState("boxed");
   const [homeCustomContainerWidth, _setHomeCustomContainerWidth] = useState("1200");
 
   const [activeDeviceTab, _setActiveDeviceTab] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [editingChild, setEditingChild] = useState<{ parentIndex: number; childId: string } | null>(null);
-  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual">("content");
+  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual" | "advanced">("content");
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [activeSectionTab, setActiveSectionTab] = useState<"layout" | "style">("layout");
   const [activeSectionDeviceTab, _setActiveSectionDeviceTab] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -143,13 +113,22 @@ export function useHeaderBuilder() {
         setActiveTheme(themeId);
         setAccentColor(globalData.accentColor || "#f59e0b");
         setBackgroundColor(globalData.backgroundColor || "#ffffff");
+        setHeadingColor(globalData.headingColor || "#1e293b");
+        setExcerptColor(globalData.excerptColor || "#64748b");
+        setMetaColor(globalData.metaColor || "#94a3b8");
+        setHomeWidgetTitleColor(globalData.homeWidgetTitleColor || globalData.headingColor || "#1e293b");
+        setHomeNewsTitleColor(globalData.homeNewsTitleColor || globalData.headingColor || "#111827");
+        setHomeHoverColor(globalData.homeHoverColor || globalData.globalAccentColor || globalData.accentColor || "#2563eb");
+        setHomeExcerptColor(globalData.homeExcerptColor || globalData.excerptColor || "#4b5563");
+        setHomeMetaColor(globalData.homeMetaColor || globalData.metaColor || "#9ca3af");
+        setGlobalBorderRadius(globalData.globalBorderRadius || "0.5rem");
 
         const resBlocks = await fetch(`/api/homepage?location=header&themeId=${encodeURIComponent(themeId)}`);
         const blocksData = resBlocks.ok ? await resBlocks.json() : [];
-        const normalized = Array.isArray(blocksData) && blocksData.length > 0 ? (blocksData as Block[]) : DEFAULT_HEADER_BLOCKS;
+        const normalized = Array.isArray(blocksData) && blocksData.length > 0 ? (blocksData as Block[]) : getThemeDefaultHeaderBlocks(themeId);
         setBlocks(normalized);
       } catch (e: any) {
-        setBlocks(DEFAULT_HEADER_BLOCKS);
+        setBlocks(getThemeDefaultHeaderBlocks());
         setToast({ message: e?.message || "Gagal memuat Header Builder", type: "error" });
       } finally {
         setLoading(false);
@@ -185,9 +164,9 @@ export function useHeaderBuilder() {
   }, [activeTheme, blocks, router]);
 
   const resetAllSettings = useCallback(() => {
-    setBlocksWithHistory(DEFAULT_HEADER_BLOCKS);
+    setBlocksWithHistory(getThemeDefaultHeaderBlocks(activeTheme));
     setToast({ message: "Header direset ke default", type: "success" });
-  }, [setBlocksWithHistory]);
+  }, [activeTheme, setBlocksWithHistory]);
 
   const updateBlockConfig = useCallback((index: number, key: string, value: ConfigValue) => {
     setBlocksWithHistory((prev) => {
@@ -267,6 +246,18 @@ export function useHeaderBuilder() {
     return { found: false, newBlocks: currentBlocks };
   }, [getChildren, setChildren]);
 
+  const findBlockRecursive = useCallback((currentBlocks: Block[], targetId: string): Block | null => {
+    for (const block of currentBlocks) {
+      if (block.id === targetId) return block;
+      const children = getChildren(block);
+      if (children.length > 0) {
+        const found = findBlockRecursive(children, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
+  }, [getChildren]);
+
   const duplicateChildBlockById = useCallback((parentId: string, childId: string) => {
     setBlocksWithHistory((prev) => {
       const { found, newBlocks } = updateBlockRecursive(prev, parentId, (parent) => {
@@ -341,15 +332,27 @@ export function useHeaderBuilder() {
       if (!parent) return prev;
       const children = [...getChildren(parent)];
       const baseConfig: Record<string, ConfigValue> = { columnIndex };
+      const resolvedTitle = type === "section" ? "Inner Section" : title;
       if (type === "ad_banner") {
         baseConfig.position = "HEADER";
         baseConfig.showTitle = false;
+        baseConfig.useBox = false;
+      } else if (type === "image_widget") {
+        baseConfig.imageUrl = "";
+        baseConfig.altText = title;
+        baseConfig.linkUrl = "";
+        baseConfig.openInNewTab = false;
+        baseConfig.objectFit = "contain";
+        baseConfig.imageWidth = "";
+        baseConfig.imageHeight = "";
+        baseConfig.borderRadius = "";
+        baseConfig.showShadow = false;
         baseConfig.useBox = false;
       }
       const child: Block = {
         id: `${type}_${Date.now()}`,
         type,
-        title,
+        title: resolvedTitle,
         order: children.length + 1,
         isVisible: true,
         config: baseConfig,
@@ -362,11 +365,8 @@ export function useHeaderBuilder() {
 
   const getEditingChildBlock = useCallback(() => {
     if (!editingChild) return null;
-    const parent = blocks[editingChild.parentIndex];
-    if (!parent) return null;
-    const child = getChildren(parent).find((c) => c.id === editingChild.childId);
-    return child || null;
-  }, [blocks, editingChild, getChildren]);
+    return findBlockRecursive(blocks, editingChild.childId);
+  }, [blocks, editingChild, findBlockRecursive]);
 
   const cap = useCallback((value: string) => value.charAt(0).toUpperCase() + value.slice(1), []);
 
@@ -420,15 +420,19 @@ export function useHeaderBuilder() {
 
   const getEditingSectionBlock = useCallback(() => {
     if (!editingSectionId) return null;
-    return blocks.find((b) => b.id === editingSectionId) || null;
-  }, [blocks, editingSectionId]);
+    return findBlockRecursive(blocks, editingSectionId);
+  }, [blocks, editingSectionId, findBlockRecursive]);
 
   const updateSectionConfig = useCallback((key: string, value: ConfigValue) => {
     if (!editingSectionId) return;
-    setBlocksWithHistory((prev) =>
-      prev.map((b) => (b.id === editingSectionId ? { ...b, config: { ...(b.config || {}), [key]: value } } : b))
-    );
-  }, [editingSectionId, setBlocksWithHistory]);
+    setBlocksWithHistory((prev) => {
+      const { found, newBlocks } = updateBlockRecursive(prev, editingSectionId, (block) => ({
+        ...block,
+        config: { ...(block.config || {}), [key]: value },
+      }));
+      return found ? newBlocks : prev;
+    });
+  }, [editingSectionId, setBlocksWithHistory, updateBlockRecursive]);
 
   const getSectionResponsiveKey = useCallback((baseKey: string) => {
     if (activeSectionDeviceTab === "desktop") return baseKey;
@@ -440,7 +444,7 @@ export function useHeaderBuilder() {
   }, [getSectionResponsiveKey, updateSectionConfig]);
 
   const getSectionConfigValue = useCallback((key: string) => {
-    const section = blocks.find((b) => b.id === editingSectionId);
+    const section = editingSectionId ? findBlockRecursive(blocks, editingSectionId) : null;
     const cfg: any = section?.config || {};
     if (activeSectionDeviceTab === "tablet") {
       const tabletKey = `tablet${cap(key)}`;
@@ -454,7 +458,7 @@ export function useHeaderBuilder() {
       return cfg[key];
     }
     return cfg[key];
-  }, [activeSectionDeviceTab, blocks, cap, editingSectionId]);
+  }, [activeSectionDeviceTab, blocks, cap, editingSectionId, findBlockRecursive]);
 
   const updateBlockConfigById = useCallback((blockId: string, key: string, value: ConfigValue) => {
     const updateOne = (block: Block): Block => {
@@ -484,6 +488,15 @@ export function useHeaderBuilder() {
       toast,
       accentColor,
       backgroundColor,
+      headingColor,
+      excerptColor,
+      metaColor,
+      homeWidgetTitleColor,
+      homeNewsTitleColor,
+      homeHoverColor,
+      homeExcerptColor,
+      homeMetaColor,
+      globalBorderRadius,
       homeContainerWidth,
       homeCustomContainerWidth,
       activeDeviceTab,

@@ -22,7 +22,8 @@ export default function PostMetaWidget({
   preview,
   widgetContainerStyle,
   getResponsiveConfig,
-  getConfigBool
+  getConfigBool,
+  isPublicDarkMode
 }: WidgetRenderContext) {
   const showAuthor = getConfigBool("showAuthor", true);
   const showAuthorAvatar = getConfigBool("showAuthorAvatar", true);
@@ -34,27 +35,39 @@ export default function PostMetaWidget({
   const authorImageUrl = getAuthorImageUrl(post?.author);
   const authorInitial = authorName.trim().charAt(0).toUpperCase() || "A";
   const authorContent = (
-    <span className="inline-flex items-center gap-1.5">
+    <span className="inline-flex items-center gap-1.5 align-middle leading-none">
       {showAuthorAvatar && (
         authorImageUrl ? (
-          <Image src={authorImageUrl} alt={authorName || "Author"} width={18} height={18} className="w-[18px] h-[18px] rounded-full object-cover" unoptimized />
+          <Image src={authorImageUrl} alt={authorName || "Author"} width={18} height={18} className="w-[18px] h-[18px] rounded-full object-cover shrink-0" unoptimized />
         ) : (
-          <span className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[9px] leading-none">
+          <span
+            className="inline-flex items-center justify-center w-[18px] h-[18px] rounded-full bg-[var(--bg-subtle)] border border-[var(--border)] text-[9px] leading-none shrink-0"
+            style={isPublicDarkMode ? {
+              backgroundColor: "rgba(51, 65, 85, 0.56)",
+              borderColor: "rgba(148, 163, 184, 0.22)",
+              color: "var(--fg-primary)",
+            } : undefined}
+          >
             {authorInitial}
           </span>
         )
       )}
-      <span>{authorName}</span>
+      <span className="inline-flex items-center leading-none relative -top-[0.5px]">{authorName}</span>
     </span>
   );
   if (showCategory && post?.category?.name) {
     metaItems.push(
-      <Link key="category" href={`/kategori/${post.category.slug || "#"}`} className="hover:text-[var(--post-hover-color)]">
+      <Link
+        key="category"
+        href={`/kategori/${post.category.slug || "#"}`}
+        className="hover:text-[var(--post-hover-color)] transition-colors"
+        style={isPublicDarkMode ? { color: "var(--accent)" } : undefined}
+      >
         {post.category.name}
       </Link>
     );
   }
-  if (showAuthor && authorName) metaItems.push(<span key="author">{authorContent}</span>);
+  if (showAuthor && authorName) metaItems.push(<span key="author" className="inline-flex items-center align-middle leading-none">{authorContent}</span>);
   if (showDate) {
     metaItems.push(
       <time key="date">
@@ -73,11 +86,23 @@ export default function PostMetaWidget({
     lineHeight: (getResponsiveConfig("lineHeight") as number | undefined) || 1.4,
     justifyContent
   };
+  const darkSurfaceStyle: React.CSSProperties | undefined = isPublicDarkMode
+    ? {
+        backgroundColor: "rgba(15, 23, 42, 0.32)",
+        borderColor: "rgba(148, 163, 184, 0.18)",
+        boxShadow: "0 10px 30px rgba(2, 6, 23, 0.14)",
+        backdropFilter: "blur(10px)",
+      }
+    : undefined;
   if (metaDesign === "pill") {
     return (
       <div className={preview ? "w-full flex flex-wrap items-center gap-2 text-xs" : "w-full flex flex-wrap items-center gap-2 text-sm"} style={textStyle}>
         {metaItems.map((item, idx) => (
-          <span key={idx} className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] inline-flex items-center">
+          <span
+            key={idx}
+            className="px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--bg-surface)] inline-flex items-center"
+            style={darkSurfaceStyle}
+          >
             {item}
           </span>
         ))}
@@ -86,10 +111,13 @@ export default function PostMetaWidget({
   }
   if (metaDesign === "boxed") {
     return (
-      <div className={preview ? "w-full flex flex-wrap items-center gap-2 text-xs border border-[var(--border)] bg-[var(--bg-surface)] rounded-md px-3 py-2" : "w-full flex flex-wrap items-center gap-2 text-sm border border-[var(--border)] bg-[var(--bg-surface)] rounded-md px-3 py-2"} style={textStyle}>
+      <div
+        className={preview ? "w-full flex flex-wrap items-center gap-2 text-xs border border-[var(--border)] bg-[var(--bg-surface)] rounded-md px-3 py-2" : "w-full flex flex-wrap items-center gap-2 text-sm border border-[var(--border)] bg-[var(--bg-surface)] rounded-md px-3 py-2"}
+        style={{ ...textStyle, ...darkSurfaceStyle }}
+      >
         {metaItems.map((item, idx) => (
           <React.Fragment key={idx}>
-            {idx > 0 && <span className="opacity-60">•</span>}
+            {idx > 0 && <span className="opacity-60" style={isPublicDarkMode ? { color: "var(--fg-muted)" } : undefined}>•</span>}
             {item}
           </React.Fragment>
         ))}
@@ -97,10 +125,13 @@ export default function PostMetaWidget({
     );
   }
   return (
-    <div className={preview ? "w-full flex flex-wrap items-center gap-2 text-xs" : "w-full flex flex-wrap items-center gap-3 text-sm"} style={textStyle}>
+    <div
+      className={preview ? "w-full flex flex-wrap items-center gap-2 rounded-lg px-0 text-xs" : "w-full flex flex-wrap items-center gap-3 rounded-lg px-0 text-sm"}
+      style={isPublicDarkMode ? { ...textStyle, color: "var(--fg-secondary)" } : textStyle}
+    >
       {metaItems.map((item, idx) => (
         <React.Fragment key={idx}>
-          {idx > 0 && <span>•</span>}
+          {idx > 0 && <span style={isPublicDarkMode ? { color: "var(--fg-muted)" } : undefined}>•</span>}
           {item}
         </React.Fragment>
       ))}

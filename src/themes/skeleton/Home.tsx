@@ -12,6 +12,18 @@ interface HomeProps {
   };
 }
 
+const formatDateId = (value?: string | Date | null) => {
+  if (!value) return "";
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "Asia/Jakarta",
+  }).format(date);
+};
+
 export default function SkeletonHome({ data }: HomeProps) {
   const { posts, setting } = data;
   const siteName = setting?.siteName || "Skeleton Theme";
@@ -34,7 +46,7 @@ export default function SkeletonHome({ data }: HomeProps) {
              <div key={post.id} className="bg-white p-6 rounded shadow">
                 <h2 className="font-bold text-lg mb-2">{post.title}</h2>
                 <p className="text-gray-500 text-sm">
-                  {new Date(post.publishedAt).toLocaleDateString()}
+                  {formatDateId(post.publishedAt)}
                 </p>
              </div>
            ))}

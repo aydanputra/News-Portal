@@ -1,81 +1,59 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import Sidebar from "@/components/admin/Sidebar";
-import BottomNav from "@/components/admin/BottomNav";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { ThemeProvider } from "@/components/admin/ThemeProvider";
+import { AdminSessionProvider } from "@/components/admin/AdminSessionContext";
+import AdminShell from "@/components/admin/AdminShell";
+import { requireUser } from "@/lib/server-auth";
 import "@/styles/admin-theme.css";
-import AdminHeader from "@/components/admin/AdminHeader";
 
-export default function AdminLayout({
+const EDITOR_FORBIDDEN_PREFIXES = [
+  "/admin/users",
+  "/admin/settings",
+  "/admin/appearance",
+  "/admin/homepage",
+  "/admin/tools",
+  "/admin/ads",
+];
+
+const WRITER_FORBIDDEN_PREFIXES = [
+  "/admin/users",
+  "/admin/settings",
+  "/admin/appearance",
+  "/admin/homepage",
+  "/admin/tools",
+  "/admin/ads",
+  "/admin/pages",
+  "/admin/categories",
+  "/admin/analytics",
+];
+
+function getForbiddenPrefixes(role: string | null) {
+  if (!role || role === "SUPER_ADMIN" || role === "ADMIN") return [];
+  if (role === "EDITOR") return EDITOR_FORBIDDEN_PREFIXES;
+  return WRITER_FORBIDDEN_PREFIXES;
+}
+
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-  const router = useRouter();
+  const headerStore = await headers();
+  const pathname = headerStore.get("x-admin-pathname") || "/admin";
   const isLoginPage = pathname === "/admin/login";
-  const [role, setRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    document.documentElement.classList.remove("public-dark");
-    return () => {
-      document.documentElement.classList.remove("dark");
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isLoginPage) return;
-    let active = true;
-    fetch("/api/auth/me")
-      .then(async (r) => {
-        if (r.status === 401) return { __unauthorized: true } as any;
-        if (!r.ok) return null;
-        return r.json();
-      })
-      .then(async (data) => {
-        if (!active) return;
-        if ((data as any)?.__unauthorized) {
-          setRole(null);
-          try {
-            await fetch("/api/auth/logout", { method: "POST" });
-          } catch {
-          }
-          router.replace("/admin/login");
-          return;
-        }
-        setRole(data?.role || null);
-      })
-      .catch(() => {
-        if (!active) return;
-        setRole(null);
-        fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
-        router.replace("/admin/login");
-      });
-    return () => {
-      active = false;
-    };
-  }, [isLoginPage, router]);
-
-  const forbiddenPrefixes = useMemo(() => {
-    if (!role) return [];
-    if (role === "SUPER_ADMIN") return [];
-    if (role === "ADMIN") return [];
-    if (role === "EDITOR") return ["/admin/users", "/admin/settings", "/admin/appearance", "/admin/homepage", "/admin/tools", "/admin/ads"];
-    return ["/admin/users", "/admin/settings", "/admin/appearance", "/admin/homepage", "/admin/tools", "/admin/ads", "/admin/pages", "/admin/categories"];
-  }, [role]);
-
-  useEffect(() => {
-    if (isLoginPage) return;
-    if (!role) return;
-    if (forbiddenPrefixes.some((p) => pathname.startsWith(p))) {
-      router.replace("/admin/dashboard");
-    }
-  }, [forbiddenPrefixes, isLoginPage, pathname, role, router]);
 
   if (isLoginPage) {
     return <>{children}</>;
+  }
+
+  const user = await requireUser();
+  if (!user) {
+    redirect("/admin/login");
+  }
+
+  const forbiddenPrefixes = getForbiddenPrefixes(user.role || null);
+  if (forbiddenPrefixes.some((prefix) => pathname.startsWith(prefix))) {
+    redirect("/admin/dashboard");
   }
 
   return (
@@ -109,23 +87,20 @@ export default function AdminLayout({
         }}
       />
       <ThemeProvider>
-        <div className="admin-theme flex h-[100dvh] overflow-hidden" suppressHydrationWarning>
-          {/* Sidebar (Desktop Only) */}
-          <Sidebar />
-
-          {/* Main Content */}
-          <div className="main-shell flex-1 flex flex-col min-w-0 h-[100dvh]">
-            <div className="flex-1 overflow-y-auto">
-              <AdminHeader />
-              <main className="pb-24 md:pb-0">
-                {children}
-              </main>
-            </div>
-          </div>
-
-          {/* Bottom Navigation (Mobile Only) */}
-          <BottomNav />
-        </div>
+        <AdminSessionProvider
+          initialUser={{
+            id: user.id,
+            name: user.name ?? null,
+            email: user.email ?? null,
+            role: user.role ?? null,
+            status: user.status ?? null,
+            avatar: user.avatar ?? null,
+          }}
+        >
+          <AdminShell role={user.role ?? null}>
+            {children}
+          </AdminShell>
+        </AdminSessionProvider>
       </ThemeProvider>
     </>
   );

@@ -1,6 +1,6 @@
 export function resolveWidgetRadius(
   value: unknown,
-  fallback = "var(--home-main-box-radius, 0.75rem)"
+  fallback = "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))"
 ): string {
   if (value === undefined || value === null || value === "") return fallback;
 
@@ -35,4 +35,13 @@ export function resolveWidgetRadius(
   }
 
   return fallback;
+}
+
+export function normalizeLegacyGlobalImageRadius(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+
+  const lower = value.trim().toLowerCase();
+  if (lower === "md" || lower === "2xl") return undefined;
+
+  return value;
 }

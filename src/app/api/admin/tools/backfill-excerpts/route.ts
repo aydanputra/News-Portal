@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { assertRateLimit, isToolEnabledForRequest, requireAdmin } from "@/lib/api-guards";
+import { assertRateLimit, isToolEnabledForRequest } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   try {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!isToolEnabledForRequest(req, "backfill_excerpts")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await isToolEnabledForRequest(req, "backfill_excerpts"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const rl = assertRateLimit(req, "tools:backfill_excerpts", { windowMs: 60_000, max: 10 });
     if (!rl.ok) {
       return NextResponse.json(

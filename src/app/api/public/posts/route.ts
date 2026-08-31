@@ -2,17 +2,22 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { unstable_cache } from "next/cache";
 import { z } from "zod";
+import { applyCategoryFiltersToWhere, applyTagFiltersToWhere, normalizeSlugArray } from "@/lib/category-filters";
 
 export const revalidate = 60;
-export const dynamic = "force-dynamic";
 
 const searchParamsSchema = z.object({
   slug: z.string().trim().min(1).optional(),
   q: z.string().trim().optional(),
   page: z.coerce.number().int().min(1).default(1),
+  offset: z.coerce.number().int().min(0).default(0),
   limit: z.coerce.number().int().min(1).max(30).default(10),
   category: z.string().trim().optional(),
+  categories: z.string().trim().optional(),
+  excludeCategories: z.string().trim().optional(),
   tag: z.string().trim().optional(),
+  tags: z.string().trim().optional(),
+  excludeTags: z.string().trim().optional(),
   sort: z.enum(["latest", "oldest", "popular", "random"]).default("latest"),
   excludeId: z.string().trim().optional(),
   includeTags: z.preprocess((value) => {
@@ -22,30 +27,6 @@ const searchParamsSchema = z.object({
   }, z.boolean().default(false)),
 });
 
-const getTagIdBySlug = async (slug: string): Promise<string | null> => {
-  const cached = unstable_cache(
-    async () => {
-      const row = await prisma.tag.findUnique({ where: { slug }, select: { id: true } });
-      return row?.id || null;
-    },
-    [`tag-id:${slug}`],
-    { tags: ["posts"], revalidate: 3600 },
-  );
-  return cached();
-};
-
-const getCategoryIdBySlug = async (slug: string): Promise<string | null> => {
-  const cached = unstable_cache(
-    async () => {
-      const row = await prisma.category.findUnique({ where: { slug }, select: { id: true } });
-      return row?.id || null;
-    },
-    [`category-id:${slug}`],
-    { tags: ["categories"], revalidate: 3600 },
-  );
-  return cached();
-};
-
 // GET: Ambil daftar berita PUBLISHED saja
 export async function GET(request: Request) {
   try {
@@ -54,9 +35,14 @@ export async function GET(request: Request) {
       slug: searchParams.get("slug") || undefined,
       q: searchParams.get("q") || undefined,
       page: searchParams.get("page") || undefined,
+      offset: searchParams.get("offset") || undefined,
       limit: searchParams.get("limit") || undefined,
       category: searchParams.get("category") || undefined,
+      categories: searchParams.get("categories") || undefined,
+      excludeCategories: searchParams.get("excludeCategories") || undefined,
       tag: searchParams.get("tag") || undefined,
+      tags: searchParams.get("tags") || undefined,
+      excludeTags: searchParams.get("excludeTags") || undefined,
       sort: searchParams.get("sort") || undefined,
       excludeId: searchParams.get("excludeId") || undefined,
       includeTags: searchParams.get("includeTags") || undefined,
@@ -64,14 +50,21 @@ export async function GET(request: Request) {
     const slug = parsed.slug;
     const q = parsed.q;
     const page = parsed.page;
+    const offset = parsed.offset;
     const limit = parsed.limit;
-    const categorySlug = parsed.category;
-    const tagSlug = parsed.tag;
+    const categorySlugs = parsed.categories
+      ? normalizeSlugArray(parsed.categories)
+      : normalizeSlugArray(parsed.category);
+    const excludeCategorySlugs = normalizeSlugArray(parsed.excludeCategories);
+    const tagSlugs = parsed.tags
+      ? normalizeSlugArray(parsed.tags)
+      : normalizeSlugArray(parsed.tag);
+    const excludeTagSlugs = normalizeSlugArray(parsed.excludeTags);
     const sortOrder = parsed.sort;
     const excludeId = parsed.excludeId;
     const includeTags = parsed.includeTags;
 
-    const skip = (page - 1) * limit;
+    const skip = offset + (page - 1) * limit;
 
     // Logika Filter: Published = true DAN (publishedAt <= NOW atau publishedAt IS NULL)
     // DAN Status harus PUBLISHED atau SCHEDULED (yang sudah lewat waktu)
@@ -123,44 +116,11 @@ export async function GET(request: Request) {
       ...baseWhereClause,
     };
 
-    if (categorySlug && categorySlug !== "all") {
-      const categoryId = await getCategoryIdBySlug(categorySlug);
-      if (!categoryId) {
-        return NextResponse.json({
-          data: [],
-          meta: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 1,
-          },
-        });
-      }
-      whereClause.AND = [
-        ...(Array.isArray(whereClause.AND) ? whereClause.AND : []),
-        {
-          OR: [
-            { categoryId },
-            { postCategories: { some: { categoryId } } },
-          ],
-        },
-      ];
-    }
-
-    if (tagSlug) {
-      const tagId = await getTagIdBySlug(tagSlug);
-      if (!tagId) {
-        return NextResponse.json({
-          data: [],
-          meta: {
-            total: 0,
-            page,
-            limit,
-            totalPages: 1,
-          },
-        });
-      }
-      whereClause.tags = { some: { id: tagId } };
+    if (tagSlugs.length > 0 || excludeTagSlugs.length > 0) {
+      applyTagFiltersToWhere(whereClause, tagSlugs, excludeTagSlugs);
+      applyCategoryFiltersToWhere(whereClause, [], excludeCategorySlugs);
+    } else {
+      applyCategoryFiltersToWhere(whereClause, categorySlugs, excludeCategorySlugs);
     }
 
     if (excludeId) {
@@ -195,9 +155,12 @@ export async function GET(request: Request) {
     const cacheKey = [
       "public-posts",
       `page:${page}`,
+      `offset:${offset}`,
       `limit:${limit}`,
-      `category:${categorySlug || ""}`,
-      `tag:${tagSlug || ""}`,
+      `categories:${categorySlugs.join(",")}`,
+      `excludeCategories:${excludeCategorySlugs.join(",")}`,
+      `tags:${tagSlugs.join(",")}`,
+      `excludeTags:${excludeTagSlugs.join(",")}`,
       `sort:${sortOrder}`,
       `exclude:${excludeId || ""}`,
       `q:${q || ""}`,

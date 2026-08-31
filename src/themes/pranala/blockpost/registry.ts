@@ -29,6 +29,7 @@ export const PRANALA_POST_WIDGET_GROUPS: { main: PostWidgetDefinition[]; support
     { type: "sidebar_widget", label: "Sidebar Widget", icon: Rows3, desc: "Widget sidebar tambahan." },
     { type: "tag_cloud", label: "Tag Cloud", icon: Tags, desc: "Kumpulan tag populer." },
     { type: "ad_banner", label: "Iklan Banner", icon: Layout, desc: "Slot iklan pada halaman artikel." },
+    { type: "image_widget", label: "Widget Gambar", icon: ImageIcon, desc: "Tampilkan gambar dari URL." },
     { type: "section", label: "Inner Section", icon: Layout, desc: "Buat kolom tambahan di dalam kolom ini.", isSpecial: true },
   ]
 };

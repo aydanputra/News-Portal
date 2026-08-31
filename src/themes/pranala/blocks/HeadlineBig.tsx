@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues, type ResponsiveDevice } from "./responsive";
-import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface HeadlineBigProps {
   block: any;
@@ -111,12 +110,23 @@ const normalizeAvatarUrl = (value: unknown) => {
   return `/${trimmed}`;
 };
 
+const normalizeHexLike = (value: unknown) => {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase().replace(/\s+/g, "");
+};
+
+const isOneOf = (value: unknown, candidates: string[]) => {
+  const normalized = normalizeHexLike(value);
+  return normalized !== "" && candidates.includes(normalized);
+};
+
 export default function HeadlineBig({ block, posts, accentColor, borderRadius, previewDevice }: HeadlineBigProps) {
   const config = block.config || {};
   const configRecord = config as Record<string, unknown>;
   const post = posts && posts.length > 0 ? posts[0] : null;
   const effectiveAccent = accentColor || "var(--accent)";
-  const effectiveRadius = borderRadius || "var(--home-main-box-radius, 0.75rem)";
+  const effectiveRadius = "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))";
+  const [isPublicDarkMode, setIsPublicDarkMode] = useState(false);
 
   let visibilityClass = "";
   if (config.hideOnDesktop) visibilityClass += " lg:hidden";
@@ -129,9 +139,30 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const useBoxMobile = useBoxValues.mobile;
 
   const boxColorValues = getResponsiveValues<string>(configRecord, "boxColor");
-  const boxColorDesktop = normalizeColor(boxColorValues.desktop, "var(--bg-elevated, #ffffff)");
+  const boxColorDesktop = normalizeColor(boxColorValues.desktop, "transparent");
   const boxColorTablet = normalizeColor(boxColorValues.tablet, boxColorDesktop);
   const boxColorMobile = normalizeColor(boxColorValues.mobile, boxColorDesktop);
+  const boxBgImageDesktop = typeof (config as any).backgroundImage === "string" ? (config as any).backgroundImage : "";
+  const boxBgImageTablet = typeof (config as any).tabletBackgroundImage === "string" && (config as any).tabletBackgroundImage.trim() !== "" ? (config as any).tabletBackgroundImage : boxBgImageDesktop;
+  const boxBgImageMobile = typeof (config as any).mobileBackgroundImage === "string" && (config as any).mobileBackgroundImage.trim() !== "" ? (config as any).mobileBackgroundImage : boxBgImageDesktop;
+  const boxBgSizeDesktop = typeof (config as any).backgroundSize === "string" && (config as any).backgroundSize.trim() !== "" ? (config as any).backgroundSize : "cover";
+  const boxBgSizeTablet = typeof (config as any).tabletBackgroundSize === "string" && (config as any).tabletBackgroundSize.trim() !== "" ? (config as any).tabletBackgroundSize : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof (config as any).mobileBackgroundSize === "string" && (config as any).mobileBackgroundSize.trim() !== "" ? (config as any).mobileBackgroundSize : boxBgSizeDesktop;
+  const boxBgPositionDesktop = typeof (config as any).backgroundPosition === "string" && (config as any).backgroundPosition.trim() !== "" ? (config as any).backgroundPosition : "center";
+  const boxBgPositionTablet = typeof (config as any).tabletBackgroundPosition === "string" && (config as any).tabletBackgroundPosition.trim() !== "" ? (config as any).tabletBackgroundPosition : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof (config as any).mobileBackgroundPosition === "string" && (config as any).mobileBackgroundPosition.trim() !== "" ? (config as any).mobileBackgroundPosition : boxBgPositionDesktop;
+  const boxBgRepeatDesktop = typeof (config as any).backgroundRepeat === "string" && (config as any).backgroundRepeat.trim() !== "" ? (config as any).backgroundRepeat : "no-repeat";
+  const boxBgRepeatTablet = typeof (config as any).tabletBackgroundRepeat === "string" && (config as any).tabletBackgroundRepeat.trim() !== "" ? (config as any).tabletBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof (config as any).mobileBackgroundRepeat === "string" && (config as any).mobileBackgroundRepeat.trim() !== "" ? (config as any).mobileBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgAttachmentDesktop = typeof (config as any).backgroundAttachment === "string" && (config as any).backgroundAttachment.trim() !== "" ? (config as any).backgroundAttachment : "scroll";
+  const boxBgAttachmentTablet = typeof (config as any).tabletBackgroundAttachment === "string" && (config as any).tabletBackgroundAttachment.trim() !== "" ? (config as any).tabletBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof (config as any).mobileBackgroundAttachment === "string" && (config as any).mobileBackgroundAttachment.trim() !== "" ? (config as any).mobileBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxOverlayColorDesktop = typeof (config as any).backgroundOverlayColor === "string" ? (config as any).backgroundOverlayColor : "transparent";
+  const boxOverlayColorTablet = typeof (config as any).tabletBackgroundOverlayColor === "string" && (config as any).tabletBackgroundOverlayColor.trim() !== "" ? (config as any).tabletBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof (config as any).mobileBackgroundOverlayColor === "string" && (config as any).mobileBackgroundOverlayColor.trim() !== "" ? (config as any).mobileBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number((config as any).backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number((config as any).tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number((config as any).mobileBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
 
   const baseMarginTop = config.marginTop !== undefined ? `${config.marginTop}px` : "0px";
   const baseMarginRight = config.marginRight !== undefined ? `${config.marginRight}px` : "0px";
@@ -171,6 +202,25 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const imageHeightTablet = formatSize(config.tabletImageHeight ?? config.imageHeight, "380px");
   const imageHeightDesktop = formatSize(config.imageHeight, "440px");
   const imageRadius = effectiveRadius;
+  const boxRadiusDesktop = resolveRadiusValue(config.boxBorderRadius, effectiveRadius);
+  const boxRadiusTablet = resolveRadiusValue(config.tabletBoxBorderRadius ?? config.boxBorderRadius, boxRadiusDesktop);
+  const boxRadiusMobile = resolveRadiusValue(config.mobileBoxBorderRadius ?? config.boxBorderRadius, boxRadiusDesktop);
+  const boxPtBase = config.boxPaddingTop !== undefined ? `${config.boxPaddingTop}px` : "0px";
+  const boxPrBase = config.boxPaddingRight !== undefined ? `${config.boxPaddingRight}px` : "0px";
+  const boxPbBase = config.boxPaddingBottom !== undefined ? `${config.boxPaddingBottom}px` : "0px";
+  const boxPlBase = config.boxPaddingLeft !== undefined ? `${config.boxPaddingLeft}px` : "0px";
+  const boxPtMobile = config.mobileBoxPaddingTop !== undefined ? `${config.mobileBoxPaddingTop}px` : boxPtBase;
+  const boxPrMobile = config.mobileBoxPaddingRight !== undefined ? `${config.mobileBoxPaddingRight}px` : boxPrBase;
+  const boxPbMobile = config.mobileBoxPaddingBottom !== undefined ? `${config.mobileBoxPaddingBottom}px` : boxPbBase;
+  const boxPlMobile = config.mobileBoxPaddingLeft !== undefined ? `${config.mobileBoxPaddingLeft}px` : boxPlBase;
+  const boxPtTablet = config.tabletBoxPaddingTop !== undefined ? `${config.tabletBoxPaddingTop}px` : boxPtBase;
+  const boxPrTablet = config.tabletBoxPaddingRight !== undefined ? `${config.tabletBoxPaddingRight}px` : boxPrBase;
+  const boxPbTablet = config.tabletBoxPaddingBottom !== undefined ? `${config.tabletBoxPaddingBottom}px` : boxPbBase;
+  const boxPlTablet = config.tabletBoxPaddingLeft !== undefined ? `${config.tabletBoxPaddingLeft}px` : boxPlBase;
+  const boxPtDesktop = boxPtBase;
+  const boxPrDesktop = boxPrBase;
+  const boxPbDesktop = boxPbBase;
+  const boxPlDesktop = boxPlBase;
 
   const titleFsMobile = formatSize(config.mobileTitleFontSize ?? config.titleFontSize, "var(--home-news-title-size, 18px)");
   const titleFsTablet = formatSize(config.tabletTitleFontSize ?? config.titleFontSize, titleFsMobile);
@@ -181,7 +231,7 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const titleFwMobile = normalizeFontWeight(config.mobileTitleFontWeight, normalizeFontWeight(config.titleFontWeight, "var(--home-news-title-weight, 600)"));
   const titleFwTablet = normalizeFontWeight(config.tabletTitleFontWeight, titleFwMobile);
   const titleFwDesktop = normalizeFontWeight(config.titleFontWeight, titleFwTablet);
-  const titleColorMobile = normalizeColor(config.mobileTitleColor, normalizeColor(config.titleColor, "var(--home-news-title-color, #111827)"));
+  const titleColorMobile = normalizeColor(config.mobileTitleColor, normalizeColor(config.titleColor, "var(--home-news-title-color, var(--fg-primary, #f8fafc))"));
   const titleColorTablet = normalizeColor(config.tabletTitleColor, titleColorMobile);
   const titleColorDesktop = normalizeColor(config.titleColor, titleColorTablet);
   const titleHoverColorMobile = normalizeColor(config.mobileTitleHoverColor, normalizeColor(config.titleHoverColor, "var(--home-hover-color, var(--accent))"));
@@ -194,26 +244,32 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const titleMbTablet = config.tabletTitleMarginBottom !== undefined ? `${config.tabletTitleMarginBottom}px` : (config.titleMarginBottom !== undefined ? `${config.titleMarginBottom}px` : "11px");
   const titleMbDesktop = config.titleMarginBottom !== undefined ? `${config.titleMarginBottom}px` : "12px";
 
-  const metaFsMobile = formatSize(config.mobileMetaFontSize ?? config.metaFontSize, "12px");
+  const metaFsMobile = formatSize(config.mobileMetaFontSize ?? config.metaFontSize, "var(--home-meta-size, 12px)");
   const metaFsTablet = formatSize(config.tabletMetaFontSize ?? config.metaFontSize, metaFsMobile);
   const metaFsDesktop = formatSize(config.metaFontSize, metaFsTablet);
   const metaLhMobile = config.mobileMetaLineHeight !== undefined ? String(config.mobileMetaLineHeight) : (config.metaLineHeight !== undefined ? String(config.metaLineHeight) : "1.3");
   const metaLhTablet = config.tabletMetaLineHeight !== undefined ? String(config.tabletMetaLineHeight) : metaLhMobile;
   const metaLhDesktop = config.metaLineHeight !== undefined ? String(config.metaLineHeight) : metaLhTablet;
-  const metaColorMobile = normalizeColor(config.mobileMetaColor, normalizeColor(config.metaColor, "var(--home-meta-color, #9ca3af)"));
+  const metaFwMobile = normalizeFontWeight(config.mobileMetaFontWeight, normalizeFontWeight(config.metaFontWeight, "500"));
+  const metaFwTablet = normalizeFontWeight(config.tabletMetaFontWeight, metaFwMobile);
+  const metaFwDesktop = normalizeFontWeight(config.metaFontWeight, metaFwTablet);
+  const metaColorMobile = normalizeColor(config.mobileMetaColor, normalizeColor(config.metaColor, "var(--home-meta-color, var(--fg-secondary, #94a3b8))"));
   const metaColorTablet = normalizeColor(config.tabletMetaColor, metaColorMobile);
   const metaColorDesktop = normalizeColor(config.metaColor, metaColorTablet);
   const metaMbMobile = config.mobileMetaMarginBottom !== undefined ? `${config.mobileMetaMarginBottom}px` : (config.metaMarginBottom !== undefined ? `${config.metaMarginBottom}px` : "12px");
   const metaMbTablet = config.tabletMetaMarginBottom !== undefined ? `${config.tabletMetaMarginBottom}px` : (config.metaMarginBottom !== undefined ? `${config.metaMarginBottom}px` : "14px");
   const metaMbDesktop = config.metaMarginBottom !== undefined ? `${config.metaMarginBottom}px` : "16px";
 
-  const excerptFsMobile = formatSize(config.mobileExcerptFontSize ?? config.excerptFontSize, "1.125rem");
+  const excerptFsMobile = formatSize(config.mobileExcerptFontSize ?? config.excerptFontSize, "var(--home-excerpt-size, 1.125rem)");
   const excerptFsTablet = formatSize(config.tabletExcerptFontSize ?? config.excerptFontSize, excerptFsMobile);
   const excerptFsDesktop = formatSize(config.excerptFontSize, excerptFsTablet);
   const excerptLhMobile = config.mobileExcerptLineHeight !== undefined ? String(config.mobileExcerptLineHeight) : (config.excerptLineHeight !== undefined ? String(config.excerptLineHeight) : "1.6");
   const excerptLhTablet = config.tabletExcerptLineHeight !== undefined ? String(config.tabletExcerptLineHeight) : excerptLhMobile;
   const excerptLhDesktop = config.excerptLineHeight !== undefined ? String(config.excerptLineHeight) : excerptLhTablet;
-  const excerptColorMobile = normalizeColor(config.mobileExcerptColor, normalizeColor(config.excerptColor, "var(--home-excerpt-color, #4b5563)"));
+  const excerptFwMobile = normalizeFontWeight(config.mobileExcerptFontWeight, normalizeFontWeight(config.excerptFontWeight, "400"));
+  const excerptFwTablet = normalizeFontWeight(config.tabletExcerptFontWeight, excerptFwMobile);
+  const excerptFwDesktop = normalizeFontWeight(config.excerptFontWeight, excerptFwTablet);
+  const excerptColorMobile = normalizeColor(config.mobileExcerptColor, normalizeColor(config.excerptColor, "var(--home-excerpt-color, var(--fg-secondary, #cbd5e1))"));
   const excerptColorTablet = normalizeColor(config.tabletExcerptColor, excerptColorMobile);
   const excerptColorDesktop = normalizeColor(config.excerptColor, excerptColorTablet);
   const excerptMbMobile = config.mobileExcerptMarginBottom !== undefined ? `${config.mobileExcerptMarginBottom}px` : (config.excerptMarginBottom !== undefined ? `${config.excerptMarginBottom}px` : "16px");
@@ -221,11 +277,11 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const excerptMbDesktop = config.excerptMarginBottom !== undefined ? `${config.excerptMarginBottom}px` : "20px";
 
   const categoryColorMobile = normalizeColor(
-    config.mobileCategoryTextColor,
-    normalizeColor(config.mobileCategoryLabelColor, normalizeColor(config.categoryTextColor, normalizeColor(config.categoryLabelColor, "#ffffff")))
+    (config as any).mobileCategoryLabelTextColor,
+    normalizeColor(config.mobileCategoryTextColor, normalizeColor(config.mobileCategoryLabelColor, normalizeColor((config as any).categoryLabelTextColor, normalizeColor(config.categoryTextColor, normalizeColor(config.categoryLabelColor, "#ffffff")))))
   );
-  const categoryColorTablet = normalizeColor(config.tabletCategoryTextColor, normalizeColor(config.tabletCategoryLabelColor, categoryColorMobile));
-  const categoryColorDesktop = normalizeColor(config.categoryTextColor, normalizeColor(config.categoryLabelColor, categoryColorTablet));
+  const categoryColorTablet = normalizeColor((config as any).tabletCategoryLabelTextColor, normalizeColor(config.tabletCategoryTextColor, normalizeColor(config.tabletCategoryLabelColor, categoryColorMobile)));
+  const categoryColorDesktop = normalizeColor((config as any).categoryLabelTextColor, normalizeColor(config.categoryTextColor, normalizeColor(config.categoryLabelColor, categoryColorTablet)));
   const categoryBgMobile = normalizeColor(
     config.mobileCategoryBgColor,
     normalizeColor(config.mobileCategoryLabelBgColor, normalizeColor(config.categoryBgColor, normalizeColor(config.categoryLabelBgColor, effectiveAccent)))
@@ -238,6 +294,12 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const categoryLhMobile = config.mobileCategoryLabelLineHeight !== undefined ? String(config.mobileCategoryLabelLineHeight) : (config.categoryLabelLineHeight !== undefined ? String(config.categoryLabelLineHeight) : "1");
   const categoryLhTablet = config.tabletCategoryLabelLineHeight !== undefined ? String(config.tabletCategoryLabelLineHeight) : categoryLhMobile;
   const categoryLhDesktop = config.categoryLabelLineHeight !== undefined ? String(config.categoryLabelLineHeight) : categoryLhTablet;
+  const categoryPxMobile = formatSize(config.mobileCategoryLabelPaddingX ?? config.mobileCategoryPaddingX ?? config.categoryLabelPaddingX ?? config.categoryPaddingX, "8px");
+  const categoryPxTablet = formatSize(config.tabletCategoryLabelPaddingX ?? config.tabletCategoryPaddingX ?? config.categoryLabelPaddingX ?? config.categoryPaddingX, categoryPxMobile);
+  const categoryPxDesktop = formatSize(config.categoryLabelPaddingX ?? config.categoryPaddingX, categoryPxTablet);
+  const categoryPyMobile = formatSize(config.mobileCategoryLabelPaddingY ?? config.mobileCategoryPaddingY ?? config.categoryLabelPaddingY ?? config.categoryPaddingY, "4px");
+  const categoryPyTablet = formatSize(config.tabletCategoryLabelPaddingY ?? config.tabletCategoryPaddingY ?? config.categoryLabelPaddingY ?? config.categoryPaddingY, categoryPyMobile);
+  const categoryPyDesktop = formatSize(config.categoryLabelPaddingY ?? config.categoryPaddingY, categoryPyTablet);
   const categoryRadiusMobile = resolveRadiusValue(
     config.mobileCategoryLabelBorderRadius ?? config.mobileCategoryBorderRadius ?? config.categoryLabelBorderRadius ?? config.categoryBorderRadius,
     effectiveRadius
@@ -254,12 +316,21 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const blockTitleColorMobile = normalizeColor(config.mobileBlockTitleColor, normalizeColor(config.blockTitleColor, "var(--home-widget-title-color, var(--heading-color, #1e293b))"));
   const blockTitleColorTablet = normalizeColor(config.tabletBlockTitleColor, blockTitleColorMobile);
   const blockTitleColorDesktop = normalizeColor(config.blockTitleColor, blockTitleColorTablet);
-  const blockTitleFsMobile = formatSize(config.mobileBlockTitleFontSize ?? config.blockTitleFontSize, "20px");
+  const blockTitleFsMobile = formatSize(config.mobileBlockTitleFontSize ?? config.blockTitleFontSize, "var(--home-widget-title-size, 20px)");
   const blockTitleFsTablet = formatSize(config.tabletBlockTitleFontSize ?? config.blockTitleFontSize, "22px");
-  const blockTitleFsDesktop = formatSize(config.blockTitleFontSize, "24px");
+  const blockTitleFsDesktop = formatSize(config.blockTitleFontSize, "var(--home-widget-title-size, 24px)");
+  const blockTitleLhMobile = config.mobileBlockTitleLineHeight !== undefined ? String(config.mobileBlockTitleLineHeight) : (config.blockTitleLineHeight !== undefined ? String(config.blockTitleLineHeight) : "1.3");
+  const blockTitleLhTablet = config.tabletBlockTitleLineHeight !== undefined ? String(config.tabletBlockTitleLineHeight) : blockTitleLhMobile;
+  const blockTitleLhDesktop = config.blockTitleLineHeight !== undefined ? String(config.blockTitleLineHeight) : blockTitleLhTablet;
   const blockTitleBorderMobile = normalizeColor(config.mobileBlockTitleBorderColor, normalizeColor(config.blockTitleBorderColor, "var(--accent)"));
   const blockTitleBorderTablet = normalizeColor(config.tabletBlockTitleBorderColor, blockTitleBorderMobile);
   const blockTitleBorderDesktop = normalizeColor(config.blockTitleBorderColor, blockTitleBorderTablet);
+  const blockTitleMbMobile = config.mobileBlockTitleMarginBottom !== undefined ? `${config.mobileBlockTitleMarginBottom}px` : (config.blockTitleMarginBottom !== undefined ? `${config.blockTitleMarginBottom}px` : "12px");
+  const blockTitleMbTablet = config.tabletBlockTitleMarginBottom !== undefined ? `${config.tabletBlockTitleMarginBottom}px` : (config.blockTitleMarginBottom !== undefined ? `${config.blockTitleMarginBottom}px` : "12px");
+  const blockTitleMbDesktop = config.blockTitleMarginBottom !== undefined ? `${config.blockTitleMarginBottom}px` : "12px";
+  const blockTitlePbMobile = config.mobileBlockTitlePaddingBottom !== undefined ? `${config.mobileBlockTitlePaddingBottom}px` : (config.blockTitlePaddingBottom !== undefined ? `${config.blockTitlePaddingBottom}px` : "12px");
+  const blockTitlePbTablet = config.tabletBlockTitlePaddingBottom !== undefined ? `${config.tabletBlockTitlePaddingBottom}px` : (config.blockTitlePaddingBottom !== undefined ? `${config.blockTitlePaddingBottom}px` : "12px");
+  const blockTitlePbDesktop = config.blockTitlePaddingBottom !== undefined ? `${config.blockTitlePaddingBottom}px` : "12px";
 
   const showCategoryMobile = getResponsiveBool(configRecord, "showCategory", "mobile", true);
   const showCategoryTablet = getResponsiveBool(configRecord, "showCategory", "tablet", true);
@@ -297,7 +368,7 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
 
   const excerptLengthMobile = typeof config.mobileExcerptLength === "number"
     ? config.mobileExcerptLength
-    : (typeof config.excerptLength === "number" ? config.excerptLength : 180);
+    : (typeof config.excerptLength === "number" ? config.excerptLength : 120);
   const excerptLengthTablet = typeof config.tabletExcerptLength === "number"
     ? config.tabletExcerptLength
     : excerptLengthMobile;
@@ -331,6 +402,12 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
   const readMoreFsMobile = formatSize(config.mobileReadMoreFontSize ?? config.readMoreFontSize, "13px");
   const readMoreFsTablet = formatSize(config.tabletReadMoreFontSize ?? config.readMoreFontSize, readMoreFsMobile);
   const readMoreFsDesktop = formatSize(config.readMoreFontSize, readMoreFsTablet);
+  const readMorePxMobile = formatSize(config.mobileReadMorePaddingX ?? config.readMorePaddingX, "16px");
+  const readMorePxTablet = formatSize(config.tabletReadMorePaddingX ?? config.readMorePaddingX, readMorePxMobile);
+  const readMorePxDesktop = formatSize(config.readMorePaddingX, readMorePxTablet);
+  const readMorePyMobile = formatSize(config.mobileReadMorePaddingY ?? config.readMorePaddingY, "8px");
+  const readMorePyTablet = formatSize(config.tabletReadMorePaddingY ?? config.readMorePaddingY, readMorePyMobile);
+  const readMorePyDesktop = formatSize(config.readMorePaddingY, readMorePyTablet);
 
   const imageUrl = post?.image || post?.featuredImage?.fileUrl;
   const isVideo = String((post as any)?.type || "").toUpperCase() === "VIDEO";
@@ -363,6 +440,8 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
     ? formatLongDateId(publishedDate)
     : "";
   const [device, setDevice] = useState<ResponsiveDevice>(previewDevice || "desktop");
+  const customTitle = typeof block?.title === "string" && block.title.trim() !== "" ? block.title.trim() : "";
+  const widgetTitle = customTitle || (typeof config.title === "string" && config.title.trim() !== "" ? config.title.trim() : "Headline Big");
 
   useEffect(() => {
     if (previewDevice) {
@@ -381,11 +460,91 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
     return () => window.removeEventListener("resize", updateDevice);
   }, [previewDevice]);
 
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const applyMode = () => setIsPublicDarkMode(root.classList.contains("public-dark"));
+    applyMode();
+
+    const observer = new MutationObserver(applyMode);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
   const excerptLength = device === "mobile"
     ? excerptLengthMobile
     : device === "tablet"
       ? excerptLengthTablet
       : excerptLengthDesktop;
+  const currentUseBox = device === "mobile" ? useBoxMobile : device === "tablet" ? useBoxTablet : useBoxDesktop;
+  const currentBoxColor = device === "mobile" ? boxColorMobile : device === "tablet" ? boxColorTablet : boxColorDesktop;
+  const currentBoxBgImage = device === "mobile" ? boxBgImageMobile : device === "tablet" ? boxBgImageTablet : boxBgImageDesktop;
+  const currentBoxBgSize = device === "mobile" ? boxBgSizeMobile : device === "tablet" ? boxBgSizeTablet : boxBgSizeDesktop;
+  const currentBoxBgPosition = device === "mobile" ? boxBgPositionMobile : device === "tablet" ? boxBgPositionTablet : boxBgPositionDesktop;
+  const currentBoxBgRepeat = device === "mobile" ? boxBgRepeatMobile : device === "tablet" ? boxBgRepeatTablet : boxBgRepeatDesktop;
+  const currentBoxBgAttachment = device === "mobile" ? boxBgAttachmentMobile : device === "tablet" ? boxBgAttachmentTablet : boxBgAttachmentDesktop;
+  const currentBoxOverlayColor = device === "mobile" ? boxOverlayColorMobile : device === "tablet" ? boxOverlayColorTablet : boxOverlayColorDesktop;
+  const currentBoxOverlayOpacity = device === "mobile" ? boxOverlayOpacityMobile : device === "tablet" ? boxOverlayOpacityTablet : boxOverlayOpacityDesktop;
+  const hasCurrentBoxOverlay = currentBoxOverlayOpacity > 0 && typeof currentBoxOverlayColor === "string" && currentBoxOverlayColor.trim() !== "" && currentBoxOverlayColor !== "transparent";
+  const currentBoxOverlayFill = hasCurrentBoxOverlay ? `color-mix(in srgb, ${currentBoxOverlayColor} ${currentBoxOverlayOpacity}%, transparent)` : "transparent";
+  const currentBoxBackgroundImage = currentUseBox && currentBoxBgImage
+    ? (hasCurrentBoxOverlay
+      ? `linear-gradient(${currentBoxOverlayFill}, ${currentBoxOverlayFill}), url("${currentBoxBgImage}")`
+      : `url("${currentBoxBgImage}")`)
+    : "none";
+  const currentBoxRadius = device === "mobile" ? boxRadiusMobile : device === "tablet" ? boxRadiusTablet : boxRadiusDesktop;
+  const currentBoxPt = device === "mobile" ? boxPtMobile : device === "tablet" ? boxPtTablet : boxPtDesktop;
+  const currentBoxPr = device === "mobile" ? boxPrMobile : device === "tablet" ? boxPrTablet : boxPrDesktop;
+  const currentBoxPb = device === "mobile" ? boxPbMobile : device === "tablet" ? boxPbTablet : boxPbDesktop;
+  const currentBoxPl = device === "mobile" ? boxPlMobile : device === "tablet" ? boxPlTablet : boxPlDesktop;
+  const currentImageHeight = device === "mobile" ? imageHeightMobile : device === "tablet" ? imageHeightTablet : imageHeightDesktop;
+  const currentShowCategory = device === "mobile" ? showCategoryMobile : device === "tablet" ? showCategoryTablet : showCategoryDesktop;
+  const currentShowMeta = device === "mobile" ? showMetaMobile : device === "tablet" ? showMetaTablet : showMetaDesktop;
+  const currentShowAuthor = device === "mobile" ? showAuthorMobile : device === "tablet" ? showAuthorTablet : showAuthorDesktop;
+  const currentShowDate = device === "mobile" ? showDateMobile : device === "tablet" ? showDateTablet : showDateDesktop;
+  const currentShowExcerpt = device === "mobile" ? showExcerptMobile : device === "tablet" ? showExcerptTablet : showExcerptDesktop;
+  const currentShowReadMore = device === "mobile" ? showReadMoreMobile : device === "tablet" ? showReadMoreTablet : showReadMoreDesktop;
+  const currentTitleColor = device === "mobile" ? titleColorMobile : device === "tablet" ? titleColorTablet : titleColorDesktop;
+  const currentTitleHoverColor = device === "mobile" ? titleHoverColorMobile : device === "tablet" ? titleHoverColorTablet : titleHoverColorDesktop;
+  const legacyDarkUnsafeTitleColors = ["#111827", "#1f2937", "#0f172a", "#000000", "#000"];
+  const effectiveTitleColor = isPublicDarkMode && isOneOf(currentTitleColor, legacyDarkUnsafeTitleColors)
+    ? "var(--fg-primary)"
+    : currentTitleColor;
+  const currentTitleFs = device === "mobile" ? titleFsMobile : device === "tablet" ? titleFsTablet : titleFsDesktop;
+  const currentTitleLh = device === "mobile" ? titleLhMobile : device === "tablet" ? titleLhTablet : titleLhDesktop;
+  const currentTitleFw = device === "mobile" ? titleFwMobile : device === "tablet" ? titleFwTablet : titleFwDesktop;
+  const currentTitleMt = device === "mobile" ? titleMtMobile : device === "tablet" ? titleMtTablet : titleMtDesktop;
+  const currentTitleMb = device === "mobile" ? titleMbMobile : device === "tablet" ? titleMbTablet : titleMbDesktop;
+  const currentMetaFs = device === "mobile" ? metaFsMobile : device === "tablet" ? metaFsTablet : metaFsDesktop;
+  const currentMetaLh = device === "mobile" ? metaLhMobile : device === "tablet" ? metaLhTablet : metaLhDesktop;
+  const currentMetaFw = device === "mobile" ? metaFwMobile : device === "tablet" ? metaFwTablet : metaFwDesktop;
+  const currentMetaColor = device === "mobile" ? metaColorMobile : device === "tablet" ? metaColorTablet : metaColorDesktop;
+  const currentMetaMb = device === "mobile" ? metaMbMobile : device === "tablet" ? metaMbTablet : metaMbDesktop;
+  const currentExcerptColor = device === "mobile" ? excerptColorMobile : device === "tablet" ? excerptColorTablet : excerptColorDesktop;
+  const currentExcerptFs = device === "mobile" ? excerptFsMobile : device === "tablet" ? excerptFsTablet : excerptFsDesktop;
+  const currentExcerptLh = device === "mobile" ? excerptLhMobile : device === "tablet" ? excerptLhTablet : excerptLhDesktop;
+  const currentExcerptFw = device === "mobile" ? excerptFwMobile : device === "tablet" ? excerptFwTablet : excerptFwDesktop;
+  const currentExcerptMb = device === "mobile" ? excerptMbMobile : device === "tablet" ? excerptMbTablet : excerptMbDesktop;
+  const currentCategoryColor = device === "mobile" ? categoryColorMobile : device === "tablet" ? categoryColorTablet : categoryColorDesktop;
+  const currentCategoryBg = device === "mobile" ? categoryBgMobile : device === "tablet" ? categoryBgTablet : categoryBgDesktop;
+  const currentCategoryFs = device === "mobile" ? categoryFsMobile : device === "tablet" ? categoryFsTablet : categoryFsDesktop;
+  const currentCategoryLh = device === "mobile" ? categoryLhMobile : device === "tablet" ? categoryLhTablet : categoryLhDesktop;
+  const currentCategoryPx = device === "mobile" ? categoryPxMobile : device === "tablet" ? categoryPxTablet : categoryPxDesktop;
+  const currentCategoryPy = device === "mobile" ? categoryPyMobile : device === "tablet" ? categoryPyTablet : categoryPyDesktop;
+  const currentCategoryRadius = device === "mobile" ? categoryRadiusMobile : device === "tablet" ? categoryRadiusTablet : categoryRadiusDesktop;
+  const currentReadMoreTextColor = device === "mobile" ? readMoreTextColorMobile : device === "tablet" ? readMoreTextColorTablet : readMoreTextColorDesktop;
+  const currentReadMoreHoverTextColor = device === "mobile" ? readMoreHoverTextColorMobile : device === "tablet" ? readMoreHoverTextColorTablet : readMoreHoverTextColorDesktop;
+  const currentReadMoreBg = device === "mobile" ? readMoreBgMobile : device === "tablet" ? readMoreBgTablet : readMoreBgDesktop;
+  const currentReadMoreHoverBg = device === "mobile" ? readMoreHoverBgMobile : device === "tablet" ? readMoreHoverBgTablet : readMoreHoverBgDesktop;
+  const currentReadMoreBorder = device === "mobile" ? readMoreBorderMobile : device === "tablet" ? readMoreBorderTablet : readMoreBorderDesktop;
+  const currentReadMoreHoverBorder = device === "mobile" ? readMoreHoverBorderMobile : device === "tablet" ? readMoreHoverBorderTablet : readMoreHoverBorderDesktop;
+  const currentReadMoreRadius = device === "mobile" ? readMoreRadiusMobile : device === "tablet" ? readMoreRadiusTablet : readMoreRadiusDesktop;
+  const currentReadMoreFs = device === "mobile" ? readMoreFsMobile : device === "tablet" ? readMoreFsTablet : readMoreFsDesktop;
+  const currentReadMorePx = device === "mobile" ? readMorePxMobile : device === "tablet" ? readMorePxTablet : readMorePxDesktop;
+  const currentReadMorePy = device === "mobile" ? readMorePyMobile : device === "tablet" ? readMorePyTablet : readMorePyDesktop;
+  const currentBlockTitleLh = device === "mobile" ? blockTitleLhMobile : device === "tablet" ? blockTitleLhTablet : blockTitleLhDesktop;
+  const currentBlockTitleMb = device === "mobile" ? blockTitleMbMobile : device === "tablet" ? blockTitleMbTablet : blockTitleMbDesktop;
+  const currentBlockTitlePb = device === "mobile" ? blockTitlePbMobile : device === "tablet" ? blockTitlePbTablet : blockTitlePbDesktop;
   const readMoreText = device === "mobile"
     ? readMoreTextMobile
     : device === "tablet"
@@ -398,71 +557,105 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
     if (!excerptFromExcerpt) return excerptFromContent;
     return excerptFromExcerpt.length >= excerptLength ? excerptFromExcerpt : excerptFromContent;
   })();
+  const currentExcerpt = clampExcerpt(excerptRaw, excerptLength);
+  const shouldShowMetaRow = currentShowMeta && ((currentShowAuthor && !!authorName) || (currentShowDate && hasValidDate));
 
   return (
-    <div id={`headline-big-${block.id}`} className={visibilityClass} style={{
-      "--accent": effectiveAccent,
-      "--widget-title-color-mobile": blockTitleColorMobile,
-      "--widget-title-color-tablet": blockTitleColorTablet,
-      "--widget-title-color-desktop": blockTitleColorDesktop,
-      "--widget-title-size-mobile": blockTitleFsMobile,
-      "--widget-title-size-tablet": blockTitleFsTablet,
-      "--widget-title-size-desktop": blockTitleFsDesktop,
-      "--widget-title-border-color-mobile": blockTitleBorderMobile,
-      "--widget-title-border-color-tablet": blockTitleBorderTablet,
-      "--widget-title-border-color-desktop": blockTitleBorderDesktop,
-    } as React.CSSProperties}>
-      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-        #headline-big-${block.id} { margin-top: ${mTopMobile}; margin-right: ${mRightMobile}; margin-bottom: ${mBottomMobile}; margin-left: ${mLeftMobile}; padding-top: ${pTopMobile}; padding-right: ${pRightMobile}; padding-bottom: ${pBottomMobile}; padding-left: ${pLeftMobile}; background-color: ${useBoxMobile ? boxColorMobile : "transparent"}; border-radius: ${useBoxMobile ? effectiveRadius : "0"}; border: ${useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none"}; box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"}; }
-        #headline-big-${block.id} .headline-big-thumb { position: relative; display: block; width: 100%; height: ${imageHeightMobile}; border-radius: ${imageRadius}; overflow: hidden; background: color-mix(in oklab, var(--bg-base) 92%, #000 8%); }
-        #headline-big-${block.id} .headline-big-category { display: ${showCategoryMobile ? "inline-flex" : "none"}; color: ${categoryColorMobile}; background: ${categoryBgMobile}; border-radius: ${categoryRadiusMobile}; font-size: ${categoryFsMobile}; font-weight: 700; line-height: ${categoryLhMobile}; }
-        #headline-big-${block.id} .headline-big-title { color: ${titleColorMobile}; font-size: ${titleFsMobile}; line-height: ${titleLhMobile}; font-weight: ${titleFwMobile}; margin-top: ${titleMtMobile}; margin-bottom: ${titleMbMobile}; }
-        #headline-big-${block.id} .headline-big-title a { color: inherit !important; font-size: inherit !important; line-height: inherit !important; font-weight: inherit !important; font-family: inherit !important; }
-        #headline-big-${block.id} .headline-big-title a:hover { color: ${titleHoverColorMobile} !important; }
-        #headline-big-${block.id} .headline-big-meta { display: ${showMetaMobile ? "flex" : "none"}; align-items: center; gap: 12px; flex-wrap: wrap; font-size: ${metaFsMobile}; line-height: ${metaLhMobile}; color: ${metaColorMobile}; margin-bottom: ${metaMbMobile}; }
-        #headline-big-${block.id} .headline-big-author { display: ${showAuthorMobile ? "inline-flex" : "none"}; align-items: center; gap: 6px; }
-        #headline-big-${block.id} .headline-big-date { display: ${showDateMobile ? "inline-flex" : "none"}; align-items: center; gap: 6px; }
-        #headline-big-${block.id} .headline-big-dot { display: ${showAuthorMobile && showDateMobile ? "inline-block" : "none"}; width: 4px; height: 4px; border-radius: 9999px; background-color: currentColor; opacity: .5; }
-        #headline-big-${block.id} .headline-big-excerpt { display: ${showExcerptMobile ? "block" : "none"}; color: ${excerptColorMobile}; font-size: ${excerptFsMobile}; line-height: ${excerptLhMobile}; margin-bottom: ${excerptMbMobile}; }
-        #headline-big-${block.id} .headline-big-readmore { display: ${showReadMoreMobile ? "inline-flex" : "none"}; align-items: center; justify-content: center; color: ${readMoreTextColorMobile}; background: ${readMoreBgMobile}; border: 1px solid ${readMoreBorderMobile}; border-radius: ${readMoreRadiusMobile}; padding: 8px 16px; font-size: ${readMoreFsMobile}; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
-        #headline-big-${block.id} .headline-big-readmore:hover { background-color: ${readMoreHoverBgMobile}; border-color: ${readMoreHoverBorderMobile}; color: ${readMoreHoverTextColorMobile}; }
-        @media (min-width: 768px) {
-          #headline-big-${block.id} { margin-top: ${mTopTablet}; margin-right: ${mRightTablet}; margin-bottom: ${mBottomTablet}; margin-left: ${mLeftTablet}; padding-top: ${pTopTablet}; padding-right: ${pRightTablet}; padding-bottom: ${pBottomTablet}; padding-left: ${pLeftTablet}; background-color: ${useBoxTablet ? boxColorTablet : "transparent"}; border-radius: ${useBoxTablet ? effectiveRadius : "0"}; border: ${useBoxTablet ? "var(--box-border, 1px solid var(--border))" : "none"}; box-shadow: ${useBoxTablet ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"}; }
-          #headline-big-${block.id} .headline-big-thumb { height: ${imageHeightTablet}; }
-          #headline-big-${block.id} .headline-big-category { display: ${showCategoryTablet ? "inline-flex" : "none"}; color: ${categoryColorTablet}; background: ${categoryBgTablet}; border-radius: ${categoryRadiusTablet}; font-size: ${categoryFsTablet}; line-height: ${categoryLhTablet}; }
-          #headline-big-${block.id} .headline-big-title { color: ${titleColorTablet}; font-size: ${titleFsTablet}; line-height: ${titleLhTablet}; font-weight: ${titleFwTablet}; margin-top: ${titleMtTablet}; margin-bottom: ${titleMbTablet}; }
-          #headline-big-${block.id} .headline-big-title a:hover { color: ${titleHoverColorTablet} !important; }
-          #headline-big-${block.id} .headline-big-meta { display: ${showMetaTablet ? "flex" : "none"}; font-size: ${metaFsTablet}; line-height: ${metaLhTablet}; color: ${metaColorTablet}; margin-bottom: ${metaMbTablet}; }
-          #headline-big-${block.id} .headline-big-author { display: ${showAuthorTablet ? "inline-flex" : "none"}; }
-          #headline-big-${block.id} .headline-big-date { display: ${showDateTablet ? "inline-flex" : "none"}; }
-          #headline-big-${block.id} .headline-big-dot { display: ${showAuthorTablet && showDateTablet ? "inline-block" : "none"}; }
-          #headline-big-${block.id} .headline-big-excerpt { display: ${showExcerptTablet ? "block" : "none"}; color: ${excerptColorTablet}; font-size: ${excerptFsTablet}; line-height: ${excerptLhTablet}; margin-bottom: ${excerptMbTablet}; }
-          #headline-big-${block.id} .headline-big-readmore { display: ${showReadMoreTablet ? "inline-flex" : "none"}; color: ${readMoreTextColorTablet}; background: ${readMoreBgTablet}; border-color: ${readMoreBorderTablet}; border-radius: ${readMoreRadiusTablet}; font-size: ${readMoreFsTablet}; }
-          #headline-big-${block.id} .headline-big-readmore:hover { background-color: ${readMoreHoverBgTablet}; border-color: ${readMoreHoverBorderTablet}; color: ${readMoreHoverTextColorTablet}; }
-        }
-        @media (min-width: 1025px) {
-          #headline-big-${block.id} { margin-top: ${mTopDesktop}; margin-right: ${mRightDesktop}; margin-bottom: ${mBottomDesktop}; margin-left: ${mLeftDesktop}; padding-top: ${pTopDesktop}; padding-right: ${pRightDesktop}; padding-bottom: ${pBottomDesktop}; padding-left: ${pLeftDesktop}; background-color: ${useBoxDesktop ? boxColorDesktop : "transparent"}; border-radius: ${useBoxDesktop ? effectiveRadius : "0"}; border: ${useBoxDesktop ? "var(--box-border, 1px solid var(--border))" : "none"}; box-shadow: ${useBoxDesktop ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"}; }
-          #headline-big-${block.id} .headline-big-thumb { height: ${imageHeightDesktop}; }
-          #headline-big-${block.id} .headline-big-category { display: ${showCategoryDesktop ? "inline-flex" : "none"}; color: ${categoryColorDesktop}; background: ${categoryBgDesktop}; border-radius: ${categoryRadiusDesktop}; font-size: ${categoryFsDesktop}; line-height: ${categoryLhDesktop}; }
-          #headline-big-${block.id} .headline-big-title { color: ${titleColorDesktop}; font-size: ${titleFsDesktop}; line-height: ${titleLhDesktop}; font-weight: ${titleFwDesktop}; margin-top: ${titleMtDesktop}; margin-bottom: ${titleMbDesktop}; }
-          #headline-big-${block.id} .headline-big-title a:hover { color: ${titleHoverColorDesktop} !important; }
-          #headline-big-${block.id} .headline-big-meta { display: ${showMetaDesktop ? "flex" : "none"}; font-size: ${metaFsDesktop}; line-height: ${metaLhDesktop}; color: ${metaColorDesktop}; margin-bottom: ${metaMbDesktop}; }
-          #headline-big-${block.id} .headline-big-author { display: ${showAuthorDesktop ? "inline-flex" : "none"}; }
-          #headline-big-${block.id} .headline-big-date { display: ${showDateDesktop ? "inline-flex" : "none"}; }
-          #headline-big-${block.id} .headline-big-dot { display: ${showAuthorDesktop && showDateDesktop ? "inline-block" : "none"}; }
-          #headline-big-${block.id} .headline-big-excerpt { display: ${showExcerptDesktop ? "block" : "none"}; color: ${excerptColorDesktop}; font-size: ${excerptFsDesktop}; line-height: ${excerptLhDesktop}; margin-bottom: ${excerptMbDesktop}; }
-          #headline-big-${block.id} .headline-big-readmore { display: ${showReadMoreDesktop ? "inline-flex" : "none"}; color: ${readMoreTextColorDesktop}; background: ${readMoreBgDesktop}; border-color: ${readMoreBorderDesktop}; border-radius: ${readMoreRadiusDesktop}; font-size: ${readMoreFsDesktop}; }
-          #headline-big-${block.id} .headline-big-readmore:hover { background-color: ${readMoreHoverBgDesktop}; border-color: ${readMoreHoverBorderDesktop}; color: ${readMoreHoverTextColorDesktop}; }
-        }
-      `) }} />
-
+    <div
+      id={`headline-big-${block.id}`}
+      className={`responsive-block-frame ${visibilityClass}`.trim()}
+      style={{
+        "--accent": effectiveAccent,
+        "--widget-title-color-mobile": blockTitleColorMobile,
+        "--widget-title-color-tablet": blockTitleColorTablet,
+        "--widget-title-color-desktop": blockTitleColorDesktop,
+        "--widget-title-size-mobile": blockTitleFsMobile,
+        "--widget-title-size-tablet": blockTitleFsTablet,
+        "--widget-title-size-desktop": blockTitleFsDesktop,
+        "--widget-title-border-color-mobile": blockTitleBorderMobile,
+        "--widget-title-border-color-tablet": blockTitleBorderTablet,
+        "--widget-title-border-color-desktop": blockTitleBorderDesktop,
+        "--home-news-title-color": effectiveTitleColor,
+        "--home-news-title-size": currentTitleFs,
+        "--home-news-title-weight": currentTitleFw,
+        "--home-meta-color": currentMetaColor,
+        "--home-meta-size": currentMetaFs,
+        "--home-meta-weight": currentMetaFw,
+        "--home-excerpt-color": currentExcerptColor,
+        "--home-excerpt-size": currentExcerptFs,
+        "--home-excerpt-weight": currentExcerptFw,
+        "--home-hover-color": currentTitleHoverColor,
+        "--headline-big-title-hover": currentTitleHoverColor,
+        "--rb-mt-mobile": mTopMobile,
+        "--rb-mr-mobile": mRightMobile,
+        "--rb-mb-mobile": mBottomMobile,
+        "--rb-ml-mobile": mLeftMobile,
+        "--rb-pt-mobile": pTopMobile,
+        "--rb-pr-mobile": pRightMobile,
+        "--rb-pb-mobile": pBottomMobile,
+        "--rb-pl-mobile": pLeftMobile,
+        "--rb-mt-tablet": mTopTablet,
+        "--rb-mr-tablet": mRightTablet,
+        "--rb-mb-tablet": mBottomTablet,
+        "--rb-ml-tablet": mLeftTablet,
+        "--rb-pt-tablet": pTopTablet,
+        "--rb-pr-tablet": pRightTablet,
+        "--rb-pb-tablet": pBottomTablet,
+        "--rb-pl-tablet": pLeftTablet,
+        "--rb-mt-desktop": mTopDesktop,
+        "--rb-mr-desktop": mRightDesktop,
+        "--rb-mb-desktop": mBottomDesktop,
+        "--rb-ml-desktop": mLeftDesktop,
+        "--rb-pt-desktop": pTopDesktop,
+        "--rb-pr-desktop": pRightDesktop,
+        "--rb-pb-desktop": pBottomDesktop,
+        "--rb-pl-desktop": pLeftDesktop,
+        "--headline-big-readmore-hover-bg": currentReadMoreHoverBg,
+        "--headline-big-readmore-hover-text": currentReadMoreHoverTextColor,
+        "--headline-big-readmore-hover-border": currentReadMoreHoverBorder,
+      } as React.CSSProperties}
+    >
+      <div
+        style={{
+          backgroundColor: currentUseBox ? currentBoxColor : "transparent",
+          borderRadius: currentUseBox ? currentBoxRadius : "0",
+          border: currentUseBox ? "var(--box-border, 1px solid var(--border))" : "none",
+          boxShadow: currentUseBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
+          backgroundImage: currentBoxBackgroundImage,
+          backgroundSize: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+          backgroundPosition: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+          backgroundRepeat: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+          backgroundAttachment: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+          paddingTop: currentUseBox ? currentBoxPt : "0px",
+          paddingRight: currentUseBox ? currentBoxPr : "0px",
+          paddingBottom: currentUseBox ? currentBoxPb : "0px",
+          paddingLeft: currentUseBox ? currentBoxPl : "0px",
+        }}
+      >
+      {(config.showTitle !== false) && (
+        <h3
+          className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title"
+          style={{ lineHeight: currentBlockTitleLh, marginBottom: currentBlockTitleMb, paddingBottom: currentBlockTitlePb }}
+        >
+          <div className="widget-title-bar" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)" }}></div>
+          <span>{widgetTitle}</span>
+        </h3>
+      )}
       {post ? (
         <article>
-          <Link href={postLink} className="headline-big-thumb">
+          <Link
+            href={postLink}
+            className="headline-big-thumb relative block w-full overflow-hidden"
+            style={{
+              height: currentImageHeight,
+              borderRadius: imageRadius,
+              background: "color-mix(in oklab, var(--bg-base) 92%, #000 8%)",
+            }}
+          >
             {imageUrl ? (
               <Image src={imageUrl} alt={post.title} fill className="object-cover" sizes="100vw" />
             ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-[var(--fg-muted)] text-sm">No Image</div>
+              <div className="absolute inset-0 flex items-center justify-center [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-sm">No Image</div>
             )}
             {isVideo && (
               <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -473,56 +666,123 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
                 </span>
               </span>
             )}
-            {post.category && (
-              <span className="headline-big-category absolute top-3 left-3 z-10 font-bold uppercase tracking-wide px-2 py-1">
+            {post.category && currentShowCategory && (
+              <span
+                className="headline-big-category absolute top-3 left-3 z-10 inline-flex font-bold uppercase tracking-wide px-2 py-1"
+                style={{
+                  color: currentCategoryColor,
+                  background: currentCategoryBg,
+                  borderRadius: currentCategoryRadius,
+                  fontSize: currentCategoryFs,
+                  lineHeight: currentCategoryLh,
+                padding: `${currentCategoryPy} ${currentCategoryPx}`,
+                }}
+              >
                 {post.category.name}
               </span>
             )}
           </Link>
 
-          <h2 className="headline-big-title">
-            <Link href={postLink} className="transition-colors">
+          <h2
+            className=""
+            style={{
+              color: effectiveTitleColor,
+              fontSize: currentTitleFs,
+              lineHeight: currentTitleLh,
+              fontWeight: currentTitleFw,
+              marginTop: currentTitleMt,
+              marginBottom: currentTitleMb,
+            }}
+          >
+            <Link
+              href={postLink}
+              className="transition-colors hover:!text-[var(--headline-big-title-hover)]"
+              style={{ color: "inherit", fontSize: "inherit", lineHeight: "inherit", fontWeight: "inherit", fontFamily: "inherit" }}
+            >
               {post.title}
             </Link>
           </h2>
 
-          <div className="headline-big-meta font-medium mt-2">
-            {authorName && (
-              <span className="headline-big-author">
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] relative overflow-hidden" style={{ backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}>
+          {shouldShowMetaRow && (
+            <div
+              className="mt-2 flex items-center gap-3 flex-wrap"
+              style={{
+                fontSize: currentMetaFs,
+                lineHeight: currentMetaLh,
+                fontWeight: currentMetaFw,
+                color: currentMetaColor,
+                marginBottom: currentMetaMb,
+              }}
+            >
+              {authorName && currentShowAuthor && (
+                <span className="headline-big-author inline-flex items-center gap-1.5">
+                <span
+                  className="rounded-full flex items-center justify-center relative overflow-hidden shrink-0"
+                  style={{ width: "1.5em", height: "1.5em", fontSize: "0.92em", backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}
+                >
                   {authorAvatar ? (
                     <Image src={authorAvatar} alt={authorName} fill className="object-cover" sizes="16px" />
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 opacity-80">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-80" style={{ width: "1em", height: "1em" }}>
                       <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                     </svg>
                   )}
                 </span>
                 <span>{authorName}</span>
               </span>
-            )}
-            {authorName && hasValidDate && <span className="headline-big-dot"></span>}
-            {hasValidDate && publishedDate && (
-              <span className="headline-big-date">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 opacity-70">
+              )}
+              {authorName && currentShowAuthor && hasValidDate && currentShowDate && (
+                <span className="headline-big-dot inline-block rounded-full opacity-50 shrink-0" style={{ width: "0.42em", height: "0.42em", backgroundColor: "currentColor" }}></span>
+              )}
+              {hasValidDate && publishedDate && currentShowDate && (
+                <span className="headline-big-date inline-flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-70 shrink-0" style={{ width: "1.22em", height: "1.22em" }}>
                   <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
                 </svg>
                 <time dateTime={publishedDate.toISOString()}>
                   {formattedDate}
                 </time>
               </span>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
-          <p className="headline-big-excerpt">{clampExcerpt(excerptRaw, excerptLength)}</p>
+          {currentShowExcerpt && currentExcerpt && (
+            <p
+              className=""
+              style={{
+                color: currentExcerptColor,
+                fontSize: currentExcerptFs,
+                lineHeight: currentExcerptLh,
+                fontWeight: currentExcerptFw,
+                marginBottom: currentExcerptMb,
+              }}
+            >
+              {currentExcerpt}
+            </p>
+          )}
 
-          <Link href={postLink} className="headline-big-readmore">
-            {readMoreText}
-          </Link>
+          {currentShowReadMore && (
+            <Link
+              href={postLink}
+              className="headline-big-readmore inline-flex items-center justify-center border font-bold uppercase tracking-[0.08em] transition-colors hover:!bg-[var(--headline-big-readmore-hover-bg)] hover:!text-[var(--headline-big-readmore-hover-text)] hover:!border-[var(--headline-big-readmore-hover-border)]"
+              style={{
+                color: currentReadMoreTextColor,
+                background: currentReadMoreBg,
+                borderColor: currentReadMoreBorder,
+                borderRadius: currentReadMoreRadius,
+                padding: `${currentReadMorePy} ${currentReadMorePx}`,
+                fontSize: currentReadMoreFs,
+              }}
+            >
+              {readMoreText}
+            </Link>
+          )}
         </article>
       ) : (
-        <div className="text-sm text-[var(--fg-muted)]">Belum ada berita untuk ditampilkan.</div>
+        <div className="text-sm [color:var(--muted-text,var(--home-meta-color,#9ca3af))]">Belum ada berita untuk ditampilkan.</div>
       )}
+      </div>
     </div>
   );
 }

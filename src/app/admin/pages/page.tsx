@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Edit, Trash2, ExternalLink, FileText, Search } from "lucide-react";
+import StatusBadge from "@/components/admin/StatusBadge";
 
 interface Page {
   id: string;
@@ -12,28 +13,67 @@ interface Page {
   updatedAt: string;
 }
 
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+};
+
 export default function PagesAdmin() {
   const [pages, setPages] = useState<Page[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [pagination, setPagination] = useState<Pagination>({
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 1,
+  });
 
   useEffect(() => {
-    fetchPages();
-  }, []);
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-  const fetchPages = async () => {
+  const fetchPages = useCallback(async () => {
     try {
-      const res = await fetch("/api/pages");
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("page", String(pagination.page));
+      params.set("limit", String(pagination.limit));
+      if (debouncedSearch) params.set("q", debouncedSearch);
+      const res = await fetch(`/api/pages?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
-        setPages(data);
+        setPages(Array.isArray(data?.data) ? data.data : []);
+        if (data?.pagination) {
+          setPagination((prev) => ({
+            ...prev,
+            page: data.pagination.page ?? prev.page,
+            limit: data.pagination.limit ?? prev.limit,
+            total: data.pagination.total ?? prev.total,
+            totalPages: data.pagination.totalPages ?? prev.totalPages,
+          }));
+        }
       }
     } catch (error) {
       console.error("Gagal mengambil data halaman", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, pagination.limit, pagination.page]);
+
+  useEffect(() => {
+    fetchPages();
+  }, [fetchPages]);
+
+  useEffect(() => {
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  }, [debouncedSearch]);
 
   const deletePage = async (id: string) => {
     if (!confirm("Apakah Anda yakin ingin menghapus halaman ini?")) return;
@@ -41,7 +81,11 @@ export default function PagesAdmin() {
     try {
       const res = await fetch(`/api/pages/${id}`, { method: "DELETE" });
       if (res.ok) {
-        setPages(pages.filter((p) => p.id !== id));
+        if (pages.length === 1 && pagination.page > 1) {
+          setPagination((prev) => ({ ...prev, page: prev.page - 1 }));
+        } else {
+          fetchPages();
+        }
       } else {
         alert("Gagal menghapus halaman");
       }
@@ -50,11 +94,6 @@ export default function PagesAdmin() {
       alert("Terjadi kesalahan saat menghapus");
     }
   };
-
-  const filteredPages = pages.filter(page => 
-    page.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    page.slug.toLowerCase().includes(searchTerm.toLowerCase())
-  );
 
   return (
     <div className="p-6 md:p-8 bg-[var(--bg-base)] min-h-screen">
@@ -94,7 +133,7 @@ export default function PagesAdmin() {
                 <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
                 Memuat data...
             </div>
-        ) : filteredPages.length === 0 ? (
+        ) : pages.length === 0 ? (
             <div className="p-12 text-center flex flex-col items-center">
                 <div className="w-16 h-16 bg-[var(--bg-base)] rounded-full flex items-center justify-center mb-4">
                     <FileText size={32} className="text-[var(--fg-muted)]" />
@@ -123,7 +162,7 @@ export default function PagesAdmin() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border)]">
-                        {filteredPages.map((page) => (
+                        {pages.map((page) => (
                             <tr key={page.id} className="hover:bg-[var(--bg-base)] transition-colors group">
                                 <td className="px-6 py-4">
                                     <div className="flex flex-col">
@@ -142,16 +181,7 @@ export default function PagesAdmin() {
                                     </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                                        page.published 
-                                        ? "bg-green-100 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800" 
-                                        : "bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                                    }`}>
-                                        <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${
-                                            page.published ? "bg-green-500" : "bg-gray-500"
-                                        }`}></span>
-                                        {page.published ? "Published" : "Draft"}
-                                    </span>
+                                    <StatusBadge status={page.published ? "PUBLISHED" : "DRAFT"} published={page.published} />
                                 </td>
                                 <td className="px-6 py-4 text-sm text-[var(--fg-secondary)]">
                                     {new Date(page.updatedAt).toLocaleDateString('id-ID', {
@@ -184,6 +214,36 @@ export default function PagesAdmin() {
             </div>
         )}
       </div>
+
+      {!loading && pagination.totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between gap-3 text-sm text-[var(--fg-secondary)]">
+          <div>
+            Menampilkan {(pagination.page - 1) * pagination.limit + 1}-
+            {Math.min(pagination.page * pagination.limit, pagination.total)} dari {pagination.total} halaman
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={pagination.page <= 1}
+              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+            >
+              Sebelumnya
+            </button>
+            <span className="px-3 py-2 rounded-lg border border-[var(--border)] bg-[var(--bg-surface)]">
+              {pagination.page}/{pagination.totalPages}
+            </span>
+            <button
+              type="button"
+              className="btn btn-outline"
+              disabled={pagination.page >= pagination.totalPages}
+              onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+            >
+              Berikutnya
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

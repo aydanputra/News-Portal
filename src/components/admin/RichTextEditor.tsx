@@ -19,6 +19,9 @@ interface RichTextEditorProps {
   label?: string;
   onRequestImage?: () => void;
   onRequestVideo?: () => void;
+  toolbarMode?: "full" | "basic";
+  editorMinHeight?: string;
+  containerClassName?: string;
 }
 
 const formats = [
@@ -37,7 +40,20 @@ const formats = [
 ];
 
 const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
-  ({ value, onChange, placeholder, label, onRequestImage, onRequestVideo }, ref) => {
+  (
+    {
+      value,
+      onChange,
+      placeholder,
+      label,
+      onRequestImage,
+      onRequestVideo,
+      toolbarMode = "full",
+      editorMinHeight,
+      containerClassName,
+    },
+    ref,
+  ) => {
     const quillRef = useRef<any>(null);
     
     useImperativeHandle(ref, () => ({
@@ -86,20 +102,28 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
     };
 
     const modules = useMemo(() => {
+      const toolbarContainer =
+        toolbarMode === "basic"
+          ? [
+              ["bold", "italic", "underline"],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["link", "clean"],
+            ]
+          : [
+              [{ header: [1, 2, 3, false] }],
+              ["bold", "italic", "underline", "strike"],
+              [{ color: [] }, { background: [] }],
+              [{ align: [] }],
+              [{ list: "ordered" }, { list: "bullet" }],
+              ["link", "image", "video"],
+              ["clean"],
+            ];
       const config: any = {
         clipboard: {
           matchVisual: false,
         },
         toolbar: {
-          container: [
-            [{ header: [1, 2, 3, false] }],
-            ["bold", "italic", "underline", "strike"],
-            [{ color: [] }, { background: [] }],
-            [{ align: [] }],
-            [{ list: "ordered" }, { list: "bullet" }],
-            ["link", "image", "video"],
-            ["clean"],
-          ],
+          container: toolbarContainer,
         },
       };
 
@@ -110,10 +134,15 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
       }
       
       return config;
-    }, [onRequestImage, onRequestVideo]);
+    }, [onRequestImage, onRequestVideo, toolbarMode]);
 
     return (
-      <div className="flex flex-col relative group">
+      <div
+        className={`flex flex-col relative group ${containerClassName ?? ""}`.trim()}
+        style={{
+          ["--rte-min-height" as any]: editorMinHeight ?? "calc(100vh - 400px)",
+        }}
+      >
         <style jsx global>{`
           .ql-tooltip { z-index: 100 !important; }
           /* Prevent Scroll Anchoring */
@@ -147,7 +176,7 @@ const RichTextEditor = forwardRef<RichTextEditorHandle, RichTextEditorProps>(
             border: none !important;
           }
           .ql-editor {
-            min-height: calc(100vh - 400px); /* Fill significant portion of screen */
+            min-height: var(--rte-min-height);
             height: auto !important; 
             overflow: visible !important;
             padding-bottom: 20px;

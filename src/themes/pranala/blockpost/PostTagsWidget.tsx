@@ -19,11 +19,19 @@ export default function PostTagsWidget({
   const tagLabelColorConfig = getResponsiveConfig("tagLabelColor");
   const tagLabelColor = typeof tagLabelColorConfig === "string" && tagLabelColorConfig.trim() !== "" ? tagLabelColorConfig : (isPublicDarkMode ? "var(--fg-primary)" : metaColor);
   const tagLabelFontSize = toPx(getResponsiveConfig("tagLabelFontSize")) || (preview ? "10px" : "12px");
+  const tagLabelLineHeightValue = getResponsiveConfig("tagLabelLineHeight");
+  const tagLabelLineHeight = typeof tagLabelLineHeightValue === "number"
+    ? tagLabelLineHeightValue
+    : (typeof tagLabelLineHeightValue === "string" && tagLabelLineHeightValue.trim() !== "" ? tagLabelLineHeightValue.trim() : 1.4);
   const tagLabelFontWeight = toFontWeight(getResponsiveConfig("tagLabelFontWeight"), "600");
   const rawTagDesign = String(getResponsiveConfig("tagDesign") || "");
   const legacyStyle = String(getResponsiveConfig("style") || "");
   const tagDesign = rawTagDesign === "cloud" || rawTagDesign === "soft" || rawTagDesign === "outline" ? rawTagDesign : (legacyStyle === "plain" ? "outline" : "cloud");
   const tagFontSize = toPx(getResponsiveConfig("tagFontSize")) || (preview ? "10px" : "12px");
+  const tagLineHeightValue = getResponsiveConfig("tagLineHeight");
+  const tagLineHeight = typeof tagLineHeightValue === "number"
+    ? tagLineHeightValue
+    : (typeof tagLineHeightValue === "string" && tagLineHeightValue.trim() !== "" ? tagLineHeightValue.trim() : 1.3);
   const radiusValue = getResponsiveConfig("tagBorderRadius");
   const resolveTagRadius = (value: unknown): string => {
     if (value === undefined || value === null || value === "") return "var(--home-main-box-radius, 0.25rem)";
@@ -90,7 +98,7 @@ export default function PostTagsWidget({
     <div className="w-full" style={widgetContainerStyle}>
       <div className="flex flex-wrap items-center" style={{ columnGap: gapX, rowGap: gapY, justifyContent }}>
         {showTagLabel && (
-          <span className="inline-flex items-center mr-1" style={{ color: tagLabelColor, fontSize: tagLabelFontSize, fontWeight: tagLabelFontWeight }}>
+          <span className="inline-flex items-center mr-1" style={{ color: tagLabelColor, fontSize: tagLabelFontSize, lineHeight: tagLabelLineHeight, fontWeight: tagLabelFontWeight }}>
             {tagLabelText}
           </span>
         )}
@@ -98,8 +106,8 @@ export default function PostTagsWidget({
         <Link
           key={tag.id || tag.slug || tag.name}
           href={`/tag/${tag.slug || tag.name}`}
-          className={`${tagTextClass} inline-flex items-center leading-none border transition-all hover:-translate-y-0.5`}
-          style={{ fontSize: tagFontSize, borderRadius: tagBorderRadius, padding: `${paddingY} ${paddingX}`, color: tagTextColor, backgroundColor: tagBackgroundColor, borderColor: tagBorderColor }}
+          className={`${tagTextClass} inline-flex items-center border transition-all hover:-translate-y-0.5`}
+          style={{ fontSize: tagFontSize, lineHeight: tagLineHeight, borderRadius: tagBorderRadius, padding: `${paddingY} ${paddingX}`, color: tagTextColor, backgroundColor: tagBackgroundColor, borderColor: tagBorderColor }}
           onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = tagHoverBackgroundColor; e.currentTarget.style.color = tagHoverTextColor; e.currentTarget.style.borderColor = tagHoverBorderColor; }}
           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = tagBackgroundColor; e.currentTarget.style.color = tagTextColor; e.currentTarget.style.borderColor = tagBorderColor; }}
         >

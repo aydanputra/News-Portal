@@ -1,4 +1,5 @@
 import { getYouTubeThumbnailUrl } from "@/lib/utils";
+import { extractImageUrlsFromHtml, getFirstImageFromHtml, normalizeContentImageUrl } from "@/lib/content-images";
 
 export const toPx = (value: unknown): string | undefined => {
   if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
@@ -49,12 +50,7 @@ export const getPostImageUrl = (item: any): string | undefined => {
 };
 
 export const getFirstImageFromContent = (html: unknown): string | undefined => {
-  if (typeof html !== "string" || html.trim() === "") return undefined;
-  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-  const src = match?.[1]?.trim();
-  if (!src) return undefined;
-  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("/")) return src;
-  return `/${src.replace(/^\/+/, "")}`;
+  return getFirstImageFromHtml(html);
 };
 
 export const getAuthorImageUrl = (author: any): string | undefined => {
@@ -77,15 +73,9 @@ export const toPxValue = (value: unknown): string | undefined => {
 };
 
 export const normalizeImageUrl = (value: unknown): string | undefined => {
-  if (typeof value !== "string") return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("/")) return trimmed;
-  return `/${trimmed.replace(/^\/+/, "")}`;
+  return normalizeContentImageUrl(value);
 };
 
 export const getAllImagesFromContent = (html: unknown): string[] => {
-  if (typeof html !== "string" || html.trim() === "") return [];
-  const matches = [...html.matchAll(/<img[^>]+src=["']([^"']+)["']/gi)];
-  return matches.map((m) => normalizeImageUrl(m[1])).filter((src): src is string => Boolean(src));
+  return extractImageUrlsFromHtml(html);
 };

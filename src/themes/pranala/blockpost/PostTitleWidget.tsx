@@ -25,6 +25,7 @@ export default function PostTitleWidget({
         fontSize: titleSize,
         fontWeight: titleWeight,
         fontFamily: preview ? "var(--font-heading, Inter), sans-serif" : "var(--post-title-font, var(--font-heading, Inter)), sans-serif",
+        fontSynthesis: preview ? "var(--font-heading-synthesis, none)" : "var(--post-title-synthesis, var(--font-heading-synthesis, none))",
         lineHeight: typeof lh === "number" ? lh : (preview ? 1.15 : "var(--post-title-line-height, 1.15)"),
         textAlign: titleAlign === "left" || titleAlign === "center" || titleAlign === "right" || titleAlign === "justify" ? titleAlign : undefined
       }}

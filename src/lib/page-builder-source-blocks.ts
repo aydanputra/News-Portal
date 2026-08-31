@@ -7,6 +7,15 @@ export async function getBuilderSourceBlocks(activeTheme: string, locations?: Si
   const key = [...targetLocations].sort().join(",");
   const cached = unstable_cache(
     async () => {
+      const publicSourceBlockSelect = {
+        id: true,
+        type: true,
+        title: true,
+        order: true,
+        config: true,
+        isActive: true,
+        location: true,
+      } as const;
       return await prisma.homepageBlock.findMany({
         where: {
           isActive: true,
@@ -14,6 +23,7 @@ export async function getBuilderSourceBlocks(activeTheme: string, locations?: Si
           themeId: activeTheme,
         },
         orderBy: [{ location: "asc" }, { order: "asc" }],
+        select: publicSourceBlockSelect,
       });
     },
     [`builder-source-blocks:${activeTheme}:${key}`],

@@ -1,0 +1,2 @@
+ALTER TABLE "Post"
+ADD COLUMN IF NOT EXISTS "postImageWatermarkEnabled" BOOLEAN NOT NULL DEFAULT false;

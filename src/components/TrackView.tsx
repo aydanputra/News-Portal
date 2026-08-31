@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { sendViewTracking } from "@/lib/view-tracking";
 
 export default function TrackView({ postId }: { postId: string }) {
   const sentRef = useRef(false);
@@ -9,23 +10,12 @@ export default function TrackView({ postId }: { postId: string }) {
     if (!postId || sentRef.current) return;
     sentRef.current = true;
 
-    try {
-      const key = `viewed:${postId}`;
-      if (typeof window !== "undefined" && window.sessionStorage?.getItem(key) === "1") {
-        return;
-      }
-      window.sessionStorage?.setItem(key, "1");
-    } catch (error) {
-      void error;
-    }
-
     const send = () => {
-      fetch("/api/track-view", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId }),
-        keepalive: true,
-      }).catch((error) => void error);
+      sendViewTracking({
+        url: "/api/track-view",
+        dedupeKey: `post:${postId}`,
+        payload: { postId },
+      });
     };
 
     const w = globalThis as any;

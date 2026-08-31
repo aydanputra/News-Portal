@@ -2,7 +2,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Block, Category, Tag } from "../types";
 import { ConfigValue } from "@/lib/page-builder-config";
-import { buildHomepageChildConfig } from "@/lib/page-builder-child-presets";
+import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import { normalizeBlockTree } from "@/lib/homepage-block-migrations";
+import { buildHomepageChildConfig, getSidebarWidgetDefaultTitle } from "@/lib/page-builder-child-presets";
 
 const MAX_HISTORY = 50;
 
@@ -82,7 +84,7 @@ export function useHomepageBuilder() {
   
   // Editing Child State
   const [editingChild, setEditingChild] = useState<{ parentIndex: number, childId: string } | null>(null);
-  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual">("content");
+  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual" | "advanced">("content");
   
   // Section Editing State
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -203,10 +205,10 @@ export function useHomepageBuilder() {
                 setExcerptColor(settingsData.excerptColor || "#64748b");
                 setMetaColor(settingsData.metaColor || "#94a3b8");
                 setHomeWidgetTitleColor(settingsData.homeWidgetTitleColor || settingsData.headingColor || "#1e293b");
-                setHomeNewsTitleColor(settingsData.homeNewsTitleColor || settingsData.headingColor || "#1e293b");
-                setHomeHoverColor(settingsData.homeHoverColor || settingsData.primaryColor || "#2563eb");
-                setHomeExcerptColor(settingsData.homeExcerptColor || settingsData.excerptColor || "#64748b");
-                setHomeMetaColor(settingsData.homeMetaColor || settingsData.metaColor || "#94a3b8");
+                setHomeNewsTitleColor(settingsData.homeNewsTitleColor || settingsData.headingColor || "#111827");
+                setHomeHoverColor(settingsData.homeHoverColor || settingsData.globalAccentColor || settingsData.accentColor || "#2563eb");
+                setHomeExcerptColor(settingsData.homeExcerptColor || settingsData.excerptColor || "#4b5563");
+                setHomeMetaColor(settingsData.homeMetaColor || settingsData.metaColor || "#9ca3af");
                 setHeadingFont(settingsData.headingFont || "Inter");
                 setBodyFont(settingsData.bodyFont || "Inter");
                 setGlobalBorderRadius(settingsData.globalBorderRadius || "0.5rem");
@@ -264,17 +266,74 @@ export function useHomepageBuilder() {
       return 1;
   }, []);
 
-  const createChildBlock = useCallback((type: string, title: string, columnIndex: number, order: number): Block => {
-      const config = buildHomepageChildConfig(type, title, columnIndex) as Block["config"];
+  const cloneConfig = useCallback((value: Block["config"]): Block["config"] => {
+      if (!value || typeof value !== "object") return {};
+      return JSON.parse(JSON.stringify(value)) as Block["config"];
+  }, []);
+
+  const findHomepageWidgetTemplateConfig = useCallback((sourceBlocks: Block[], targetType: string): Block["config"] | undefined => {
+      const visit = (blocksToVisit: Block[]): Block["config"] | undefined => {
+          for (const block of blocksToVisit) {
+              const normalizedType = resolveBlockTypeAlias(block.type);
+              if (normalizedType === targetType) {
+                  return cloneConfig(block.config);
+              }
+              const children = getChildren(block);
+              if (children.length > 0) {
+                  const nested = visit(children);
+                  if (nested) return nested;
+              }
+          }
+          return undefined;
+      };
+
+      return visit(sourceBlocks);
+  }, [cloneConfig, getChildren]);
+
+  const findHomepageSectionTemplateConfig = useCallback((sourceBlocks: Block[]): Block["config"] | undefined => {
+      const firstSection = sourceBlocks.find((block) => block.type === "section");
+      if (!firstSection) return undefined;
+      const cloned = cloneConfig(firstSection.config) || {};
       return {
-          id: "child_" + type + "_" + Date.now(),
-          type: type,
-          title: title,
+          ...cloned,
+          children: []
+      };
+  }, [cloneConfig]);
+
+  const createChildBlock = useCallback((sourceBlocks: Block[], type: string, title: string, columnIndex: number, order: number): Block => {
+      const normalizedType = resolveBlockTypeAlias(type);
+      const templateConfig = normalizedType === "section"
+          ? findHomepageSectionTemplateConfig(sourceBlocks)
+          : findHomepageWidgetTemplateConfig(sourceBlocks, normalizedType);
+      const templateWidgetType = normalizedType === "sidebar_widget" && typeof templateConfig?.widgetType === "string"
+          ? templateConfig.widgetType
+          : "popular_posts";
+      const resolvedTitle = normalizedType === "sidebar_widget"
+          ? getSidebarWidgetDefaultTitle(templateWidgetType, title)
+          : normalizedType === "section"
+            ? "Inner Section"
+            : title;
+      const fallbackConfig = buildHomepageChildConfig(normalizedType, resolvedTitle, columnIndex) as Block["config"];
+      const config = (templateConfig
+          ? {
+              ...templateConfig,
+              columnIndex,
+          }
+          : fallbackConfig) as Block["config"];
+
+      if (config && typeof config === "object" && !Array.isArray(config) && normalizedType !== "ad_banner") {
+          config.title = resolvedTitle;
+      }
+
+      return normalizeBlockTree({
+          id: "child_" + normalizedType + "_" + Date.now(),
+          type: normalizedType,
+          title: resolvedTitle,
           order,
           isVisible: true,
           config
-      };
-  }, []);
+      }) as Block;
+  }, [findHomepageSectionTemplateConfig, findHomepageWidgetTemplateConfig]);
 
   const deepCloneBlock = useCallback((block: Block): Block => {
       const newId = block.type === "section" ? "section_" + Date.now() + Math.random().toString(36).substr(2, 5) : "child_" + block.type + "_" + Date.now() + Math.random().toString(36).substr(2, 5);
@@ -294,7 +353,7 @@ export function useHomepageBuilder() {
           };
       }
       
-      return clonedBlock;
+      return normalizeBlockTree(clonedBlock);
   }, [getChildren]);
 
   const findBlockRecursive = useCallback((blocks: Block[], targetId: string): Block | null => {
@@ -384,7 +443,7 @@ export function useHomepageBuilder() {
       setBlocksWithHistory(prev => {
           const { found, newBlocks } = updateBlockRecursive(prev, parentId, (parent) => {
             const children = getChildren(parent);
-            const newChild = createChildBlock(type, title, columnIndex, children.length + 1);
+            const newChild = createChildBlock(prev, type, title, columnIndex, children.length + 1);
 
             return {
                 ...parent,
@@ -764,7 +823,7 @@ export function useHomepageBuilder() {
         // Create shallow copy of parent
         const parent = { ...newBlocks[parentIndex] };
         const children = getChildren(parent);
-        const newChild = createChildBlock(type, title, columnIndex, children.length + 1);
+        const newChild = createChildBlock(prev, type, title, columnIndex, children.length + 1);
 
         // Immutable update
         parent.config = {
@@ -827,19 +886,23 @@ export function useHomepageBuilder() {
   }, [getChildren, getColumnIndex, setBlocksWithHistory]);
 
   const addSectionBlock = useCallback((layoutType: string) => {
-      const newBlock: Block = {
-          id: "section_" + Date.now(),
-          type: "section",
-          title: "Section Baru",
-          order: blocks.length + 1,
-          isVisible: true,
-          config: { 
-              layout: layoutType, 
-              children: [] 
-          }
-      };
-      setBlocksWithHistory(prev => [...prev, newBlock]);
-  }, [blocks.length, setBlocksWithHistory]);
+      setBlocksWithHistory(prev => {
+          const sectionTemplate = findHomepageSectionTemplateConfig(prev);
+          const newBlock: Block = {
+              id: "section_" + Date.now(),
+              type: "section",
+              title: "Section Baru",
+              order: prev.length + 1,
+              isVisible: true,
+              config: {
+                  ...(sectionTemplate || {}),
+                  layout: layoutType,
+                  children: []
+              }
+          };
+          return [...prev, newBlock];
+      });
+  }, [findHomepageSectionTemplateConfig, setBlocksWithHistory]);
 
   const deleteChildBlock = useCallback((parentIndex: number, childId: string) => {
       if (confirm("Hapus widget ini?")) {
@@ -894,6 +957,11 @@ export function useHomepageBuilder() {
               setHeadingColor("#1e293b");
               setExcerptColor("#64748b");
               setMetaColor("#94a3b8");
+              setHomeWidgetTitleColor("#1e293b");
+              setHomeNewsTitleColor("#111827");
+              setHomeHoverColor("#2563eb");
+              setHomeExcerptColor("#4b5563");
+              setHomeMetaColor("#9ca3af");
               setHeadingFont("Inter");
               setBodyFont("Inter");
               setGlobalBorderRadius("0.5rem");

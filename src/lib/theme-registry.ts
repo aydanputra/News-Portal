@@ -1,65 +1,128 @@
-import dynamic from 'next/dynamic';
+// Metadata tema untuk kebutuhan UI admin/client.
+// Resolver komponen server-only ada di theme-registry.server.ts.
 
-// Konfigurasi Tema Aktif
-// Di masa depan, nilai ini bisa diambil dari Environment Variable (.env)
-const ACTIVE_THEME = process.env.NEXT_PUBLIC_ACTIVE_THEME || 'classic';
+export type ThemeId = "classic" | "skeleton" | "pranala";
+export type ThemeSurface = "homepage" | "archive" | "singlePost" | "page";
+export type ThemeCapabilityKey =
+  | "supportsArchiveBuilder"
+  | "supportsPostBuilder"
+  | "supportsHeaderBuilder"
+  | "supportsFooterBuilder"
+  | "singlePostRequiresBlocks"
+  | "isStarterTheme"
+  | "isProductionReady"
+  | "visibleInSelector";
 
-// Dynamic Import agar hanya memuat kode tema yang aktif
-// Ini mencegah "Bloat" di mana kode dari 30 tema lain ikut ter-bundle
-const ClassicHome = dynamic(() => import('@themes/classic/templates/Homepage'), { 
-  loading: () => null 
-});
-
-const SkeletonHome = dynamic(() => import('@themes/skeleton/Home'), { 
-  loading: () => null 
-});
-
-const PranalaHome = dynamic(() => import('@themes/pranala/templates/Homepage'), { 
-  loading: () => null 
-});
-
-// Mapping Komponen
-// Kunci: nama tema di database (string)
-// Nilai: Komponen React
-const themes: Record<string, any> = {
-  classic: ClassicHome,
-  skeleton: SkeletonHome,
-  pranala: PranalaHome,
+export type ThemeDefinition = {
+  id: ThemeId;
+  label: string;
+  description: string;
+  mockupType: "classic" | "modern";
+  previewImage: string;
+  visibleInSelector: boolean;
+  isStarterTheme: boolean;
+  isProductionReady: boolean;
+  supportsArchiveBuilder: boolean;
+  supportsPostBuilder: boolean;
+  supportsHeaderBuilder: boolean;
+  supportsFooterBuilder: boolean;
+  singlePostRequiresBlocks: boolean;
+  supportedSurfaces: ThemeSurface[];
+  fallbackThemeId: ThemeId;
 };
 
-export function getThemeComponent(themeName: string) {
-  // 1. Prioritaskan tema yang diset di database (Runtime Config)
-  if (themes[themeName]) {
-    return themes[themeName];
-  }
-  
-  // 2. Fallback ke tema default environment (Build Config)
-  if (themes[ACTIVE_THEME]) {
-    return themes[ACTIVE_THEME];
-  }
-
-  // 3. Fallback terakhir
-  return themes.classic;
-}
-
-// Metadata Tema (Client-Side Usage untuk Admin UI)
-export const themeOptions = [
+export const themeOptions: ThemeDefinition[] = [
   {
     id: "classic",
     label: "Classic Standard",
     description: "Tema standar yang bersih dan modular.",
-    mockupType: "classic"
+    mockupType: "classic",
+    previewImage: "/theme-previews/classic-home.svg",
+    visibleInSelector: true,
+    isStarterTheme: true,
+    isProductionReady: false,
+    supportsArchiveBuilder: false,
+    supportsPostBuilder: false,
+    supportsHeaderBuilder: false,
+    supportsFooterBuilder: false,
+    singlePostRequiresBlocks: false,
+    supportedSurfaces: ["homepage", "archive", "singlePost", "page"],
+    fallbackThemeId: "classic",
   },
   {
     id: "skeleton",
     label: "Skeleton Starter",
     description: "Tema dasar minimalis untuk pengembangan.",
-    mockupType: "modern" // Skeleton usually simpler
+    mockupType: "modern",
+    previewImage: "/theme-previews/skeleton-home.svg",
+    visibleInSelector: true,
+    isStarterTheme: true,
+    isProductionReady: false,
+    supportsArchiveBuilder: false,
+    supportsPostBuilder: false,
+    supportsHeaderBuilder: false,
+    supportsFooterBuilder: false,
+    singlePostRequiresBlocks: false,
+    supportedSurfaces: ["homepage"],
+    fallbackThemeId: "classic",
   },
   {
     id: "pranala",
     label: "Pranala News",
     description: "Tema kustom modern dengan gaya minimalis.",
-    mockupType: "modern"
+    mockupType: "modern",
+    previewImage: "/theme-previews/pranala-home.svg",
+    visibleInSelector: true,
+    isStarterTheme: false,
+    isProductionReady: true,
+    supportsArchiveBuilder: true,
+    supportsPostBuilder: true,
+    supportsHeaderBuilder: true,
+    supportsFooterBuilder: true,
+    singlePostRequiresBlocks: true,
+    supportedSurfaces: ["homepage", "archive", "singlePost", "page"],
+    fallbackThemeId: "classic",
   },
 ];
+
+const THEME_DEFINITIONS: Record<ThemeId, ThemeDefinition> = themeOptions.reduce(
+  (acc, theme) => {
+    acc[theme.id] = theme;
+    return acc;
+  },
+  {} as Record<ThemeId, ThemeDefinition>,
+);
+
+export function normalizeThemeId(themeName: string): ThemeId | undefined {
+  const normalized = String(themeName || "").trim().toLowerCase();
+  if (normalized === "classic" || normalized === "skeleton" || normalized === "pranala") {
+    return normalized;
+  }
+  return undefined;
+}
+
+export function getResolvedThemeId(themeName: string, fallback: ThemeId = "classic"): ThemeId {
+  return normalizeThemeId(themeName) || fallback;
+}
+
+export function getThemeDefinition(themeName: string, fallback: ThemeId = "classic"): ThemeDefinition {
+  return THEME_DEFINITIONS[getResolvedThemeId(themeName, fallback)];
+}
+
+export function themeSupports(themeName: string, capability: ThemeCapabilityKey): boolean {
+  return Boolean(getThemeDefinition(themeName)[capability]);
+}
+
+export function getThemeSurfaceThemeId(themeName: string, surface: ThemeSurface): ThemeId {
+  const definition = getThemeDefinition(themeName);
+  if (definition.supportedSurfaces.includes(surface)) return definition.id;
+  return definition.fallbackThemeId;
+}
+
+export function resolveSinglePostThemeId(themeName: string, hasBlocks: boolean): ThemeId {
+  const definition = getThemeDefinition(themeName);
+  if (definition.singlePostRequiresBlocks && !hasBlocks) {
+    return definition.fallbackThemeId;
+  }
+  return getThemeSurfaceThemeId(definition.id, "singlePost");
+}

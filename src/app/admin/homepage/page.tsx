@@ -233,6 +233,7 @@ export default function HomepageBuilder() {
 
           {/* Edit Child Modal */}
           <EditChildModal 
+            activeTheme={state.activeTheme}
             child={actions.getEditingChildBlock()}
             isOpen={!!state.editingChild}
             onClose={() => actions.setEditingChild(null)}
@@ -247,7 +248,9 @@ export default function HomepageBuilder() {
             getConfigValue={actions.getConfigValue}
             onUpdateTitle={actions.onUpdateTitle}
             globalSettings={{
+                accentColor: state.accentColor,
                 primaryColor: state.primaryColor,
+                backgroundColor: state.backgroundColor,
                 headingColor: state.headingColor,
                 metaColor: state.metaColor,
                 excerptColor: state.excerptColor,
@@ -255,7 +258,8 @@ export default function HomepageBuilder() {
                 homeNewsTitleColor: state.homeNewsTitleColor,
                 homeHoverColor: state.homeHoverColor,
                 homeExcerptColor: state.homeExcerptColor,
-                homeMetaColor: state.homeMetaColor
+                homeMetaColor: state.homeMetaColor,
+                globalBorderRadius: state.globalBorderRadius,
             }}
           />
 

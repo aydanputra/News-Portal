@@ -1,6 +1,6 @@
 import Link from "next/link";
 import React from "react";
-import { safeStyleTagCss, sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeExternalUrl } from "@/lib/sanitizer";
 
 interface ArchiveEmptyStateProps {
   block: any;
@@ -9,7 +9,6 @@ interface ArchiveEmptyStateProps {
 
 export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateProps) {
   const config = block?.config || {};
-  const rootId = `archive-empty-${String(block?.id || "default").replace(/[^a-zA-Z0-9_-]/g, "")}`;
   if (!isEmpty) return null;
 
   const title = typeof config.emptyTitle === "string" && config.emptyTitle.trim()
@@ -34,32 +33,21 @@ export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateP
   const buttonBgColorMobile = typeof config.mobileButtonBgColor === "string" && config.mobileButtonBgColor.trim() ? config.mobileButtonBgColor : buttonBgColorDesktop;
 
   return (
-    <div id={rootId} className="rounded-[var(--home-main-box-radius,0.75rem)] border border-dashed border-[var(--border,#e5e7eb)] bg-[var(--bg-surface,white)] px-6 py-12" style={{ textAlign: align as React.CSSProperties["textAlign"] }}>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: safeStyleTagCss(`
-            #${rootId} {
-              --archive-empty-title-color: ${titleColorMobile};
-              --archive-empty-description-color: ${descriptionColorMobile};
-              --archive-empty-button-bg: ${buttonBgColorMobile};
-            }
-            @media (min-width: 768px) {
-              #${rootId} {
-                --archive-empty-title-color: ${titleColorTablet};
-                --archive-empty-description-color: ${descriptionColorTablet};
-                --archive-empty-button-bg: ${buttonBgColorTablet};
-              }
-            }
-            @media (min-width: 1025px) {
-              #${rootId} {
-                --archive-empty-title-color: ${titleColorDesktop};
-                --archive-empty-description-color: ${descriptionColorDesktop};
-                --archive-empty-button-bg: ${buttonBgColorDesktop};
-              }
-            }
-          `)
-        }}
-      />
+    <div
+      className="public-theme archive-empty-block rounded-[var(--home-main-box-radius,0.75rem)] border border-dashed border-[var(--border,#e5e7eb)] bg-[var(--bg-surface,#f9fafb)] px-6 py-12"
+      style={{
+        textAlign: align as React.CSSProperties["textAlign"],
+        "--archive-empty-title-color-mobile": titleColorMobile,
+        "--archive-empty-title-color-tablet": titleColorTablet,
+        "--archive-empty-title-color-desktop": titleColorDesktop,
+        "--archive-empty-description-color-mobile": descriptionColorMobile,
+        "--archive-empty-description-color-tablet": descriptionColorTablet,
+        "--archive-empty-description-color-desktop": descriptionColorDesktop,
+        "--archive-empty-button-bg-mobile": buttonBgColorMobile,
+        "--archive-empty-button-bg-tablet": buttonBgColorTablet,
+        "--archive-empty-button-bg-desktop": buttonBgColorDesktop,
+      } as React.CSSProperties}
+    >
       <h2 className="text-2xl font-bold" style={{ color: "var(--archive-empty-title-color)" }}>{title}</h2>
       <p className="mt-3 text-sm leading-6" style={{ color: "var(--archive-empty-description-color)" }}>{description}</p>
       {ctaLabel && (

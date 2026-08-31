@@ -3,7 +3,8 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag, unstable_cache } from "next/cache";
 import { z } from "zod";
-import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
+import { assertRateLimit } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
 import { sanitizeExternalUrl } from "@/lib/sanitizer";
 
 const ALLOWED_PAGE_TYPES = new Set([

@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues } from "./responsive";
-import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
 
 type HeroSplitPost = {
   id?: string;
@@ -142,6 +142,9 @@ type HeroSplitConfig = {
   heroCategoryLabelFontSize?: number | string;
   tabletHeroCategoryLabelFontSize?: number | string;
   mobileHeroCategoryLabelFontSize?: number | string;
+  heroCategoryLabelLineHeight?: number | string;
+  tabletHeroCategoryLabelLineHeight?: number | string;
+  mobileHeroCategoryLabelLineHeight?: number | string;
   miniCategoryLabelColor?: string;
   tabletMiniCategoryLabelColor?: string;
   mobileMiniCategoryLabelColor?: string;
@@ -151,6 +154,9 @@ type HeroSplitConfig = {
   miniCategoryLabelFontSize?: number | string;
   tabletMiniCategoryLabelFontSize?: number | string;
   mobileMiniCategoryLabelFontSize?: number | string;
+  miniCategoryLabelLineHeight?: number | string;
+  tabletMiniCategoryLabelLineHeight?: number | string;
+  mobileMiniCategoryLabelLineHeight?: number | string;
   blockTitleColor?: string;
   tabletBlockTitleColor?: string;
   mobileBlockTitleColor?: string;
@@ -160,6 +166,15 @@ type HeroSplitConfig = {
   blockTitleFontSize?: number | string;
   tabletBlockTitleFontSize?: number | string;
   mobileBlockTitleFontSize?: number | string;
+  blockTitleLineHeight?: number | string;
+  tabletBlockTitleLineHeight?: number | string;
+  mobileBlockTitleLineHeight?: number | string;
+  blockTitleMarginBottom?: number | string;
+  tabletBlockTitleMarginBottom?: number | string;
+  mobileBlockTitleMarginBottom?: number | string;
+  blockTitlePaddingBottom?: number | string;
+  tabletBlockTitlePaddingBottom?: number | string;
+  mobileBlockTitlePaddingBottom?: number | string;
   useBox?: boolean | string;
   boxColor?: string;
   boxBorderRadius?: string | number;
@@ -257,17 +272,57 @@ const formatShortDateId = (value?: string | Date | null) => {
   }).format(date);
 };
 
+const normalizeHexLike = (value: unknown) => {
+  if (typeof value !== "string") return "";
+  return value.trim().toLowerCase().replace(/\s+/g, "");
+};
+
+const isOneOf = (value: unknown, candidates: string[]) => {
+  const normalized = normalizeHexLike(value);
+  return normalized !== "" && candidates.includes(normalized);
+};
+
 export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const cfg = block.config || {};
   const configRecord = cfg as Record<string, unknown>;
-  const limit = 5;
   const offset = Math.max(0, toNumber(cfg.offset, 0));
   const miniCount = 4;
-  const data = posts.slice(offset, offset + limit);
+  const [device, setDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [isPublicDarkMode, setIsPublicDarkMode] = React.useState(false);
+
+  React.useEffect(() => {
+    const computeDevice = () => {
+      const width = window.innerWidth;
+      if (width >= 1025) return "desktop";
+      if (width >= 768) return "tablet";
+      return "mobile";
+    };
+    const updateDevice = () => setDevice(computeDevice());
+    updateDevice();
+    window.addEventListener("resize", updateDevice);
+    return () => window.removeEventListener("resize", updateDevice);
+  }, []);
+
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const applyMode = () => setIsPublicDarkMode(root.classList.contains("public-dark"));
+    applyMode();
+
+    const observer = new MutationObserver(applyMode);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  const limitDesktop = Math.max(1, Math.min(5, toNumber(cfg.limit, 5)));
+  const limitTablet = Math.max(1, Math.min(5, toNumber((cfg as any).tabletLimit, limitDesktop)));
+  const limitMobile = Math.max(1, Math.min(5, toNumber((cfg as any).mobileLimit, limitDesktop)));
+  const activeLimit = device === "mobile" ? limitMobile : device === "tablet" ? limitTablet : limitDesktop;
+  const data = posts.slice(offset, offset + activeLimit);
 
   if (data.length === 0) {
     return (
-      <div id={`hero-split-4-${block.id}`} className="p-4 rounded-lg border border-[var(--border)] text-sm text-[var(--fg-muted)]">
+      <div id={`hero-split-4-${block.id}`} className="p-4 rounded-lg border border-[var(--border)] text-sm [color:var(--muted-text,var(--home-meta-color,#9ca3af))]">
         Belum ada berita untuk ditampilkan.
       </div>
     );
@@ -284,9 +339,9 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const showMiniCategoryDesktop = getResponsiveBool(configRecord, "showMiniCategory", "desktop", showCategoryDesktop);
   const showMiniCategoryTablet = getResponsiveBool(configRecord, "showMiniCategory", "tablet", showCategoryTablet);
   const showMiniCategoryMobile = getResponsiveBool(configRecord, "showMiniCategory", "mobile", showCategoryMobile);
-  const showMetaInfoDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", true);
-  const showMetaInfoTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", true);
-  const showMetaInfoMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", true);
+  const showMetaInfoDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", getResponsiveBool(configRecord, "showMeta", "desktop", true));
+  const showMetaInfoTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", getResponsiveBool(configRecord, "showMeta", "tablet", true));
+  const showMetaInfoMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", getResponsiveBool(configRecord, "showMeta", "mobile", true));
   const showHeroMetaInfoDesktop = getResponsiveBool(configRecord, "showHeroMetaInfo", "desktop", showMetaInfoDesktop);
   const showHeroMetaInfoTablet = getResponsiveBool(configRecord, "showHeroMetaInfo", "tablet", showMetaInfoTablet);
   const showHeroMetaInfoMobile = getResponsiveBool(configRecord, "showHeroMetaInfo", "mobile", showMetaInfoMobile);
@@ -320,30 +375,12 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const showMiniExcerptDesktop = getResponsiveBool(configRecord, "showMiniExcerpt", "desktop", false);
   const showMiniExcerptTablet = getResponsiveBool(configRecord, "showMiniExcerpt", "tablet", showExcerptTablet);
   const showMiniExcerptMobile = getResponsiveBool(configRecord, "showMiniExcerpt", "mobile", showExcerptMobile);
-  const showHeroCategoryAny = showHeroCategoryDesktop || showHeroCategoryTablet || showHeroCategoryMobile;
-  const showMiniCategoryAny = showMiniCategoryDesktop || showMiniCategoryTablet || showMiniCategoryMobile;
-  const showHeroMetaAny =
-    (showHeroMetaInfoMobile && (showHeroAuthorMobile || showHeroDateMobile)) ||
-    (showHeroMetaInfoTablet && (showHeroAuthorTablet || showHeroDateTablet)) ||
-    (showHeroMetaInfoDesktop && (showHeroAuthorDesktop || showHeroDateDesktop));
-  const showMiniMetaAny =
-    (showMiniMetaInfoMobile && (showMiniAuthorMobile || showMiniDateMobile)) ||
-    (showMiniMetaInfoTablet && (showMiniAuthorTablet || showMiniDateTablet)) ||
-    (showMiniMetaInfoDesktop && (showMiniAuthorDesktop || showMiniDateDesktop));
-  const showHeroAuthorAny = showHeroAuthorMobile || showHeroAuthorTablet || showHeroAuthorDesktop;
-  const showHeroDateAny = showHeroDateMobile || showHeroDateTablet || showHeroDateDesktop;
-  const showMiniAuthorAny = showMiniAuthorMobile || showMiniAuthorTablet || showMiniAuthorDesktop;
-  const showMiniDateAny = showMiniDateMobile || showMiniDateTablet || showMiniDateDesktop;
-  const showHeroExcerptAny = showHeroExcerptDesktop || showHeroExcerptTablet || showHeroExcerptMobile;
-  const showMiniExcerptAny = showMiniExcerptDesktop || showMiniExcerptTablet || showMiniExcerptMobile;
   const showMiniImage = cfg.showMiniImage !== false;
   const excerptLength = toNumber(cfg.excerptLength, 120);
   const heroExcerptLength = toNumber(cfg.heroExcerptLength ?? cfg.excerptLength, excerptLength);
-  const miniExcerptLength = toNumber(cfg.miniExcerptLength, 70);
+  const miniExcerptLength = toNumber(cfg.miniExcerptLength, 120);
   const miniColsDesktop = Math.max(1, Math.min(4, toNumber(cfg.miniColumns, 4)));
   const miniColsTablet = Math.max(1, Math.min(3, toNumber(cfg.tabletMiniColumns, 2)));
-  const miniColsMobile = Math.max(1, Math.min(2, toNumber(cfg.mobileMiniColumns, 1)));
-
   const leadImageHMobile = toSize(cfg.mobileImageHeight ?? cfg.imageHeight, "240px");
   const leadImageHTablet = toSize(cfg.tabletImageHeight ?? cfg.imageHeight, "300px");
   const leadImageHDesktop = toSize(cfg.imageHeight, "360px");
@@ -351,7 +388,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const miniImageHTablet = toSize(cfg.tabletMiniImageHeight ?? cfg.miniImageHeight, "96px");
   const miniImageHDesktop = toSize(cfg.miniImageHeight, "100px");
 
-  const titleColorMobile = (cfg.mobileTitleColor as string) || (cfg.titleColor as string) || "var(--home-news-title-color, #111827)";
+  const titleColorMobile = (cfg.mobileTitleColor as string) || (cfg.titleColor as string) || "var(--home-news-title-color, var(--fg-primary, #f8fafc))";
   const titleHoverMobile = (cfg.mobileTitleHoverColor as string) || (cfg.titleHoverColor as string) || "var(--home-hover-color, var(--accent))";
   const titleColorTablet = (cfg.tabletTitleColor as string) || titleColorMobile;
   const titleColorDesktop = (cfg.titleColor as string) || titleColorTablet;
@@ -398,7 +435,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
     ? ((cfg.heroTitleHoverColor as string) || heroTitleHoverTablet)
     : titleHoverDesktop;
   const miniTitleColorMobile = hasMiniTitleColorConfig
-    ? ((cfg.mobileMiniTitleColor as string) || (cfg.miniTitleColor as string) || "var(--home-news-title-color, #111827)")
+    ? ((cfg.mobileMiniTitleColor as string) || (cfg.miniTitleColor as string) || "var(--home-news-title-color, var(--fg-primary, #f8fafc))")
     : titleColorMobile;
   const miniTitleColorTablet = hasMiniTitleColorConfig
     ? ((cfg.tabletMiniTitleColor as string) || (cfg.miniTitleColor as string) || miniTitleColorMobile)
@@ -448,7 +485,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const miniTitleFwTablet = toFontWeight(cfg.tabletMiniTitleFontWeight ?? cfg.miniTitleFontWeight, "700");
   const miniTitleFwDesktop = toFontWeight(cfg.miniTitleFontWeight, "700");
 
-  const metaColorMobile = (cfg.mobileMetaColor as string) || (cfg.metaColor as string) || "var(--home-meta-color, #9ca3af)";
+  const metaColorMobile = (cfg.mobileMetaColor as string) || (cfg.metaColor as string) || "var(--home-meta-color, var(--fg-secondary, #94a3b8))";
   const metaColorTablet = (cfg.tabletMetaColor as string) || metaColorMobile;
   const metaColorDesktop = (cfg.metaColor as string) || metaColorTablet;
   const heroMetaColorMobile = hasHeroMetaColorConfig
@@ -469,6 +506,9 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const heroMetaFsDesktop = hasHeroMetaFontSizeConfig
     ? toSize(cfg.heroMetaFontSize, "12px")
     : toSize(cfg.metaFontSize, "12px");
+  const heroMetaLhMobile = `${toNumber((cfg as any).mobileHeroMetaLineHeight ?? cfg.heroMetaLineHeight ?? cfg.mobileMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
+  const heroMetaLhTablet = `${toNumber((cfg as any).tabletHeroMetaLineHeight ?? cfg.heroMetaLineHeight ?? cfg.tabletMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
+  const heroMetaLhDesktop = `${toNumber(cfg.heroMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
   const miniMetaColorMobile = hasMiniMetaColorConfig
     ? ((cfg.mobileMiniMetaColor as string) || (cfg.miniMetaColor as string) || metaColorMobile)
     : metaColorMobile;
@@ -487,8 +527,11 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const miniMetaFsDesktop = hasMiniMetaFontSizeConfig
     ? toSize(cfg.miniMetaFontSize, "11px")
     : toSize(cfg.metaFontSize, "11px");
+  const miniMetaLhMobile = `${toNumber((cfg as any).mobileMiniMetaLineHeight ?? cfg.miniMetaLineHeight ?? cfg.mobileMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
+  const miniMetaLhTablet = `${toNumber((cfg as any).tabletMiniMetaLineHeight ?? cfg.miniMetaLineHeight ?? cfg.tabletMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
+  const miniMetaLhDesktop = `${toNumber(cfg.miniMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
 
-  const excerptColorMobile = (cfg.mobileExcerptColor as string) || (cfg.excerptColor as string) || "var(--home-excerpt-color, #4b5563)";
+  const excerptColorMobile = (cfg.mobileExcerptColor as string) || (cfg.excerptColor as string) || "var(--home-excerpt-color, var(--fg-secondary, #cbd5e1))";
   const excerptColorTablet = (cfg.tabletExcerptColor as string) || excerptColorMobile;
   const excerptColorDesktop = (cfg.excerptColor as string) || excerptColorTablet;
   const heroExcerptColorMobile = hasHeroExcerptColorConfig
@@ -546,17 +589,17 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
     ? `${toNumber(cfg.miniExcerptLineHeight, 1.5)}`
     : `${toNumber(cfg.excerptLineHeight, 1.5)}`;
 
-  const categoryText = (cfg.categoryLabelColor as string) || (cfg.categoryTextColor as string) || "#ffffff";
+  const categoryText = (cfg as any).categoryLabelTextColor || (cfg.categoryLabelColor as string) || (cfg.categoryTextColor as string) || "#ffffff";
   const categoryBg = (cfg.categoryLabelBgColor as string) || (cfg.categoryBgColor as string) || "var(--accent)";
   const heroCategoryTextMobile = hasHeroCategoryTextConfig
-    ? ((cfg.mobileHeroCategoryLabelColor as string) || (cfg.heroCategoryLabelColor as string) || categoryText)
+    ? ((cfg as any).mobileHeroCategoryLabelTextColor || (cfg.mobileHeroCategoryLabelColor as string) || (cfg as any).heroCategoryLabelTextColor || (cfg.heroCategoryLabelColor as string) || categoryText)
     : categoryText;
   const heroCategoryTextTablet = hasHeroCategoryTextConfig
-    ? ((cfg.tabletHeroCategoryLabelColor as string) || (cfg.heroCategoryLabelColor as string) || heroCategoryTextMobile)
-    : ((cfg.tabletCategoryLabelColor as string) || categoryText);
+    ? ((cfg as any).tabletHeroCategoryLabelTextColor || (cfg.tabletHeroCategoryLabelColor as string) || (cfg as any).heroCategoryLabelTextColor || (cfg.heroCategoryLabelColor as string) || heroCategoryTextMobile)
+    : ((cfg as any).tabletCategoryLabelTextColor || (cfg.tabletCategoryLabelColor as string) || categoryText);
   const heroCategoryTextDesktop = hasHeroCategoryTextConfig
-    ? ((cfg.heroCategoryLabelColor as string) || heroCategoryTextTablet)
-    : ((cfg.categoryLabelColor as string) || heroCategoryTextTablet);
+    ? ((cfg as any).heroCategoryLabelTextColor || (cfg.heroCategoryLabelColor as string) || heroCategoryTextTablet)
+    : ((cfg as any).categoryLabelTextColor || (cfg.categoryLabelColor as string) || heroCategoryTextTablet);
   const heroCategoryBgMobile = hasHeroCategoryBgConfig
     ? ((cfg.mobileHeroCategoryLabelBgColor as string) || (cfg.heroCategoryLabelBgColor as string) || categoryBg)
     : categoryBg;
@@ -575,15 +618,18 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const heroCategoryFsDesktop = hasHeroCategoryFontSizeConfig
     ? toSize(cfg.heroCategoryLabelFontSize, "10px")
     : toSize(cfg.categoryLabelFontSize, "10px");
+  const heroCategoryLhMobile = `${toNumber((cfg as any).mobileHeroCategoryLabelLineHeight ?? cfg.heroCategoryLabelLineHeight ?? cfg.mobileCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight, 1.2)}`;
+  const heroCategoryLhTablet = `${toNumber((cfg as any).tabletHeroCategoryLabelLineHeight ?? cfg.heroCategoryLabelLineHeight ?? cfg.tabletCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight, 1.2)}`;
+  const heroCategoryLhDesktop = `${toNumber(cfg.heroCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight, 1.2)}`;
   const miniCategoryTextMobile = hasMiniCategoryTextConfig
-    ? ((cfg.mobileMiniCategoryLabelColor as string) || (cfg.miniCategoryLabelColor as string) || categoryText)
+    ? ((cfg as any).mobileMiniCategoryLabelTextColor || (cfg.mobileMiniCategoryLabelColor as string) || (cfg as any).miniCategoryLabelTextColor || (cfg.miniCategoryLabelColor as string) || categoryText)
     : categoryText;
   const miniCategoryTextTablet = hasMiniCategoryTextConfig
-    ? ((cfg.tabletMiniCategoryLabelColor as string) || (cfg.miniCategoryLabelColor as string) || miniCategoryTextMobile)
-    : ((cfg.tabletCategoryLabelColor as string) || categoryText);
+    ? ((cfg as any).tabletMiniCategoryLabelTextColor || (cfg.tabletMiniCategoryLabelColor as string) || (cfg as any).miniCategoryLabelTextColor || (cfg.miniCategoryLabelColor as string) || miniCategoryTextMobile)
+    : ((cfg as any).tabletCategoryLabelTextColor || (cfg.tabletCategoryLabelColor as string) || categoryText);
   const miniCategoryTextDesktop = hasMiniCategoryTextConfig
-    ? ((cfg.miniCategoryLabelColor as string) || miniCategoryTextTablet)
-    : ((cfg.categoryLabelColor as string) || miniCategoryTextTablet);
+    ? ((cfg as any).miniCategoryLabelTextColor || (cfg.miniCategoryLabelColor as string) || miniCategoryTextTablet)
+    : ((cfg as any).categoryLabelTextColor || (cfg.categoryLabelColor as string) || miniCategoryTextTablet);
   const miniCategoryBgMobile = hasMiniCategoryBgConfig
     ? ((cfg.mobileMiniCategoryLabelBgColor as string) || (cfg.miniCategoryLabelBgColor as string) || categoryBg)
     : categoryBg;
@@ -602,21 +648,15 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const miniCategoryFsDesktop = hasMiniCategoryFontSizeConfig
     ? toSize(cfg.miniCategoryLabelFontSize, "9px")
     : toSize(cfg.categoryLabelFontSize, "9px");
-  const blockTitleColorMobile = (cfg.mobileBlockTitleColor as string) || (cfg.blockTitleColor as string) || "var(--home-widget-title-color, var(--heading-color, #1e293b))";
-  const blockTitleColorTablet = (cfg.tabletBlockTitleColor as string) || blockTitleColorMobile;
-  const blockTitleColorDesktop = (cfg.blockTitleColor as string) || blockTitleColorTablet;
-  const blockTitleBorderMobile = (cfg.mobileBlockTitleBorderColor as string) || (cfg.blockTitleBorderColor as string) || "var(--accent)";
-  const blockTitleBorderTablet = (cfg.tabletBlockTitleBorderColor as string) || blockTitleBorderMobile;
-  const blockTitleBorderDesktop = (cfg.blockTitleBorderColor as string) || blockTitleBorderTablet;
-  const blockTitleFsMobile = toSize(cfg.mobileBlockTitleFontSize ?? cfg.blockTitleFontSize, "20px");
-  const blockTitleFsTablet = toSize(cfg.tabletBlockTitleFontSize ?? cfg.blockTitleFontSize, "22px");
-  const blockTitleFsDesktop = toSize(cfg.blockTitleFontSize, "24px");
+  const miniCategoryLhMobile = `${toNumber((cfg as any).mobileMiniCategoryLabelLineHeight ?? cfg.miniCategoryLabelLineHeight ?? cfg.mobileCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight, 1.2)}`;
+  const miniCategoryLhTablet = `${toNumber((cfg as any).tabletMiniCategoryLabelLineHeight ?? cfg.miniCategoryLabelLineHeight ?? cfg.tabletCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight, 1.2)}`;
+  const miniCategoryLhDesktop = `${toNumber(cfg.miniCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight, 1.2)}`;
   const useBoxValues = getResponsiveBoolValues(configRecord, "useBox", false);
   const useBoxDesktop = useBoxValues.desktop;
   const useBoxTablet = useBoxValues.tablet;
   const useBoxMobile = useBoxValues.mobile;
   const boxColorValues = getResponsiveValues<string>(configRecord, "boxColor");
-  const boxColorDesktop = boxColorValues.desktop || "var(--bg-elevated, #ffffff)";
+  const boxColorDesktop = boxColorValues.desktop || "transparent";
   const boxColorTablet = boxColorValues.tablet || boxColorDesktop;
   const boxColorMobile = boxColorValues.mobile || boxColorDesktop;
   const boxBgImageDesktop = sanitizeCssUrl(typeof cfg.backgroundImage === "string" ? cfg.backgroundImage : "");
@@ -626,10 +666,40 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
   const boxBgImageMobile = sanitizeCssUrl(
     typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage : boxBgImageDesktop
   );
-  const globalRadius = "var(--home-main-box-radius, 0.75rem)";
+  const boxBgSizeDesktop = typeof cfg.backgroundSize === "string" && cfg.backgroundSize.trim() !== "" ? cfg.backgroundSize.trim() : "cover";
+  const boxBgSizeTablet = typeof cfg.tabletBackgroundSize === "string" && cfg.tabletBackgroundSize.trim() !== "" ? cfg.tabletBackgroundSize.trim() : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof cfg.mobileBackgroundSize === "string" && cfg.mobileBackgroundSize.trim() !== "" ? cfg.mobileBackgroundSize.trim() : boxBgSizeDesktop;
+  const boxBgPositionDesktop = typeof cfg.backgroundPosition === "string" && cfg.backgroundPosition.trim() !== "" ? cfg.backgroundPosition.trim() : "center";
+  const boxBgPositionTablet = typeof cfg.tabletBackgroundPosition === "string" && cfg.tabletBackgroundPosition.trim() !== "" ? cfg.tabletBackgroundPosition.trim() : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof cfg.mobileBackgroundPosition === "string" && cfg.mobileBackgroundPosition.trim() !== "" ? cfg.mobileBackgroundPosition.trim() : boxBgPositionDesktop;
+  const boxBgRepeatDesktop = typeof cfg.backgroundRepeat === "string" && cfg.backgroundRepeat.trim() !== "" ? cfg.backgroundRepeat.trim() : "no-repeat";
+  const boxBgRepeatTablet = typeof cfg.tabletBackgroundRepeat === "string" && cfg.tabletBackgroundRepeat.trim() !== "" ? cfg.tabletBackgroundRepeat.trim() : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof cfg.mobileBackgroundRepeat === "string" && cfg.mobileBackgroundRepeat.trim() !== "" ? cfg.mobileBackgroundRepeat.trim() : boxBgRepeatDesktop;
+  const boxBgAttachmentDesktop = typeof cfg.backgroundAttachment === "string" && cfg.backgroundAttachment.trim() !== "" ? cfg.backgroundAttachment.trim() : "scroll";
+  const boxBgAttachmentTablet = typeof cfg.tabletBackgroundAttachment === "string" && cfg.tabletBackgroundAttachment.trim() !== "" ? cfg.tabletBackgroundAttachment.trim() : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof cfg.mobileBackgroundAttachment === "string" && cfg.mobileBackgroundAttachment.trim() !== "" ? cfg.mobileBackgroundAttachment.trim() : boxBgAttachmentDesktop;
+  const boxOverlayColorDesktop = typeof cfg.backgroundOverlayColor === "string" ? cfg.backgroundOverlayColor : "transparent";
+  const boxOverlayColorTablet = typeof cfg.tabletBackgroundOverlayColor === "string" && cfg.tabletBackgroundOverlayColor.trim() !== "" ? cfg.tabletBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof cfg.mobileBackgroundOverlayColor === "string" && cfg.mobileBackgroundOverlayColor.trim() !== "" ? cfg.mobileBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number(cfg.backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number(cfg.tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number(cfg.mobileBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const globalRadius = "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))";
   const boxRadiusDesktop = toRadius(cfg.boxBorderRadius, globalRadius);
   const boxRadiusTablet = toRadius(cfg.tabletBoxBorderRadius, boxRadiusDesktop);
   const boxRadiusMobile = toRadius(cfg.mobileBoxBorderRadius, boxRadiusDesktop);
+  const boxPtMobile = cfg.mobileBoxPaddingTop !== undefined ? `${toNumber(cfg.mobileBoxPaddingTop, 0)}px` : (cfg.boxPaddingTop !== undefined ? `${toNumber(cfg.boxPaddingTop, 0)}px` : "0px");
+  const boxPrMobile = cfg.mobileBoxPaddingRight !== undefined ? `${toNumber(cfg.mobileBoxPaddingRight, 0)}px` : (cfg.boxPaddingRight !== undefined ? `${toNumber(cfg.boxPaddingRight, 0)}px` : "0px");
+  const boxPbMobile = cfg.mobileBoxPaddingBottom !== undefined ? `${toNumber(cfg.mobileBoxPaddingBottom, 0)}px` : (cfg.boxPaddingBottom !== undefined ? `${toNumber(cfg.boxPaddingBottom, 0)}px` : "0px");
+  const boxPlMobile = cfg.mobileBoxPaddingLeft !== undefined ? `${toNumber(cfg.mobileBoxPaddingLeft, 0)}px` : (cfg.boxPaddingLeft !== undefined ? `${toNumber(cfg.boxPaddingLeft, 0)}px` : "0px");
+  const boxPtTablet = cfg.tabletBoxPaddingTop !== undefined ? `${toNumber(cfg.tabletBoxPaddingTop, 0)}px` : (cfg.boxPaddingTop !== undefined ? `${toNumber(cfg.boxPaddingTop, 0)}px` : boxPtMobile);
+  const boxPrTablet = cfg.tabletBoxPaddingRight !== undefined ? `${toNumber(cfg.tabletBoxPaddingRight, 0)}px` : (cfg.boxPaddingRight !== undefined ? `${toNumber(cfg.boxPaddingRight, 0)}px` : boxPrMobile);
+  const boxPbTablet = cfg.tabletBoxPaddingBottom !== undefined ? `${toNumber(cfg.tabletBoxPaddingBottom, 0)}px` : (cfg.boxPaddingBottom !== undefined ? `${toNumber(cfg.boxPaddingBottom, 0)}px` : boxPbMobile);
+  const boxPlTablet = cfg.tabletBoxPaddingLeft !== undefined ? `${toNumber(cfg.tabletBoxPaddingLeft, 0)}px` : (cfg.boxPaddingLeft !== undefined ? `${toNumber(cfg.boxPaddingLeft, 0)}px` : boxPlMobile);
+  const boxPtDesktop = cfg.boxPaddingTop !== undefined ? `${toNumber(cfg.boxPaddingTop, 0)}px` : boxPtTablet;
+  const boxPrDesktop = cfg.boxPaddingRight !== undefined ? `${toNumber(cfg.boxPaddingRight, 0)}px` : boxPrTablet;
+  const boxPbDesktop = cfg.boxPaddingBottom !== undefined ? `${toNumber(cfg.boxPaddingBottom, 0)}px` : boxPbTablet;
+  const boxPlDesktop = cfg.boxPaddingLeft !== undefined ? `${toNumber(cfg.boxPaddingLeft, 0)}px` : boxPlTablet;
   const mTopMobile = cfg.mobileMarginTop !== undefined ? `${toNumber(cfg.mobileMarginTop, 0)}px` : "0px";
   const mRightMobile = cfg.mobileMarginRight !== undefined ? `${toNumber(cfg.mobileMarginRight, 0)}px` : "0px";
   const mBottomMobile = cfg.mobileMarginBottom !== undefined ? `${toNumber(cfg.mobileMarginBottom, 0)}px` : "0px";
@@ -675,162 +745,202 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
     return "";
   };
   const leadAuthorName = getAuthorName(lead);
+  const currentUseBox = device === "mobile" ? useBoxMobile : (device === "tablet" ? useBoxTablet : useBoxDesktop);
+  const currentBoxColor = device === "mobile" ? boxColorMobile : (device === "tablet" ? boxColorTablet : boxColorDesktop);
+  const currentBoxBgImage = device === "mobile" ? boxBgImageMobile : (device === "tablet" ? boxBgImageTablet : boxBgImageDesktop);
+  const currentBoxBgSize = device === "mobile" ? boxBgSizeMobile : (device === "tablet" ? boxBgSizeTablet : boxBgSizeDesktop);
+  const currentBoxBgPosition = device === "mobile" ? boxBgPositionMobile : (device === "tablet" ? boxBgPositionTablet : boxBgPositionDesktop);
+  const currentBoxBgRepeat = device === "mobile" ? boxBgRepeatMobile : (device === "tablet" ? boxBgRepeatTablet : boxBgRepeatDesktop);
+  const currentBoxBgAttachment = device === "mobile" ? boxBgAttachmentMobile : (device === "tablet" ? boxBgAttachmentTablet : boxBgAttachmentDesktop);
+  const currentBoxOverlayColor = device === "mobile" ? boxOverlayColorMobile : (device === "tablet" ? boxOverlayColorTablet : boxOverlayColorDesktop);
+  const currentBoxOverlayOpacity = device === "mobile" ? boxOverlayOpacityMobile : (device === "tablet" ? boxOverlayOpacityTablet : boxOverlayOpacityDesktop);
+  const hasCurrentBoxOverlay = currentBoxOverlayOpacity > 0 && typeof currentBoxOverlayColor === "string" && currentBoxOverlayColor.trim() !== "" && currentBoxOverlayColor !== "transparent";
+  const currentBoxOverlayFill = hasCurrentBoxOverlay ? `color-mix(in srgb, ${currentBoxOverlayColor} ${currentBoxOverlayOpacity}%, transparent)` : "transparent";
+  const currentBoxBackgroundImage = currentUseBox && currentBoxBgImage
+    ? (hasCurrentBoxOverlay
+      ? `linear-gradient(${currentBoxOverlayFill}, ${currentBoxOverlayFill}), url("${currentBoxBgImage}")`
+      : `url("${currentBoxBgImage}")`)
+    : "none";
+  const currentBoxRadius = device === "mobile" ? boxRadiusMobile : (device === "tablet" ? boxRadiusTablet : boxRadiusDesktop);
+  const currentBoxPt = device === "mobile" ? boxPtMobile : (device === "tablet" ? boxPtTablet : boxPtDesktop);
+  const currentBoxPr = device === "mobile" ? boxPrMobile : (device === "tablet" ? boxPrTablet : boxPrDesktop);
+  const currentBoxPb = device === "mobile" ? boxPbMobile : (device === "tablet" ? boxPbTablet : boxPbDesktop);
+  const currentBoxPl = device === "mobile" ? boxPlMobile : (device === "tablet" ? boxPlTablet : boxPlDesktop);
+  const currentShowHeroCategory = device === "mobile" ? showHeroCategoryMobile : (device === "tablet" ? showHeroCategoryTablet : showHeroCategoryDesktop);
+  const currentShowMiniCategory = device === "mobile" ? showMiniCategoryMobile : (device === "tablet" ? showMiniCategoryTablet : showMiniCategoryDesktop);
+  const currentShowHeroMetaInfo = device === "mobile" ? showHeroMetaInfoMobile : (device === "tablet" ? showHeroMetaInfoTablet : showHeroMetaInfoDesktop);
+  const currentShowMiniMetaInfo = device === "mobile" ? showMiniMetaInfoMobile : (device === "tablet" ? showMiniMetaInfoTablet : showMiniMetaInfoDesktop);
+  const currentShowHeroAuthor = device === "mobile" ? showHeroAuthorMobile : (device === "tablet" ? showHeroAuthorTablet : showHeroAuthorDesktop);
+  const currentShowMiniAuthor = device === "mobile" ? showMiniAuthorMobile : (device === "tablet" ? showMiniAuthorTablet : showMiniAuthorDesktop);
+  const currentShowHeroDate = device === "mobile" ? showHeroDateMobile : (device === "tablet" ? showHeroDateTablet : showHeroDateDesktop);
+  const currentShowMiniDate = device === "mobile" ? showMiniDateMobile : (device === "tablet" ? showMiniDateTablet : showMiniDateDesktop);
+  const currentShowHeroExcerpt = device === "mobile" ? showHeroExcerptMobile : (device === "tablet" ? showHeroExcerptTablet : showHeroExcerptDesktop);
+  const currentShowMiniExcerpt = device === "mobile" ? showMiniExcerptMobile : (device === "tablet" ? showMiniExcerptTablet : showMiniExcerptDesktop);
+  const currentHeroCategoryText = device === "mobile" ? heroCategoryTextMobile : (device === "tablet" ? heroCategoryTextTablet : heroCategoryTextDesktop);
+  const currentHeroCategoryBg = device === "mobile" ? heroCategoryBgMobile : (device === "tablet" ? heroCategoryBgTablet : heroCategoryBgDesktop);
+  const currentHeroCategoryFs = device === "mobile" ? heroCategoryFsMobile : (device === "tablet" ? heroCategoryFsTablet : heroCategoryFsDesktop);
+  const currentHeroCategoryLh = device === "mobile" ? heroCategoryLhMobile : (device === "tablet" ? heroCategoryLhTablet : heroCategoryLhDesktop);
+  const currentMiniCategoryText = device === "mobile" ? miniCategoryTextMobile : (device === "tablet" ? miniCategoryTextTablet : miniCategoryTextDesktop);
+  const currentMiniCategoryBg = device === "mobile" ? miniCategoryBgMobile : (device === "tablet" ? miniCategoryBgTablet : miniCategoryBgDesktop);
+  const currentMiniCategoryFs = device === "mobile" ? miniCategoryFsMobile : (device === "tablet" ? miniCategoryFsTablet : miniCategoryFsDesktop);
+  const currentMiniCategoryLh = device === "mobile" ? miniCategoryLhMobile : (device === "tablet" ? miniCategoryLhTablet : miniCategoryLhDesktop);
+  const currentLeadImageH = device === "mobile" ? leadImageHMobile : (device === "tablet" ? leadImageHTablet : leadImageHDesktop);
+  const currentMiniImageH = device === "mobile" ? miniImageHMobile : (device === "tablet" ? miniImageHTablet : miniImageHDesktop);
+  const currentHeroTitleColor = device === "mobile" ? heroTitleColorMobile : (device === "tablet" ? heroTitleColorTablet : heroTitleColorDesktop);
+  const currentHeroTitleHover = device === "mobile" ? heroTitleHoverMobile : (device === "tablet" ? heroTitleHoverTablet : heroTitleHoverDesktop);
+  const currentMiniTitleColor = device === "mobile" ? miniTitleColorMobile : (device === "tablet" ? miniTitleColorTablet : miniTitleColorDesktop);
+  const currentMiniTitleHover = device === "mobile" ? miniTitleHoverMobile : (device === "tablet" ? miniTitleHoverTablet : miniTitleHoverDesktop);
+  const legacyDarkUnsafeTitleColors = ["#111827", "#1f2937", "#0f172a", "#000000", "#000"];
+  const effectiveHeroTitleColor = isPublicDarkMode && isOneOf(currentHeroTitleColor, legacyDarkUnsafeTitleColors)
+    ? "var(--fg-primary)"
+    : currentHeroTitleColor;
+  const effectiveMiniTitleColor = isPublicDarkMode
+    ? "#111827"
+    : currentMiniTitleColor;
+  const currentLeadTitleFs = device === "mobile" ? leadTitleFsMobile : (device === "tablet" ? leadTitleFsTablet : leadTitleFsDesktop);
+  const currentLeadTitleLh = device === "mobile" ? heroTitleLhMobile : (device === "tablet" ? heroTitleLhTablet : heroTitleLhDesktop);
+  const currentLeadTitleFw = device === "mobile" ? heroTitleFwMobile : (device === "tablet" ? heroTitleFwTablet : heroTitleFwDesktop);
+  const currentMiniTitleFs = device === "mobile" ? miniTitleFsMobile : (device === "tablet" ? miniTitleFsTablet : miniTitleFsDesktop);
+  const currentMiniTitleLh = device === "mobile" ? miniTitleLhMobile : (device === "tablet" ? miniTitleLhTablet : miniTitleLhDesktop);
+  const currentMiniTitleFw = device === "mobile" ? miniTitleFwMobile : (device === "tablet" ? miniTitleFwTablet : miniTitleFwDesktop);
+  const currentHeroMetaColor = device === "mobile" ? heroMetaColorMobile : (device === "tablet" ? heroMetaColorTablet : heroMetaColorDesktop);
+  const currentHeroMetaFs = device === "mobile" ? heroMetaFsMobile : (device === "tablet" ? heroMetaFsTablet : heroMetaFsDesktop);
+  const currentHeroMetaLh = device === "mobile" ? heroMetaLhMobile : (device === "tablet" ? heroMetaLhTablet : heroMetaLhDesktop);
+  const currentMiniMetaColor = device === "mobile" ? miniMetaColorMobile : (device === "tablet" ? miniMetaColorTablet : miniMetaColorDesktop);
+  const currentMiniMetaFs = device === "mobile" ? miniMetaFsMobile : (device === "tablet" ? miniMetaFsTablet : miniMetaFsDesktop);
+  const currentMiniMetaLh = device === "mobile" ? miniMetaLhMobile : (device === "tablet" ? miniMetaLhTablet : miniMetaLhDesktop);
+  const currentHeroExcerptColor = device === "mobile" ? heroExcerptColorMobile : (device === "tablet" ? heroExcerptColorTablet : heroExcerptColorDesktop);
+  const currentHeroExcerptFs = device === "mobile" ? heroExcerptFsMobile : (device === "tablet" ? heroExcerptFsTablet : heroExcerptFsDesktop);
+  const currentHeroExcerptLh = device === "mobile" ? heroExcerptLhMobile : (device === "tablet" ? heroExcerptLhTablet : heroExcerptLhDesktop);
+  const currentMiniExcerptColor = device === "mobile" ? miniExcerptColorMobile : (device === "tablet" ? miniExcerptColorTablet : miniExcerptColorDesktop);
+  const currentMiniExcerptFs = device === "mobile" ? miniExcerptFsMobile : (device === "tablet" ? miniExcerptFsTablet : miniExcerptFsDesktop);
+  const currentMiniExcerptLh = device === "mobile" ? miniExcerptLhMobile : (device === "tablet" ? miniExcerptLhTablet : miniExcerptLhDesktop);
+  const currentMiniCols = device === "tablet" ? miniColsTablet : miniColsDesktop;
+  const isScrollableMiniMobile = device === "mobile";
+  const isCompactMiniMobile = isScrollableMiniMobile;
+  const currentMiniGridGap = isCompactMiniMobile ? "0.5rem" : "0.75rem";
+  const currentMiniCardPadding = isCompactMiniMobile ? "0.5rem" : "0.75rem";
+  const currentMiniMetaGap = isCompactMiniMobile ? "0.25rem" : "0.5rem";
+  const currentMiniMetaMarginTop = isCompactMiniMobile ? "0.375rem" : "0.5rem";
+  const currentMiniExcerptMarginTop = isCompactMiniMobile ? "0.25rem" : "0.375rem";
+  const currentMiniImageHeight = isCompactMiniMobile && cfg.mobileMiniImageHeight === undefined ? "68px" : currentMiniImageH;
+  const currentMiniGridAutoFlow = isScrollableMiniMobile ? "column" : "row";
+  const currentMiniGridTemplateColumns = isScrollableMiniMobile ? undefined : `repeat(${currentMiniCols}, minmax(0, 1fr))`;
+  const currentMiniGridAutoColumns = isScrollableMiniMobile ? `calc((100% - ${currentMiniGridGap}) / 2)` : "auto";
+  const currentMiniOverflowX = isScrollableMiniMobile ? "auto" : "visible";
+  const currentMiniScrollSnapType = isScrollableMiniMobile ? "x mandatory" : "none";
+  const currentMiniCardScrollSnapAlign = isScrollableMiniMobile ? "start" : "none";
+  const compactMiniTitleClampStyle = isCompactMiniMobile
+    ? ({
+        display: "-webkit-box",
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: "vertical",
+        overflow: "hidden",
+      } as React.CSSProperties)
+    : undefined;
+  const currentRootPaddingTop = device === "mobile" ? pTopMobile : (device === "tablet" ? pTopTablet : pTopDesktop);
+  const currentRootPaddingRight = device === "mobile" ? pRightMobile : (device === "tablet" ? pRightTablet : pRightDesktop);
+  const currentRootPaddingBottom = device === "mobile" ? pBottomMobile : (device === "tablet" ? pBottomTablet : pBottomDesktop);
+  const currentRootPaddingLeft = device === "mobile" ? pLeftMobile : (device === "tablet" ? pLeftTablet : pLeftDesktop);
+  const leadDateValue = lead.publishedAt || lead.createdAt;
+  const shouldShowLeadMeta = currentShowHeroMetaInfo && ((currentShowHeroAuthor && !!leadAuthorName) || (currentShowHeroDate && !!leadDateValue));
+  const blockTitleColorMobile = (cfg.mobileBlockTitleColor as string) || (cfg.blockTitleColor as string) || "var(--home-widget-title-color, var(--heading-color, #1e293b))";
+  const blockTitleColorTablet = (cfg.tabletBlockTitleColor as string) || blockTitleColorMobile;
+  const blockTitleColorDesktop = (cfg.blockTitleColor as string) || blockTitleColorTablet;
+  const blockTitleBorderMobile = (cfg.mobileBlockTitleBorderColor as string) || (cfg.blockTitleBorderColor as string) || "var(--accent)";
+  const blockTitleBorderTablet = (cfg.tabletBlockTitleBorderColor as string) || blockTitleBorderMobile;
+  const blockTitleBorderDesktop = (cfg.blockTitleBorderColor as string) || blockTitleBorderTablet;
+  const blockTitleFsMobile = toSize(cfg.mobileBlockTitleFontSize ?? cfg.blockTitleFontSize, "var(--home-widget-title-size, 20px)");
+  const blockTitleFsTablet = toSize(cfg.tabletBlockTitleFontSize ?? cfg.blockTitleFontSize, "22px");
+  const blockTitleFsDesktop = toSize(cfg.blockTitleFontSize, "var(--home-widget-title-size, 24px)");
+  const blockTitleLhMobile = `${toNumber((cfg as Record<string, unknown>).mobileBlockTitleLineHeight ?? cfg.blockTitleLineHeight, 1.2)}`;
+  const blockTitleLhTablet = `${toNumber((cfg as Record<string, unknown>).tabletBlockTitleLineHeight ?? cfg.blockTitleLineHeight, 1.2)}`;
+  const blockTitleLhDesktop = `${toNumber(cfg.blockTitleLineHeight, 1.2)}`;
+  const blockTitleMbMobile = toSize(cfg.mobileBlockTitleMarginBottom ?? cfg.blockTitleMarginBottom, "12px");
+  const blockTitleMbTablet = toSize(cfg.tabletBlockTitleMarginBottom ?? cfg.blockTitleMarginBottom, blockTitleMbMobile);
+  const blockTitleMbDesktop = toSize(cfg.blockTitleMarginBottom, blockTitleMbTablet);
+  const blockTitlePbMobile = toSize(cfg.mobileBlockTitlePaddingBottom ?? cfg.blockTitlePaddingBottom, "12px");
+  const blockTitlePbTablet = toSize(cfg.tabletBlockTitlePaddingBottom ?? cfg.blockTitlePaddingBottom, blockTitlePbMobile);
+  const blockTitlePbDesktop = toSize(cfg.blockTitlePaddingBottom, blockTitlePbTablet);
+  const currentBlockTitleColor = device === "mobile" ? blockTitleColorMobile : (device === "tablet" ? blockTitleColorTablet : blockTitleColorDesktop);
+  const currentBlockTitleBorder = device === "mobile" ? blockTitleBorderMobile : (device === "tablet" ? blockTitleBorderTablet : blockTitleBorderDesktop);
+  const currentBlockTitleFs = device === "mobile" ? blockTitleFsMobile : (device === "tablet" ? blockTitleFsTablet : blockTitleFsDesktop);
+  const currentBlockTitleLh = device === "mobile" ? blockTitleLhMobile : (device === "tablet" ? blockTitleLhTablet : blockTitleLhDesktop);
+  const currentBlockTitleMb = device === "mobile" ? blockTitleMbMobile : (device === "tablet" ? blockTitleMbTablet : blockTitleMbDesktop);
+  const currentBlockTitlePb = device === "mobile" ? blockTitlePbMobile : (device === "tablet" ? blockTitlePbTablet : blockTitlePbDesktop);
 
   return (
     <div
       id={`hero-split-4-${block.id}`}
+      className="responsive-block-frame"
       style={{
-        backgroundColor: useBoxMobile ? boxColorMobile : "transparent",
-        borderRadius: useBoxMobile ? boxRadiusMobile : "0",
-        border: useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none",
-        boxShadow: useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
-        backgroundImage: useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : "none",
-        backgroundSize: useBoxMobile && boxBgImageMobile ? "cover" : undefined,
-        backgroundPosition: useBoxMobile && boxBgImageMobile ? "center" : undefined,
-        backgroundRepeat: useBoxMobile && boxBgImageMobile ? "no-repeat" : undefined
-      }}
+        "--rb-mt-mobile": mTopMobile,
+        "--rb-mr-mobile": mRightMobile,
+        "--rb-mb-mobile": mBottomMobile,
+        "--rb-ml-mobile": mLeftMobile,
+        "--rb-pt-mobile": currentRootPaddingTop,
+        "--rb-pr-mobile": currentRootPaddingRight,
+        "--rb-pb-mobile": currentRootPaddingBottom,
+        "--rb-pl-mobile": currentRootPaddingLeft,
+        "--rb-mt-tablet": mTopTablet,
+        "--rb-mr-tablet": mRightTablet,
+        "--rb-mb-tablet": mBottomTablet,
+        "--rb-ml-tablet": mLeftTablet,
+        "--rb-pt-tablet": pTopTablet,
+        "--rb-pr-tablet": pRightTablet,
+        "--rb-pb-tablet": pBottomTablet,
+        "--rb-pl-tablet": pLeftTablet,
+        "--rb-mt-desktop": mTopDesktop,
+        "--rb-mr-desktop": mRightDesktop,
+        "--rb-mb-desktop": mBottomDesktop,
+        "--rb-ml-desktop": mLeftDesktop,
+        "--rb-pt-desktop": pTopDesktop,
+        "--rb-pr-desktop": pRightDesktop,
+        "--rb-pb-desktop": pBottomDesktop,
+        "--rb-pl-desktop": pLeftDesktop
+      } as React.CSSProperties}
     >
-      <style
-        dangerouslySetInnerHTML={{
-          __html: safeStyleTagCss(`
-            #hero-split-4-${block.id} .theme-widget-title span { color: ${blockTitleColorMobile}; font-size: ${blockTitleFsMobile}; }
-            #hero-split-4-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderMobile}; }
-            #hero-split-4-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; background-color: ${useBoxMobile ? boxColorMobile : "transparent"} !important; border-radius: ${useBoxMobile ? boxRadiusMobile : "0"} !important; border: ${useBoxMobile ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : "none"} !important; background-size: ${useBoxMobile && boxBgImageMobile ? "cover" : "initial"} !important; background-position: ${useBoxMobile && boxBgImageMobile ? "center" : "initial"} !important; background-repeat: ${useBoxMobile && boxBgImageMobile ? "no-repeat" : "repeat"} !important; }
-            #hero-split-4-${block.id} .hs-hero-title-link { color: ${heroTitleColorMobile}; }
-            #hero-split-4-${block.id} .hs-hero-title-link:hover { color: ${heroTitleHoverMobile}; }
-            #hero-split-4-${block.id} .hs-mini-title-link { color: ${miniTitleColorMobile}; }
-            #hero-split-4-${block.id} .hs-mini-title-link:hover { color: ${miniTitleHoverMobile}; }
-            #hero-split-4-${block.id} .hs-hero-title-link,
-            #hero-split-4-${block.id} .hs-mini-title-link {
-              font-size: inherit !important;
-              line-height: inherit !important;
-              font-weight: inherit !important;
-              font-family: inherit !important;
-            }
-            #hero-split-4-${block.id} .hs-hero-meta { color: ${heroMetaColorMobile}; }
-            #hero-split-4-${block.id} .hs-hero-meta { display: ${showHeroMetaInfoMobile ? "flex" : "none"}; }
-            #hero-split-4-${block.id} .hs-hero-author { display: ${showHeroAuthorMobile ? "flex" : "none"}; }
-            #hero-split-4-${block.id} .hs-hero-dot { display: ${showHeroAuthorMobile && showHeroDateMobile ? "inline-block" : "none"}; }
-            #hero-split-4-${block.id} .hs-hero-date { display: ${showHeroDateMobile ? "flex" : "none"}; }
-            #hero-split-4-${block.id} .hs-mini-meta { color: ${miniMetaColorMobile}; }
-            #hero-split-4-${block.id} .hs-mini-meta { display: ${showMiniMetaInfoMobile ? "flex" : "none"}; }
-            #hero-split-4-${block.id} .hs-mini-author { display: ${showMiniAuthorMobile ? "inline" : "none"}; }
-            #hero-split-4-${block.id} .hs-mini-dot { display: ${showMiniAuthorMobile && showMiniDateMobile ? "inline-block" : "none"}; }
-            #hero-split-4-${block.id} .hs-mini-date { display: ${showMiniDateMobile ? "inline" : "none"}; }
-            #hero-split-4-${block.id} .hs-mini-meta { font-size: ${miniMetaFsMobile}; }
-            #hero-split-4-${block.id} .hs-hero-excerpt { color: ${heroExcerptColorMobile}; }
-            #hero-split-4-${block.id} .hs-hero-excerpt { display: ${showHeroExcerptMobile ? "block" : "none"}; }
-            #hero-split-4-${block.id} .hs-hero-excerpt { font-size: ${heroExcerptFsMobile}; }
-            #hero-split-4-${block.id} .hs-hero-excerpt { line-height: ${heroExcerptLhMobile}; }
-            #hero-split-4-${block.id} .hs-mini-excerpt { color: ${miniExcerptColorMobile}; }
-            #hero-split-4-${block.id} .hs-mini-excerpt { display: ${showMiniExcerptMobile ? "block" : "none"}; }
-            #hero-split-4-${block.id} .hs-mini-excerpt { font-size: ${miniExcerptFsMobile}; line-height: ${miniExcerptLhMobile}; }
-            #hero-split-4-${block.id} .hs-hero-category { color: ${heroCategoryTextMobile}; background-color: ${heroCategoryBgMobile}; }
-            #hero-split-4-${block.id} .hs-hero-category { display: ${showHeroCategoryMobile ? "inline-block" : "none"}; }
-            #hero-split-4-${block.id} .hs-hero-category { font-size: ${heroCategoryFsMobile}; }
-            #hero-split-4-${block.id} .hs-mini-category { color: ${miniCategoryTextMobile}; background-color: ${miniCategoryBgMobile}; }
-            #hero-split-4-${block.id} .hs-mini-category { display: ${showMiniCategoryMobile ? "inline-block" : "none"}; }
-            #hero-split-4-${block.id} .hs-mini-category { font-size: ${miniCategoryFsMobile}; }
-            #hero-split-4-${block.id} .hs-lead-image { height: ${leadImageHMobile}; }
-            #hero-split-4-${block.id} .hs-mini-image { height: ${miniImageHMobile}; }
-            #hero-split-4-${block.id} .hs-hero-meta { font-size: ${heroMetaFsMobile}; }
-            #hero-split-4-${block.id} .hs-lead-title { font-size: ${leadTitleFsMobile}; line-height: ${heroTitleLhMobile}; font-weight: ${heroTitleFwMobile}; }
-            #hero-split-4-${block.id} .hs-mini-title { font-size: ${miniTitleFsMobile}; line-height: ${miniTitleLhMobile}; font-weight: ${miniTitleFwMobile}; }
-            #hero-split-4-${block.id} .hs-mini-grid { display: grid; grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(${miniColsMobile}, minmax(0, 1fr)); gap: 0.75rem; overflow-x: visible; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; scroll-snap-type: none; }
-            #hero-split-4-${block.id} .hs-mini-grid > article { scroll-snap-align: none; }
-            @media (min-width: 768px) {
-              #hero-split-4-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; background-color: ${useBoxTablet ? boxColorTablet : "transparent"} !important; border-radius: ${useBoxTablet ? boxRadiusTablet : "0"} !important; border: ${useBoxTablet ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxTablet ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxTablet && boxBgImageTablet ? `url("${boxBgImageTablet}")` : "none"} !important; background-size: ${useBoxTablet && boxBgImageTablet ? "cover" : "initial"} !important; background-position: ${useBoxTablet && boxBgImageTablet ? "center" : "initial"} !important; background-repeat: ${useBoxTablet && boxBgImageTablet ? "no-repeat" : "repeat"} !important; }
-              #hero-split-4-${block.id} .theme-widget-title span { color: ${blockTitleColorTablet}; font-size: ${blockTitleFsTablet}; }
-              #hero-split-4-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderTablet}; }
-              #hero-split-4-${block.id} .hs-hero-title-link { color: ${heroTitleColorTablet}; }
-              #hero-split-4-${block.id} .hs-hero-title-link:hover { color: ${heroTitleHoverTablet}; }
-              #hero-split-4-${block.id} .hs-mini-title-link { color: ${miniTitleColorTablet}; }
-              #hero-split-4-${block.id} .hs-mini-title-link:hover { color: ${miniTitleHoverTablet}; }
-              #hero-split-4-${block.id} .hs-hero-meta { color: ${heroMetaColorTablet}; }
-              #hero-split-4-${block.id} .hs-hero-meta { display: ${showHeroMetaInfoTablet ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-author { display: ${showHeroAuthorTablet ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-dot { display: ${showHeroAuthorTablet && showHeroDateTablet ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-date { display: ${showHeroDateTablet ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-meta { color: ${miniMetaColorTablet}; }
-              #hero-split-4-${block.id} .hs-mini-meta { display: ${showMiniMetaInfoTablet ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-author { display: ${showMiniAuthorTablet ? "inline" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-dot { display: ${showMiniAuthorTablet && showMiniDateTablet ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-date { display: ${showMiniDateTablet ? "inline" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-meta { font-size: ${miniMetaFsTablet}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { color: ${heroExcerptColorTablet}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { display: ${showHeroExcerptTablet ? "block" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { font-size: ${heroExcerptFsTablet}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { line-height: ${heroExcerptLhTablet}; }
-              #hero-split-4-${block.id} .hs-mini-excerpt { color: ${miniExcerptColorTablet}; }
-              #hero-split-4-${block.id} .hs-mini-excerpt { display: ${showMiniExcerptTablet ? "block" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-excerpt { font-size: ${miniExcerptFsTablet}; line-height: ${miniExcerptLhTablet}; }
-              #hero-split-4-${block.id} .hs-hero-category { color: ${heroCategoryTextTablet}; background-color: ${heroCategoryBgTablet}; }
-              #hero-split-4-${block.id} .hs-hero-category { display: ${showHeroCategoryTablet ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-category { font-size: ${heroCategoryFsTablet}; }
-              #hero-split-4-${block.id} .hs-mini-category { color: ${miniCategoryTextTablet}; background-color: ${miniCategoryBgTablet}; }
-              #hero-split-4-${block.id} .hs-mini-category { display: ${showMiniCategoryTablet ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-category { font-size: ${miniCategoryFsTablet}; }
-              #hero-split-4-${block.id} .hs-lead-image { height: ${leadImageHTablet}; }
-              #hero-split-4-${block.id} .hs-mini-image { height: ${miniImageHTablet}; }
-              #hero-split-4-${block.id} .hs-hero-meta { font-size: ${heroMetaFsTablet}; }
-              #hero-split-4-${block.id} .hs-lead-title { font-size: ${leadTitleFsTablet}; line-height: ${heroTitleLhTablet}; font-weight: ${heroTitleFwTablet}; }
-              #hero-split-4-${block.id} .hs-mini-title { font-size: ${miniTitleFsTablet}; line-height: ${miniTitleLhTablet}; font-weight: ${miniTitleFwTablet}; }
-              #hero-split-4-${block.id} .hs-mini-grid { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(${miniColsTablet}, minmax(0, 1fr)); overflow-x: visible; scroll-snap-type: none; }
-              #hero-split-4-${block.id} .hs-mini-grid > article { scroll-snap-align: none; }
-            }
-            @media (min-width: 1025px) {
-              #hero-split-4-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; background-color: ${useBoxDesktop ? boxColorDesktop : "transparent"} !important; border-radius: ${useBoxDesktop ? boxRadiusDesktop : "0"} !important; border: ${useBoxDesktop ? "var(--box-border, 1px solid var(--border))" : "none"} !important; box-shadow: ${useBoxDesktop ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"} !important; background-image: ${useBoxDesktop && boxBgImageDesktop ? `url("${boxBgImageDesktop}")` : "none"} !important; background-size: ${useBoxDesktop && boxBgImageDesktop ? "cover" : "initial"} !important; background-position: ${useBoxDesktop && boxBgImageDesktop ? "center" : "initial"} !important; background-repeat: ${useBoxDesktop && boxBgImageDesktop ? "no-repeat" : "repeat"} !important; }
-              #hero-split-4-${block.id} .theme-widget-title span { color: ${blockTitleColorDesktop}; font-size: ${blockTitleFsDesktop}; }
-              #hero-split-4-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-title-link { color: ${heroTitleColorDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-title-link:hover { color: ${heroTitleHoverDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-title-link { color: ${miniTitleColorDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-title-link:hover { color: ${miniTitleHoverDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-meta { color: ${heroMetaColorDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-meta { display: ${showHeroMetaInfoDesktop ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-author { display: ${showHeroAuthorDesktop ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-dot { display: ${showHeroAuthorDesktop && showHeroDateDesktop ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-date { display: ${showHeroDateDesktop ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-meta { color: ${miniMetaColorDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-meta { display: ${showMiniMetaInfoDesktop ? "flex" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-author { display: ${showMiniAuthorDesktop ? "inline" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-dot { display: ${showMiniAuthorDesktop && showMiniDateDesktop ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-date { display: ${showMiniDateDesktop ? "inline" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-meta { font-size: ${miniMetaFsDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { color: ${heroExcerptColorDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { display: ${showHeroExcerptDesktop ? "block" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { font-size: ${heroExcerptFsDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-excerpt { line-height: ${heroExcerptLhDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-excerpt { color: ${miniExcerptColorDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-excerpt { display: ${showMiniExcerptDesktop ? "block" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-excerpt { font-size: ${miniExcerptFsDesktop}; line-height: ${miniExcerptLhDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-category { color: ${heroCategoryTextDesktop}; background-color: ${heroCategoryBgDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-category { display: ${showHeroCategoryDesktop ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-hero-category { font-size: ${heroCategoryFsDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-category { color: ${miniCategoryTextDesktop}; background-color: ${miniCategoryBgDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-category { display: ${showMiniCategoryDesktop ? "inline-block" : "none"}; }
-              #hero-split-4-${block.id} .hs-mini-category { font-size: ${miniCategoryFsDesktop}; }
-              #hero-split-4-${block.id} .hs-lead-image { height: ${leadImageHDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-image { height: ${miniImageHDesktop}; }
-              #hero-split-4-${block.id} .hs-hero-meta { font-size: ${heroMetaFsDesktop}; }
-              #hero-split-4-${block.id} .hs-lead-title { font-size: ${leadTitleFsDesktop}; line-height: ${heroTitleLhDesktop}; font-weight: ${heroTitleFwDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-title { font-size: ${miniTitleFsDesktop}; line-height: ${miniTitleLhDesktop}; font-weight: ${miniTitleFwDesktop}; }
-              #hero-split-4-${block.id} .hs-mini-grid { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: repeat(${miniColsDesktop}, minmax(0, 1fr)); overflow-x: visible; scroll-snap-type: none; }
-              #hero-split-4-${block.id} .hs-mini-grid > article { scroll-snap-align: none; }
-            }
-          `)
+      <div
+        className="p-0"
+        style={{
+          backgroundColor: currentUseBox ? currentBoxColor : "transparent",
+          borderRadius: currentUseBox ? currentBoxRadius : "0",
+          border: currentUseBox ? "var(--box-border, 1px solid var(--border))" : "none",
+          boxShadow: currentUseBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
+          backgroundImage: currentBoxBackgroundImage,
+          backgroundSize: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+          backgroundPosition: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+          backgroundRepeat: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+          backgroundAttachment: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+          paddingTop: currentUseBox ? currentBoxPt : "0px",
+          paddingRight: currentUseBox ? currentBoxPr : "0px",
+          paddingBottom: currentUseBox ? currentBoxPb : "0px",
+          paddingLeft: currentUseBox ? currentBoxPl : "0px",
         }}
-      />
-
-      <div className="p-0">
+      >
         <div className="grid grid-cols-1 gap-4">
+          {cfg.showTitle !== false && (
+            <h3 className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title" style={{ marginBottom: currentBlockTitleMb, paddingBottom: currentBlockTitlePb }}>
+              <div className="widget-title-bar" style={{ borderRadius: globalRadius, backgroundColor: currentBlockTitleBorder }}></div>
+              <span style={{ color: currentBlockTitleColor, fontSize: currentBlockTitleFs, lineHeight: currentBlockTitleLh }}>{cfg.title || "Hero + 4 Mini"}</span>
+            </h3>
+          )}
           <article>
             <Link href={getLink(lead)} className="block">
-              <div className="hs-lead-image relative overflow-hidden bg-gray-100" style={{ borderRadius: globalRadius }}>
+              <div className="hs-lead-image relative overflow-hidden bg-[color:var(--bg-surface,#f9fafb)]" style={{ borderRadius: globalRadius, height: currentLeadImageH }}>
                 {leadImage ? (
-                  <Image src={leadImage} alt={lead.title} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 66vw" />
+                  <Image
+                    src={leadImage}
+                    alt={lead.title}
+                    fill
+                    className="object-cover"
+                    quality={75}
+                    priority
+                    fetchPriority="high"
+                    sizes="(max-width: 1024px) 100vw, 66vw"
+                  />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-[var(--fg-muted)] text-xs">No Image</div>
+                  <div className="absolute inset-0 flex items-center justify-center [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-xs">No Image</div>
                 )}
                 {isLeadVideo && (
                   <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -841,26 +951,47 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                     </span>
                   </span>
                 )}
-                {showHeroCategoryAny && lead.category && (
-                  <span className="hs-hero-category absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wide px-2 py-1" style={{ borderRadius: globalRadius }}>
+                {currentShowHeroCategory && lead.category && (
+                  <span
+                    className="hs-hero-category absolute top-3 left-3 font-bold uppercase tracking-wide px-2 py-1"
+                    style={{ borderRadius: globalRadius, color: currentHeroCategoryText, backgroundColor: currentHeroCategoryBg, fontSize: currentHeroCategoryFs, lineHeight: currentHeroCategoryLh }}
+                  >
                     {lead.category.name}
                   </span>
                 )}
               </div>
             </Link>
             <div className="mt-3">
-              <h4 className="hs-lead-title font-extrabold mb-2">
-                <Link href={getLink(lead)} className="hs-hero-title-link transition-colors">{lead.title}</Link>
+              <h4 className="hs-lead-title font-extrabold mb-2" style={{ fontSize: currentLeadTitleFs, lineHeight: currentLeadTitleLh, fontWeight: currentLeadTitleFw }}>
+                <Link
+                  href={getLink(lead)}
+                  className="transition-colors"
+                  style={{
+                    color: effectiveHeroTitleColor,
+                    fontSize: currentLeadTitleFs,
+                    lineHeight: currentLeadTitleLh,
+                    fontWeight: currentLeadTitleFw,
+                    fontFamily: "var(--home-news-title-font, sans-serif)",
+                    display: "block",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = currentHeroTitleHover; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = effectiveHeroTitleColor; }}
+                >
+                  {lead.title}
+                </Link>
               </h4>
-              {showHeroMetaAny && (
-                <div className="hs-hero-meta text-xs flex items-center gap-3 mb-2 font-medium">
-                  {showHeroAuthorAny && leadAuthorName && (
+              {shouldShowLeadMeta && (
+                <div className="text-xs flex items-center gap-3 mb-2 font-medium" style={{ color: currentHeroMetaColor, fontSize: currentHeroMetaFs, lineHeight: currentHeroMetaLh }}>
+                  {currentShowHeroAuthor && leadAuthorName && (
                     <div className="hs-hero-author flex items-center gap-1.5">
-                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] relative overflow-hidden" style={{ backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}>
+                      <span
+                        className="rounded-full flex items-center justify-center relative overflow-hidden shrink-0"
+                        style={{ width: "1.5em", height: "1.5em", fontSize: "0.92em", backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}
+                      >
                         {lead.authorAvatar ? (
                           <Image src={lead.authorAvatar} alt={leadAuthorName} fill className="object-cover" sizes="16px" />
                         ) : (
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 opacity-80">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-80" style={{ width: "1em", height: "1em" }}>
                             <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                           </svg>
                         )}
@@ -868,10 +999,10 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                       <span>{leadAuthorName}</span>
                     </div>
                   )}
-                  {showHeroAuthorAny && leadAuthorName && showHeroDateAny && (lead.publishedAt || lead.createdAt) && <span className="hs-hero-dot w-1 h-1 rounded-full" style={{ backgroundColor: "currentColor", opacity: 0.5 }} />}
-                  {showHeroDateAny && (lead.publishedAt || lead.createdAt) && (
+                  {currentShowHeroAuthor && leadAuthorName && currentShowHeroDate && leadDateValue && <span className="hs-hero-dot rounded-full shrink-0" style={{ width: "0.42em", height: "0.42em", backgroundColor: "currentColor", opacity: 0.5 }} />}
+                  {currentShowHeroDate && leadDateValue && (
                     <div className="hs-hero-date flex items-center gap-1.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 opacity-70">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-70 shrink-0" style={{ width: "1.22em", height: "1.22em" }}>
                         <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
                       </svg>
                       <time
@@ -887,32 +1018,35 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                   )}
                 </div>
               )}
-              {showHeroExcerptAny && (
-                <p className="hs-hero-excerpt text-sm">{clampExcerpt(getExcerptSource(lead, heroExcerptLength), heroExcerptLength)}</p>
+              {currentShowHeroExcerpt && (
+                <p className="text-sm" style={{ color: currentHeroExcerptColor, fontSize: currentHeroExcerptFs, lineHeight: currentHeroExcerptLh }}>
+                  {clampExcerpt(getExcerptSource(lead, heroExcerptLength), heroExcerptLength)}
+                </p>
               )}
             </div>
           </article>
 
-          <div className="hs-mini-grid">
+          <div className="hs-mini-grid" style={{ display: "grid", gridAutoFlow: currentMiniGridAutoFlow, gridAutoColumns: currentMiniGridAutoColumns, gridTemplateColumns: currentMiniGridTemplateColumns, gap: currentMiniGridGap, overflowX: currentMiniOverflowX, overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch", scrollSnapType: currentMiniScrollSnapType }}>
             {minis.map((post, idx) => {
               const imageUrl = post.image || post.featuredImage?.fileUrl;
               const isVideo = String((post as any)?.type || "").toUpperCase() === "VIDEO";
               const authorName = getAuthorName(post);
               const dateVal = post.publishedAt || post.createdAt;
+              const shouldShowMiniMeta = currentShowMiniMetaInfo && ((currentShowMiniAuthor && !!authorName) || (currentShowMiniDate && !!dateVal));
               return (
-                <article key={post.id || `${block.id}-mini-${idx}`} className="hs-mini-card border border-[var(--border)] overflow-hidden bg-[var(--bg-elevated)]" style={{ borderRadius: globalRadius }}>
+                <article key={post.id || `${block.id}-mini-${idx}`} className="hs-mini-card border border-[var(--border)] overflow-hidden bg-[var(--bg-elevated)]" style={{ borderRadius: globalRadius, scrollSnapAlign: currentMiniCardScrollSnapAlign }}>
                   <Link href={getLink(post)} className="block">
                     {showMiniImage && (
-                      <div className="hs-mini-image relative bg-gray-100">
+                      <div className="hs-mini-image relative bg-[color:var(--bg-surface,#f9fafb)]" style={{ height: currentMiniImageHeight }}>
                         {imageUrl ? (
-                          <Image src={imageUrl} alt={post.title} fill className="object-cover" sizes="(max-width: 1024px) 50vw, 33vw" />
+                          <Image src={imageUrl} alt={post.title} fill className="object-cover" sizes="(max-width: 767px) 25vw, (max-width: 1024px) 50vw, 33vw" />
                         ) : (
-                          <div className="absolute inset-0 flex items-center justify-center text-[var(--fg-muted)] text-[10px]">No Image</div>
+                          <div className="absolute inset-0 flex items-center justify-center [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-[10px]">No Image</div>
                         )}
                         {isVideo && (
                           <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm">
-                              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className="h-6 w-6 translate-x-[0.5px]">
+                            <span className={`flex items-center justify-center rounded-full bg-black/55 text-white backdrop-blur-sm ${isCompactMiniMobile ? "h-8 w-8" : "h-11 w-11"}`}>
+                              <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" className={`${isCompactMiniMobile ? "h-4 w-4" : "h-6 w-6"} translate-x-[0.5px]`}>
                                 <path d="M8 5v14l11-7z" />
                               </svg>
                             </span>
@@ -921,20 +1055,39 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                       </div>
                     )}
                   </Link>
-                  <div className="p-3">
-                    {showMiniCategoryAny && post.category && (
-                      <span className="hs-mini-category inline-block mb-2 text-[9px] font-bold uppercase tracking-wide px-2 py-0.5" style={{ borderRadius: globalRadius }}>
+                  <div style={{ padding: currentMiniCardPadding }}>
+                    {currentShowMiniCategory && post.category && (
+                      <span
+                        className="hs-mini-category inline-block font-bold uppercase tracking-wide px-2 py-0.5"
+                        style={{ borderRadius: globalRadius, color: currentMiniCategoryText, backgroundColor: currentMiniCategoryBg, fontSize: currentMiniCategoryFs, lineHeight: currentMiniCategoryLh, marginBottom: isCompactMiniMobile ? "0.375rem" : "0.5rem" }}
+                      >
                         {post.category.name}
                       </span>
                     )}
-                    <h5 className="hs-mini-title font-bold">
-                      <Link href={getLink(post)} className="hs-mini-title-link transition-colors">{post.title}</Link>
+                    <h5 className="hs-mini-title font-bold" style={{ fontSize: currentMiniTitleFs, lineHeight: currentMiniTitleLh, fontWeight: currentMiniTitleFw }}>
+                      <Link
+                        href={getLink(post)}
+                        className="transition-colors"
+                        style={{
+                          color: effectiveMiniTitleColor,
+                          fontSize: currentMiniTitleFs,
+                          lineHeight: currentMiniTitleLh,
+                          fontWeight: currentMiniTitleFw,
+                          fontFamily: "var(--home-news-title-font, sans-serif)",
+                          display: "block",
+                          ...compactMiniTitleClampStyle,
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = currentMiniTitleHover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = effectiveMiniTitleColor; }}
+                      >
+                        {post.title}
+                      </Link>
                     </h5>
-                    {showMiniMetaAny && (
-                      <div className="hs-mini-meta text-[11px] flex items-center gap-2 mt-2 font-medium">
-                        {showMiniAuthorAny && authorName && <span className="hs-mini-author">{authorName}</span>}
-                        {showMiniAuthorAny && authorName && showMiniDateAny && dateVal && <span className="hs-mini-dot w-1 h-1 rounded-full" style={{ backgroundColor: "currentColor", opacity: 0.5 }} />}
-                        {showMiniDateAny && dateVal && (
+                    {shouldShowMiniMeta && (
+                      <div className="text-[11px] flex items-center font-medium" style={{ color: currentMiniMetaColor, fontSize: currentMiniMetaFs, lineHeight: currentMiniMetaLh, gap: currentMiniMetaGap, marginTop: currentMiniMetaMarginTop, flexWrap: "wrap" }}>
+                        {currentShowMiniAuthor && authorName && <span className="hs-mini-author">{authorName}</span>}
+                        {currentShowMiniAuthor && authorName && currentShowMiniDate && dateVal && <span className="hs-mini-dot rounded-full shrink-0" style={{ width: "0.42em", height: "0.42em", backgroundColor: "currentColor", opacity: 0.5 }} />}
+                        {currentShowMiniDate && dateVal && (
                           <time
                             className="hs-mini-date"
                             dateTime={(() => {
@@ -947,8 +1100,10 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                         )}
                       </div>
                     )}
-                    {showMiniExcerptAny && (
-                      <p className="hs-mini-excerpt text-xs mt-1.5">{clampExcerpt(getExcerptSource(post, miniExcerptLength), miniExcerptLength)}</p>
+                    {currentShowMiniExcerpt && (
+                      <p className="text-xs" style={{ color: currentMiniExcerptColor, fontSize: currentMiniExcerptFs, lineHeight: currentMiniExcerptLh, marginTop: currentMiniExcerptMarginTop }}>
+                        {clampExcerpt(getExcerptSource(post, miniExcerptLength), miniExcerptLength)}
+                      </p>
                     )}
                   </div>
                 </article>

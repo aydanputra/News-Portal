@@ -28,6 +28,7 @@ export default function MediaLibraryPage() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadAltText, setUploadAltText] = useState("");
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 25, total: 0, totalPages: 1 });
@@ -126,6 +127,9 @@ export default function MediaLibraryPage() {
 
     const formData = new FormData();
     formData.append("file", e.target.files[0]);
+    if (uploadAltText.trim() !== "") {
+      formData.append("altText", uploadAltText.trim());
+    }
 
     try {
       const res = await fetch("/api/media/upload", {
@@ -136,6 +140,7 @@ export default function MediaLibraryPage() {
 
       if (res.ok) {
         setToast({ message: "Gambar berhasil diupload", type: "success" });
+        setUploadAltText("");
         setPagination((prev) => ({ ...prev, page: 1 }));
         setPageInput("1");
         fetchMedia({ page: 1 });
@@ -225,7 +230,18 @@ export default function MediaLibraryPage() {
         <h1 className="font-display text-2xl md:text-3xl font-bold text-[var(--fg-primary)] flex items-center gap-2">
           <ImageIcon className="w-6 h-6 text-[var(--fg-secondary)]" /> Pustaka Media
         </h1>
-        <div className="relative">
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <input
+            type="text"
+            value={uploadAltText}
+            onChange={(e) => setUploadAltText(e.target.value)}
+            className="input w-full sm:w-[280px]"
+            placeholder="Alt image untuk upload baru"
+          />
+          <div className="text-xs text-[var(--fg-muted)] sm:text-right">
+            Gambar otomatis dikonversi ke format WEBP saat upload.
+          </div>
+          <div className="relative">
           <input
             type="file"
             accept="image/*"
@@ -241,6 +257,7 @@ export default function MediaLibraryPage() {
             {uploading ? <Loader2 className="animate-spin" size={18} /> : <Upload size={18} />}
             <span>{uploading ? "Mengupload..." : "Upload Gambar"}</span>
           </label>
+        </div>
         </div>
       </div>
 

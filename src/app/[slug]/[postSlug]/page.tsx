@@ -1,17 +1,18 @@
 import { prisma } from "@/lib/prisma";
 import { getThemeDefaultPostBlocks } from "@/lib/post-builder-theme-registry";
-import ClassicSinglePost from "@/themes/classic/templates/SinglePost";
-import PranalaSinglePost from "@/themes/pranala/templates/SinglePost";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { Metadata, ResolvingMetadata } from "next";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
 import { getSettings } from "@/lib/settings";
+import { resolveSinglePostThemeId } from "@/lib/theme-registry";
+import { getThemeSinglePostComponent } from "@/lib/theme-registry.server";
 import TrackView from "@/components/TrackView";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { getCachedCategories } from "@/lib/data";
+import { toPublicPostPreviewList } from "@/lib/post-preview";
 
 export const revalidate = 600;
 export const dynamicParams = true;
@@ -58,20 +59,42 @@ export async function generateStaticParams() {
 const getPostBySlug = cache(async (slug: string, categorySlug: string) => {
   const cached = unstable_cache(
     async () => {
-      const post = await prisma.post.findFirst({
+      const post: any = await prisma.post.findFirst({
         where: {
           slug,
           published: true,
           status: { not: "ARCHIVED" },
         },
-        include: {
-          category: true,
+        select: {
+          id: true,
+          title: true,
+          subtitle: true,
+          slug: true,
+          content: true,
+          image: true,
+          featuredImageAlt: true,
+          postImageWatermarkEnabled: true,
+          imageCaption: true,
+          focusKeyword: true,
+          canonicalUrl: true,
+          gallery: true,
+          type: true,
+          videoUrl: true,
+          publishedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          metaTitle: true,
+          metaDesc: true,
+          views: true,
+          viewsBase: true,
+          categoryId: true,
+          category: { select: { id: true, name: true, slug: true } },
           author: { select: { name: true, avatar: true, banner: true, bio: true } },
           approvedBy: { select: { name: true, avatar: true, banner: true, bio: true } },
           tags: { select: { id: true, name: true, slug: true } },
-          featuredImage: true,
+          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
           _count: { select: { comments: true } },
-        },
+        } as any,
       });
       if (!post) return null;
       if (post.category?.slug !== categorySlug) return null;
@@ -83,17 +106,91 @@ const getPostBySlug = cache(async (slug: string, categorySlug: string) => {
   return cached();
 });
 
+const getPostRedirectTarget = cache(async (slug: string, categorySlug: string) => {
+  const cached = unstable_cache(
+    async () => {
+      const currentSlugPost = await prisma.post.findFirst({
+        where: {
+          slug,
+          published: true,
+          status: { not: "ARCHIVED" },
+        },
+        select: {
+          slug: true,
+          category: { select: { slug: true } },
+        },
+      });
+
+      if (
+        currentSlugPost?.slug &&
+        typeof currentSlugPost.category?.slug === "string" &&
+        currentSlugPost.category.slug.trim() !== "" &&
+        currentSlugPost.category.slug !== categorySlug
+      ) {
+        return {
+          categorySlug: currentSlugPost.category.slug,
+          postSlug: currentSlugPost.slug,
+        };
+      }
+
+      const slugHistory = await prisma.postSlugHistory.findUnique({
+        where: { oldSlug: slug },
+        select: {
+          post: {
+            select: {
+              slug: true,
+              published: true,
+              status: true,
+              category: { select: { slug: true } },
+            },
+          },
+        },
+      });
+
+      if (
+        slugHistory?.post?.published &&
+        slugHistory.post.status !== "ARCHIVED" &&
+        typeof slugHistory.post.slug === "string" &&
+        slugHistory.post.slug.trim() !== "" &&
+        typeof slugHistory.post.category?.slug === "string" &&
+        slugHistory.post.category.slug.trim() !== ""
+      ) {
+        return {
+          categorySlug: slugHistory.post.category.slug,
+          postSlug: slugHistory.post.slug,
+        };
+      }
+
+      return null;
+    },
+    [`post-redirect:${categorySlug}:${slug}`],
+    { tags: [`article-${slug}`, `post-${slug}`, "posts"], revalidate },
+  );
+
+  return cached();
+});
+
 const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
   const cached = unstable_cache(
     async () => {
+      const publicBlockSelect = {
+        id: true,
+        type: true,
+        title: true,
+        order: true,
+        config: true,
+        isActive: true,
+      } as const;
       const [headerRows, footerRows] = await Promise.all([
         prisma.homepageBlock.findMany({
           where: { location: "header", isActive: true, themeId: activeTheme as any },
           orderBy: { order: "asc" },
+          select: publicBlockSelect,
         }),
         prisma.homepageBlock.findMany({
           where: { location: "footer", themeId: activeTheme as any },
           orderBy: { order: "asc" },
+          select: publicBlockSelect,
         }),
       ]);
       return { headerConfig: headerRows ?? null, footerConfig: footerRows ?? null };
@@ -109,13 +206,18 @@ const getPopularPosts = cache(async (count: number) => {
   const cached = unstable_cache(
     async () => {
       const now = new Date();
-      return await prisma.post.findMany({
+      const rows = await prisma.post.findMany({
         where: {
           published: true,
           status: { not: "ARCHIVED" },
           OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
         },
-        orderBy: { views: "desc" },
+        orderBy: [
+          { views: "desc" },
+          { publishedAt: "desc" },
+          { updatedAt: "desc" },
+          { id: "desc" },
+        ],
         take,
         select: {
           id: true,
@@ -127,12 +229,12 @@ const getPopularPosts = cache(async (count: number) => {
           videoUrl: true,
           publishedAt: true,
           createdAt: true,
-          views: true,
-          category: { select: { id: true, name: true, slug: true } },
+          category: { select: { name: true, slug: true } },
           author: { select: { name: true, avatar: true, banner: true } },
-          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+          featuredImage: { select: { fileUrl: true } },
         },
       });
+      return toPublicPostPreviewList(rows);
     },
     [`popular-posts:${take}`],
     { tags: ["posts"], revalidate: 300 },
@@ -150,7 +252,7 @@ const getRecentPosts = cache(async (count: number, excludePostId?: string) => {
         status: { not: "ARCHIVED" },
       };
       if (excludeId) where.id = { not: excludeId };
-      return await prisma.post.findMany({
+      const rows = await prisma.post.findMany({
         where,
         orderBy: { publishedAt: "desc" },
         take,
@@ -164,12 +266,12 @@ const getRecentPosts = cache(async (count: number, excludePostId?: string) => {
           videoUrl: true,
           publishedAt: true,
           createdAt: true,
-          views: true,
-          category: { select: { id: true, name: true, slug: true } },
+          category: { select: { name: true, slug: true } },
           author: { select: { name: true, avatar: true, banner: true } },
-          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+          featuredImage: { select: { fileUrl: true } },
         },
       });
+      return toPublicPostPreviewList(rows);
     },
     [`recent-posts:${take}:${excludeId}`],
     { tags: ["posts"], revalidate: 300 },
@@ -335,7 +437,7 @@ async function getData(slug: string, categorySlug: string) {
     };
   });
 
-  if (!postRaw) return { post: null, setting, categories, blocks: [], recentPosts: [], relatedPosts: [], inlineRelatedPosts: [], blockData: {}, activeTheme, headerConfig, footerConfig, sourceBlocksByLocation };
+  if (!postRaw) return { post: null, setting, categories, blocks: [], inlineRelatedPosts: [], blockData: {}, activeTheme, headerConfig, footerConfig };
   const post = postRaw;
 
   // Fetch Block Data (Popular Posts, etc)
@@ -358,23 +460,43 @@ async function getData(slug: string, categorySlug: string) {
                    try {
                        if (widget.type === 'sidebar_widget') {
                            const config = widget.config || {};
-                           const count = parseInt(config.limit || config.count) || 5;
+                           const baseCount = parseInt(config.limit || config.count) || 5;
+                           const tabletCount = parseInt(config.tabletLimit || config.limit || config.count) || baseCount;
+                           const mobileCount = parseInt(config.mobileLimit || config.tabletLimit || config.limit || config.count) || tabletCount;
+                           const count = Math.max(baseCount, tabletCount, mobileCount);
+                           const inheritedSidebarLocation =
+                             typeof widget?.config?.inheritedSidebarLocation === "string" && widget.config.inheritedSidebarLocation.trim() !== ""
+                               ? widget.config.inheritedSidebarLocation
+                               : (typeof widget?.inheritedSidebarLocation === "string" ? widget.inheritedSidebarLocation : "");
+                           const useSourceSidebarDataset =
+                             widget?.config?.inheritedSidebarSource === true &&
+                             inheritedSidebarLocation !== "" &&
+                             inheritedSidebarLocation !== "post";
          
                            if (config.widgetType === 'popular_posts') {
-                               blockData[widget.id] = await getPopularPosts(count);
+                               const popularData = await getPopularPosts(count);
+                               blockData[widget.id] = popularData;
                            } else if (config.widgetType === 'recent_posts') {
-                               blockData[widget.id] = await getRecentPosts(count, post.id);
+                               blockData[widget.id] = useSourceSidebarDataset
+                                 ? await getRecentPosts(count)
+                                 : await getRecentPosts(count, post.id);
                            } else if (config.widgetType === 'category_list') {
                                blockData[widget.id] = await getCategoryListWithCounts(count);
                            }
                        } else if (widget.type === 'tag_cloud') {
                            const config = widget.config || {};
-                           const count = parseInt(config.count) || 20;
+                           const baseCount = parseInt(config.count || config.limit) || 20;
+                           const tabletCount = parseInt(config.tabletCount || config.tabletLimit || config.count || config.limit) || baseCount;
+                           const mobileCount = parseInt(config.mobileCount || config.mobileLimit || config.tabletCount || config.tabletLimit || config.count || config.limit) || tabletCount;
+                           const count = Math.max(baseCount, tabletCount, mobileCount);
                            blockData[widget.id] = await getTagCloud(count);
                        } else if (widget.type === 'post_related_posts' && post) {
                            const config = widget.config || {};
                            const filterType = config.filterType || 'category';
-                           const limit = parseInt(config.limit) || 3;
+                           const baseLimit = parseInt(config.limit || config.count) || 3;
+                           const tabletLimit = parseInt(config.tabletLimit || config.limit || config.count) || baseLimit;
+                           const mobileLimit = parseInt(config.mobileLimit || config.tabletLimit || config.limit || config.count) || tabletLimit;
+                           const limit = Math.max(baseLimit, tabletLimit, mobileLimit);
                            
                            let widgetRelatedPosts: any[] = [];
                            if (filterType === 'tag' && post.tags && post.tags.length > 0) {
@@ -400,10 +522,9 @@ async function getData(slug: string, categorySlug: string) {
                                         videoUrl: true,
                                         publishedAt: true,
                                         createdAt: true,
-                                        views: true,
-                                        category: { select: { id: true, name: true, slug: true } },
+                                        category: { select: { name: true, slug: true } },
                                         author: { select: { name: true, avatar: true, banner: true } },
-                                        featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                                        featuredImage: { select: { fileUrl: true } },
                                       },
                                     });
                                   },
@@ -434,10 +555,9 @@ async function getData(slug: string, categorySlug: string) {
                                          videoUrl: true,
                                          publishedAt: true,
                                          createdAt: true,
-                                         views: true,
-                                         category: { select: { id: true, name: true, slug: true } },
+                                         category: { select: { name: true, slug: true } },
                                          author: { select: { name: true, avatar: true, banner: true } },
-                                         featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                                         featuredImage: { select: { fileUrl: true } },
                                        },
                                      });
                                    },
@@ -446,7 +566,7 @@ async function getData(slug: string, categorySlug: string) {
                                  );
                                  widgetRelatedPosts = await cached();
                             }
-                           blockData[widget.id] = widgetRelatedPosts;
+                           blockData[widget.id] = toPublicPostPreviewList(widgetRelatedPosts);
                        }
                    } catch (e) {
                        console.error(`Error fetching widget data ${widget.id}:`, e);
@@ -459,8 +579,8 @@ async function getData(slug: string, categorySlug: string) {
       await Promise.all(fetchPromises);
   }
 
-  // Parallel Fetch for Next/Prev/Recent/Related
-  const [nextPost, prevPost, recentPosts, relatedPosts, inlineRelatedPosts] = await Promise.all([
+  // Parallel fetch for navigation and inline-related content used on the page.
+  const [nextPost, prevPost, inlineRelatedPostsRaw] = await Promise.all([
       // Next Post
       (async () => {
         const cached = unstable_cache(
@@ -515,46 +635,6 @@ async function getData(slug: string, categorySlug: string) {
         return cached();
       })(),
 
-      // Recent Posts
-      getRecentPosts(5, post.id),
-
-      // Related Posts logic
-      (async () => {
-          const relatedLimit = 3;
-          const cached = unstable_cache(
-            async () => {
-              return await prisma.post.findMany({
-                where: {
-                  published: true,
-                  status: { not: "ARCHIVED" },
-                  id: { not: post.id },
-                  categoryId: post.categoryId,
-                },
-                take: relatedLimit,
-                orderBy: { publishedAt: "desc" },
-                select: {
-                  id: true,
-                  title: true,
-                  slug: true,
-                  excerpt: true,
-                  image: true,
-                  type: true,
-                  videoUrl: true,
-                  publishedAt: true,
-                  createdAt: true,
-                  views: true,
-                  category: { select: { id: true, name: true, slug: true } },
-                  author: { select: { name: true, avatar: true, banner: true } },
-                  featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
-                },
-              });
-            },
-            [`related-posts:${post.id}:${relatedLimit}`],
-            { tags: [`article-${slug}`, "posts"], revalidate: 600 },
-          );
-          return cached();
-      })(),
-
       (async () => {
           if (!inlineRelatedEnabled || !post) return [];
           const filterType = String((setting as any)?.postInlineRelatedFilterType || "category");
@@ -591,10 +671,9 @@ async function getData(slug: string, categorySlug: string) {
                   videoUrl: true,
                   publishedAt: true,
                   createdAt: true,
-                  views: true,
-                  category: { select: { id: true, name: true, slug: true } },
+                  category: { select: { name: true, slug: true } },
                   author: { select: { name: true, avatar: true, banner: true } },
-                  featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                  featuredImage: { select: { fileUrl: true } },
                 },
               });
             },
@@ -621,10 +700,9 @@ async function getData(slug: string, categorySlug: string) {
                   videoUrl: true,
                   publishedAt: true,
                   createdAt: true,
-                  views: true,
-                  category: { select: { id: true, name: true, slug: true } },
+                  category: { select: { name: true, slug: true } },
                   author: { select: { name: true, avatar: true, banner: true } },
-                  featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+                  featuredImage: { select: { fileUrl: true } },
                 },
               });
             },
@@ -635,22 +713,18 @@ async function getData(slug: string, categorySlug: string) {
       })()
   ]);
 
+  const inlineRelatedPosts = toPublicPostPreviewList(inlineRelatedPostsRaw);
+
   return {
     post: { ...post, next_post: nextPost, prev_post: prevPost },
     setting,
     categories,
-    recentPosts,
-    relatedPosts,
     inlineRelatedPosts,
-    blocks,
+    blocks: effectiveBlocks,
     blockData,
     activeTheme,
     headerConfig,
     footerConfig,
-    sourceBlocksByLocation: {
-      ...sourceBlocksByLocation,
-      post: blocks || sourceBlocksByLocation.post || [],
-    },
   };
 }
 
@@ -694,7 +768,12 @@ export async function generateMetadata(
   };
   const ogImageRaw = post.image || post.featuredImage?.fileUrl;
   const ogImageUrl = toAbsoluteUrl(ogImageRaw);
-  const ogImageAlt = typeof post.title === "string" && post.title.trim() ? post.title : "Gambar berita";
+  const ogImageAlt =
+    typeof (post as any)?.featuredImageAlt === "string" && (post as any).featuredImageAlt.trim() !== ""
+      ? (post as any).featuredImageAlt.trim()
+      : typeof post.title === "string" && post.title.trim()
+        ? post.title
+        : "Gambar berita";
   const ogImage =
     ogImageUrl
       ? [{
@@ -706,15 +785,19 @@ export async function generateMetadata(
       : [];
   const images = [...ogImage, ...previousImages];
   const postUrl = new URL(`/${categorySlug}/${post.slug}`, metadataBase).toString();
+  const canonicalUrl =
+    typeof (post as any)?.canonicalUrl === "string" && (post as any).canonicalUrl.trim() !== ""
+      ? (post as any).canonicalUrl.trim()
+      : postUrl;
 
   return {
     title: title,
     description: description,
-    alternates: { canonical: postUrl },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title: title,
       description: description,
-      url: postUrl,
+      url: canonicalUrl,
       images: images,
       type: "article",
       publishedTime: toIsoString((post as any)?.publishedAt),
@@ -727,6 +810,10 @@ export async function generateMetadata(
       description: description,
       images: images,
     },
+    keywords:
+      typeof (post as any)?.focusKeyword === "string" && (post as any).focusKeyword.trim() !== ""
+        ? (post as any).focusKeyword.trim()
+        : Array.isArray(post.tags) ? post.tags.map((t: any) => t.name).filter(Boolean).join(", ") : undefined,
   };
 }
 
@@ -735,12 +822,16 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
   const postSlug = decodeURIComponent(params.postSlug);
   const categorySlug = decodeURIComponent(params.slug);
   
-  const { post, setting, categories, blocks, blockData, inlineRelatedPosts, activeTheme, sourceBlocksByLocation, headerConfig, footerConfig } = await getData(postSlug, categorySlug);
-  const menusByLocation = await getPublicMenusByLocation();
+  const [{ post, setting, categories, blocks, blockData, inlineRelatedPosts, activeTheme, headerConfig, footerConfig }, menusByLocation] = await Promise.all([
+    getData(postSlug, categorySlug),
+    getPublicMenusByLocation(),
+  ]);
 
   if (!post) {
-    // If not found in this category, check if it exists in another category for redirect?
-    // Or check slug history. For now, 404.
+    const redirectTarget = await getPostRedirectTarget(postSlug, categorySlug);
+    if (redirectTarget) {
+      permanentRedirect(`/${redirectTarget.categorySlug}/${redirectTarget.postSlug}`);
+    }
     notFound();
   }
 
@@ -780,32 +871,27 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
       logo: logoUrl ? { "@type": "ImageObject", url: logoUrl } : undefined,
     },
     articleSection: post.category?.name,
-    keywords: Array.isArray(post.tags) ? post.tags.map((t: any) => t.name).filter(Boolean).join(", ") : undefined,
+    keywords:
+      typeof (post as any)?.focusKeyword === "string" && (post as any).focusKeyword.trim() !== ""
+        ? (post as any).focusKeyword.trim()
+        : Array.isArray(post.tags) ? post.tags.map((t: any) => t.name).filter(Boolean).join(", ") : undefined,
   };
 
-  const body =
-    activeTheme === "pranala" && blocks && blocks.length > 0 ? (
-      <PranalaSinglePost
-        post={post}
-        setting={setting}
-        categories={categories}
-        blocks={blocks}
-        blockData={blockData}
-        inlineRelatedPosts={inlineRelatedPosts}
-        sourceBlocksByLocation={sourceBlocksByLocation}
-        menusByLocation={menusByLocation}
-        headerConfig={headerConfig}
-        footerConfig={footerConfig}
-      />
-    ) : (
-      <ClassicSinglePost
-        post={post}
-        setting={setting}
-        categories={categories}
-        footerConfig={footerConfig}
-        menusByLocation={menusByLocation}
-      />
-    );
+  const resolvedSinglePostTheme = resolveSinglePostThemeId(activeTheme, Boolean(blocks && blocks.length > 0));
+  const SinglePostComponent: any = await getThemeSinglePostComponent(resolvedSinglePostTheme);
+  const body = (
+    <SinglePostComponent
+      post={post}
+      setting={setting}
+      categories={categories}
+      blocks={blocks}
+      blockData={blockData}
+      inlineRelatedPosts={inlineRelatedPosts}
+      menusByLocation={menusByLocation}
+      headerConfig={headerConfig}
+      footerConfig={footerConfig}
+    />
+  );
 
   return (
     <>

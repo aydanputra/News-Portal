@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
-import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
 
 type NewsGridSliderPost = {
   id?: string;
@@ -65,12 +65,24 @@ type NewsGridSliderConfig = {
   titleHoverColor?: string;
   tabletTitleHoverColor?: string;
   mobileTitleHoverColor?: string;
+  titleMarginBottom?: number;
+  tabletTitleMarginBottom?: number;
+  mobileTitleMarginBottom?: number;
   metaColor?: string;
   tabletMetaColor?: string;
   mobileMetaColor?: string;
+  metaFontWeight?: string | number;
+  tabletMetaFontWeight?: string | number;
+  mobileMetaFontWeight?: string | number;
+  metaMarginBottom?: number;
+  tabletMetaMarginBottom?: number;
+  mobileMetaMarginBottom?: number;
   excerptColor?: string;
   tabletExcerptColor?: string;
   mobileExcerptColor?: string;
+  excerptFontWeight?: string | number;
+  tabletExcerptFontWeight?: string | number;
+  mobileExcerptFontWeight?: string | number;
   categoryLabelColor?: string;
   tabletCategoryLabelColor?: string;
   mobileCategoryLabelColor?: string;
@@ -162,6 +174,31 @@ const toFontWeight = (value: unknown, fallback: string) => {
   return fallback;
 };
 
+const normalizeLegacyNeutralSurface = (value: unknown, fallback: string) => {
+  if (typeof value !== "string") return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return fallback;
+
+  const legacyLightSurfaces = new Set([
+    "#fff",
+    "#ffffff",
+    "#f8fafc",
+    "#f9fafb",
+    "#f3f4f6",
+    "#f1f5f9",
+    "#e5e7eb",
+    "white",
+    "rgb(255, 255, 255)",
+    "rgb(248, 250, 252)",
+    "rgb(249, 250, 251)",
+    "rgb(243, 244, 246)",
+    "rgb(241, 245, 249)",
+    "rgb(229, 231, 235)",
+  ]);
+
+  return legacyLightSurfaces.has(normalized) ? fallback : value;
+};
+
 const clampExcerpt = (excerpt: string | null | undefined, maxLength: number) => {
   if (!excerpt) return "";
   const clean = excerpt.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -205,6 +242,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const [useTransition, setUseTransition] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [isPublicDarkMode, setIsPublicDarkMode] = useState(false);
 
   useEffect(() => {
     if (previewDevice) {
@@ -222,6 +260,17 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, [previewDevice]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const applyMode = () => setIsPublicDarkMode(root.classList.contains("public-dark"));
+    applyMode();
+
+    const observer = new MutationObserver(applyMode);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   const limitDesktop = Math.max(1, toNumber(cfg.limit, 8));
   const limitTablet = Math.max(1, toNumber(cfg.tabletLimit, limitDesktop));
@@ -345,27 +394,43 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const titleLhMobile = `${toNumber(cfg.mobileTitleLineHeight ?? cfg.titleLineHeight, 1.3)}`;
   const titleLhTablet = `${toNumber(cfg.tabletTitleLineHeight ?? cfg.titleLineHeight, 1.3)}`;
   const titleLhDesktop = `${toNumber(cfg.titleLineHeight, 1.3)}`;
-  const titleFwMobile = toFontWeight(cfg.mobileTitleFontWeight ?? cfg.titleFontWeight, "700");
+  const titleFwMobile = toFontWeight(cfg.mobileTitleFontWeight ?? cfg.titleFontWeight, "var(--home-news-title-weight, 600)");
   const titleFwTablet = toFontWeight(cfg.tabletTitleFontWeight ?? cfg.titleFontWeight, titleFwMobile);
   const titleFwDesktop = toFontWeight(cfg.titleFontWeight, titleFwTablet);
   const titleFs = device === "mobile" ? titleFsMobile : (device === "tablet" ? titleFsTablet : titleFsDesktop);
   const titleLh = device === "mobile" ? titleLhMobile : (device === "tablet" ? titleLhTablet : titleLhDesktop);
   const titleFw = device === "mobile" ? titleFwMobile : (device === "tablet" ? titleFwTablet : titleFwDesktop);
+  const titleMbMobile = toPx(cfg.mobileTitleMarginBottom ?? cfg.titleMarginBottom, "0.375rem");
+  const titleMbTablet = toPx(cfg.tabletTitleMarginBottom ?? cfg.titleMarginBottom, titleMbMobile);
+  const titleMbDesktop = toPx(cfg.titleMarginBottom, titleMbTablet);
+  const titleMb = device === "mobile" ? titleMbMobile : (device === "tablet" ? titleMbTablet : titleMbDesktop);
 
   const metaColorMobile = (cfg.mobileMetaColor as string) || (cfg.metaColor as string) || "var(--home-meta-color, #9ca3af)";
   const metaColorTablet = (cfg.tabletMetaColor as string) || metaColorMobile;
   const metaColorDesktop = (cfg.metaColor as string) || metaColorTablet;
   const metaColor = device === "mobile" ? metaColorMobile : (device === "tablet" ? metaColorTablet : metaColorDesktop);
-  const metaFsMobile = toPx(cfg.mobileMetaFontSize ?? cfg.metaFontSize, "12px");
+  const metaFsMobile = toPx(cfg.mobileMetaFontSize ?? cfg.metaFontSize, "var(--home-meta-size, 12px)");
   const metaFsTablet = toPx(cfg.tabletMetaFontSize ?? cfg.metaFontSize, metaFsMobile);
   const metaFsDesktop = toPx(cfg.metaFontSize, metaFsTablet);
   const metaFs = device === "mobile" ? metaFsMobile : (device === "tablet" ? metaFsTablet : metaFsDesktop);
+  const metaLhMobile = `${toNumber(cfg.mobileMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
+  const metaLhTablet = `${toNumber(cfg.tabletMetaLineHeight ?? cfg.metaLineHeight, 1.4)}`;
+  const metaLhDesktop = `${toNumber(cfg.metaLineHeight, 1.4)}`;
+  const metaLh = device === "mobile" ? metaLhMobile : (device === "tablet" ? metaLhTablet : metaLhDesktop);
+  const metaFwMobile = toFontWeight(cfg.mobileMetaFontWeight ?? cfg.metaFontWeight, "var(--home-meta-weight, 500)");
+  const metaFwTablet = toFontWeight(cfg.tabletMetaFontWeight ?? cfg.metaFontWeight, metaFwMobile);
+  const metaFwDesktop = toFontWeight(cfg.metaFontWeight, metaFwTablet);
+  const metaFw = device === "mobile" ? metaFwMobile : (device === "tablet" ? metaFwTablet : metaFwDesktop);
+  const metaMbMobile = toPx(cfg.mobileMetaMarginBottom ?? cfg.metaMarginBottom, "0px");
+  const metaMbTablet = toPx(cfg.tabletMetaMarginBottom ?? cfg.metaMarginBottom, metaMbMobile);
+  const metaMbDesktop = toPx(cfg.metaMarginBottom, metaMbTablet);
+  const metaMb = device === "mobile" ? metaMbMobile : (device === "tablet" ? metaMbTablet : metaMbDesktop);
 
   const excerptColorMobile = (cfg.mobileExcerptColor as string) || (cfg.excerptColor as string) || "var(--home-excerpt-color, #4b5563)";
   const excerptColorTablet = (cfg.tabletExcerptColor as string) || excerptColorMobile;
   const excerptColorDesktop = (cfg.excerptColor as string) || excerptColorTablet;
   const excerptColor = device === "mobile" ? excerptColorMobile : (device === "tablet" ? excerptColorTablet : excerptColorDesktop);
-  const excerptFsMobile = toPx(cfg.mobileExcerptFontSize ?? cfg.excerptFontSize, "14px");
+  const excerptFsMobile = toPx(cfg.mobileExcerptFontSize ?? cfg.excerptFontSize, "var(--home-excerpt-size, 14px)");
   const excerptFsTablet = toPx(cfg.tabletExcerptFontSize ?? cfg.excerptFontSize, excerptFsMobile);
   const excerptFsDesktop = toPx(cfg.excerptFontSize, excerptFsTablet);
   const excerptLhMobile = `${toNumber(cfg.mobileExcerptLineHeight ?? cfg.excerptLineHeight, 1.5)}`;
@@ -373,6 +438,10 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const excerptLhDesktop = `${toNumber(cfg.excerptLineHeight, 1.5)}`;
   const excerptFs = device === "mobile" ? excerptFsMobile : (device === "tablet" ? excerptFsTablet : excerptFsDesktop);
   const excerptLh = device === "mobile" ? excerptLhMobile : (device === "tablet" ? excerptLhTablet : excerptLhDesktop);
+  const excerptFwMobile = toFontWeight(cfg.mobileExcerptFontWeight ?? cfg.excerptFontWeight, "var(--home-excerpt-weight, 400)");
+  const excerptFwTablet = toFontWeight(cfg.tabletExcerptFontWeight ?? cfg.excerptFontWeight, excerptFwMobile);
+  const excerptFwDesktop = toFontWeight(cfg.excerptFontWeight, excerptFwTablet);
+  const excerptFw = device === "mobile" ? excerptFwMobile : (device === "tablet" ? excerptFwTablet : excerptFwDesktop);
 
   const showWidgetTitle = toBool(cfg.showTitle, true);
   const showCategoryDesktop = getResponsiveBool(configRecord, "showCategory", "desktop", true);
@@ -384,9 +453,9 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const showDateDesktop = getResponsiveBool(configRecord, "showDate", "desktop", true);
   const showDateTablet = getResponsiveBool(configRecord, "showDate", "tablet", true);
   const showDateMobile = getResponsiveBool(configRecord, "showDate", "mobile", true);
-  const showMetaInfoDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", true);
-  const showMetaInfoTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", true);
-  const showMetaInfoMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", true);
+  const showMetaInfoDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", getResponsiveBool(configRecord, "showMeta", "desktop", true));
+  const showMetaInfoTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", getResponsiveBool(configRecord, "showMeta", "tablet", true));
+  const showMetaInfoMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", getResponsiveBool(configRecord, "showMeta", "mobile", true));
   const showExcerptDesktop = getResponsiveBool(configRecord, "showExcerpt", "desktop", true);
   const showExcerptTablet = getResponsiveBool(configRecord, "showExcerpt", "tablet", true);
   const showExcerptMobile = getResponsiveBool(configRecord, "showExcerpt", "mobile", true);
@@ -395,15 +464,15 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const showDate = device === "mobile" ? showDateMobile : (device === "tablet" ? showDateTablet : showDateDesktop);
   const showMetaInfo = device === "mobile" ? showMetaInfoMobile : (device === "tablet" ? showMetaInfoTablet : showMetaInfoDesktop);
   const showExcerpt = device === "mobile" ? showExcerptMobile : (device === "tablet" ? showExcerptTablet : showExcerptDesktop);
-  const excerptLengthDesktop = toNumber(cfg.excerptLength, 90);
+  const excerptLengthDesktop = toNumber(cfg.excerptLength, 120);
   const excerptLengthTablet = toNumber(cfg.tabletExcerptLength ?? cfg.excerptLength, excerptLengthDesktop);
-  const excerptLengthMobile = toNumber(cfg.mobileExcerptLength ?? cfg.excerptLength, 80);
+  const excerptLengthMobile = toNumber(cfg.mobileExcerptLength ?? cfg.excerptLength, 120);
   const excerptLength = device === "mobile"
     ? excerptLengthMobile
     : (device === "tablet" ? excerptLengthTablet : excerptLengthDesktop);
-  const categoryLabelColorMobile = (cfg.mobileCategoryLabelColor as string) || (cfg.mobileCategoryTextColor as string) || (cfg.categoryLabelColor as string) || (cfg.categoryTextColor as string) || "#ffffff";
-  const categoryLabelColorTablet = (cfg.tabletCategoryLabelColor as string) || (cfg.tabletCategoryTextColor as string) || categoryLabelColorMobile;
-  const categoryLabelColorDesktop = (cfg.categoryLabelColor as string) || (cfg.categoryTextColor as string) || categoryLabelColorTablet;
+  const categoryLabelColorMobile = (cfg as any).mobileCategoryLabelTextColor || (cfg.mobileCategoryLabelColor as string) || (cfg.mobileCategoryTextColor as string) || (cfg as any).categoryLabelTextColor || (cfg.categoryLabelColor as string) || (cfg.categoryTextColor as string) || "#ffffff";
+  const categoryLabelColorTablet = (cfg as any).tabletCategoryLabelTextColor || (cfg.tabletCategoryLabelColor as string) || (cfg.tabletCategoryTextColor as string) || categoryLabelColorMobile;
+  const categoryLabelColorDesktop = (cfg as any).categoryLabelTextColor || (cfg.categoryLabelColor as string) || (cfg.categoryTextColor as string) || categoryLabelColorTablet;
   const categoryLabelColor = device === "mobile" ? categoryLabelColorMobile : (device === "tablet" ? categoryLabelColorTablet : categoryLabelColorDesktop);
   const normalizeCategoryAccent = (value: unknown): string => {
     if (typeof value !== "string" || value.trim() === "") return "var(--accent)";
@@ -415,11 +484,23 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const categoryLabelBgTablet = normalizeCategoryAccent((cfg.tabletCategoryLabelBgColor as string) || (cfg.tabletCategoryBgColor as string) || categoryLabelBgMobile);
   const categoryLabelBgDesktop = normalizeCategoryAccent((cfg.categoryLabelBgColor as string) || (cfg.categoryBgColor as string) || categoryLabelBgTablet);
   const categoryLabelBgColor = device === "mobile" ? categoryLabelBgMobile : (device === "tablet" ? categoryLabelBgTablet : categoryLabelBgDesktop);
+  const categoryLabelFsMobile = toPx(cfg.mobileCategoryLabelFontSize ?? cfg.mobileCategoryFontSize ?? cfg.categoryLabelFontSize ?? cfg.categoryFontSize, "10px");
+  const categoryLabelFsTablet = toPx(cfg.tabletCategoryLabelFontSize ?? cfg.tabletCategoryFontSize ?? cfg.categoryLabelFontSize ?? cfg.categoryFontSize, categoryLabelFsMobile);
+  const categoryLabelFsDesktop = toPx(cfg.categoryLabelFontSize ?? cfg.categoryFontSize, categoryLabelFsTablet);
+  const categoryLabelLineHeightMobile = String(cfg.mobileCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight ?? "1");
+  const categoryLabelLineHeightTablet = String(cfg.tabletCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight ?? categoryLabelLineHeightMobile);
+  const categoryLabelLineHeightDesktop = String(cfg.categoryLabelLineHeight ?? categoryLabelLineHeightTablet);
+  const categoryLabelPaddingXMobile = toPx(cfg.mobileCategoryLabelPaddingX ?? cfg.mobileCategoryPaddingX ?? cfg.categoryLabelPaddingX ?? cfg.categoryPaddingX, "8px");
+  const categoryLabelPaddingXTablet = toPx(cfg.tabletCategoryLabelPaddingX ?? cfg.tabletCategoryPaddingX ?? cfg.categoryLabelPaddingX ?? cfg.categoryPaddingX, categoryLabelPaddingXMobile);
+  const categoryLabelPaddingXDesktop = toPx(cfg.categoryLabelPaddingX ?? cfg.categoryPaddingX, categoryLabelPaddingXTablet);
+  const categoryLabelPaddingYMobile = toPx(cfg.mobileCategoryLabelPaddingY ?? cfg.mobileCategoryPaddingY ?? cfg.categoryLabelPaddingY ?? cfg.categoryPaddingY, "4px");
+  const categoryLabelPaddingYTablet = toPx(cfg.tabletCategoryLabelPaddingY ?? cfg.tabletCategoryPaddingY ?? cfg.categoryLabelPaddingY ?? cfg.categoryPaddingY, categoryLabelPaddingYMobile);
+  const categoryLabelPaddingYDesktop = toPx(cfg.categoryLabelPaddingY ?? cfg.categoryPaddingY, categoryLabelPaddingYTablet);
 
   const useBoxDesktop = cfg.useBox === true || cfg.useBox === "true";
   const useBoxTablet = (cfg.tabletUseBox !== undefined ? (cfg.tabletUseBox === true || cfg.tabletUseBox === "true") : useBoxDesktop);
   const useBoxMobile = (cfg.mobileUseBox !== undefined ? (cfg.mobileUseBox === true || cfg.mobileUseBox === "true") : useBoxDesktop);
-  const boxColorDesktop = (cfg.boxColor as string) || "var(--bg-elevated, #ffffff)";
+  const boxColorDesktop = normalizeLegacyNeutralSurface(cfg.boxColor, "transparent");
   const boxColorTablet = (cfg.tabletBoxColor as string) || boxColorDesktop;
   const boxColorMobile = (cfg.mobileBoxColor as string) || boxColorDesktop;
   const boxBgImageDesktop = sanitizeCssUrl(typeof cfg.backgroundImage === "string" ? cfg.backgroundImage : "");
@@ -429,25 +510,77 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const boxBgImageMobile = sanitizeCssUrl(
     typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage : boxBgImageDesktop
   );
+  const boxBgSizeDesktop = typeof (cfg as any).backgroundSize === "string" && (cfg as any).backgroundSize.trim() !== "" ? (cfg as any).backgroundSize : "cover";
+  const boxBgSizeTablet = typeof (cfg as any).tabletBackgroundSize === "string" && (cfg as any).tabletBackgroundSize.trim() !== "" ? (cfg as any).tabletBackgroundSize : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof (cfg as any).mobileBackgroundSize === "string" && (cfg as any).mobileBackgroundSize.trim() !== "" ? (cfg as any).mobileBackgroundSize : boxBgSizeDesktop;
+  const boxBgPositionDesktop = typeof (cfg as any).backgroundPosition === "string" && (cfg as any).backgroundPosition.trim() !== "" ? (cfg as any).backgroundPosition : "center";
+  const boxBgPositionTablet = typeof (cfg as any).tabletBackgroundPosition === "string" && (cfg as any).tabletBackgroundPosition.trim() !== "" ? (cfg as any).tabletBackgroundPosition : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof (cfg as any).mobileBackgroundPosition === "string" && (cfg as any).mobileBackgroundPosition.trim() !== "" ? (cfg as any).mobileBackgroundPosition : boxBgPositionDesktop;
+  const boxBgRepeatDesktop = typeof (cfg as any).backgroundRepeat === "string" && (cfg as any).backgroundRepeat.trim() !== "" ? (cfg as any).backgroundRepeat : "no-repeat";
+  const boxBgRepeatTablet = typeof (cfg as any).tabletBackgroundRepeat === "string" && (cfg as any).tabletBackgroundRepeat.trim() !== "" ? (cfg as any).tabletBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof (cfg as any).mobileBackgroundRepeat === "string" && (cfg as any).mobileBackgroundRepeat.trim() !== "" ? (cfg as any).mobileBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgAttachmentDesktop = typeof (cfg as any).backgroundAttachment === "string" && (cfg as any).backgroundAttachment.trim() !== "" ? (cfg as any).backgroundAttachment : "scroll";
+  const boxBgAttachmentTablet = typeof (cfg as any).tabletBackgroundAttachment === "string" && (cfg as any).tabletBackgroundAttachment.trim() !== "" ? (cfg as any).tabletBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof (cfg as any).mobileBackgroundAttachment === "string" && (cfg as any).mobileBackgroundAttachment.trim() !== "" ? (cfg as any).mobileBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxOverlayColorDesktop = typeof (cfg as any).backgroundOverlayColor === "string" ? (cfg as any).backgroundOverlayColor : "transparent";
+  const boxOverlayColorTablet = typeof (cfg as any).tabletBackgroundOverlayColor === "string" && (cfg as any).tabletBackgroundOverlayColor.trim() !== "" ? (cfg as any).tabletBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof (cfg as any).mobileBackgroundOverlayColor === "string" && (cfg as any).mobileBackgroundOverlayColor.trim() !== "" ? (cfg as any).mobileBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number((cfg as any).backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number((cfg as any).tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number((cfg as any).mobileBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
   const activeUseBox = device === "mobile" ? useBoxMobile : (device === "tablet" ? useBoxTablet : useBoxDesktop);
   const activeBoxColor = device === "mobile" ? boxColorMobile : (device === "tablet" ? boxColorTablet : boxColorDesktop);
   const activeBoxBgImage = device === "mobile" ? boxBgImageMobile : (device === "tablet" ? boxBgImageTablet : boxBgImageDesktop);
-  const globalRadius = "var(--home-main-box-radius, 0.75rem)";
+  const activeBoxBgSize = device === "mobile" ? boxBgSizeMobile : (device === "tablet" ? boxBgSizeTablet : boxBgSizeDesktop);
+  const activeBoxBgPosition = device === "mobile" ? boxBgPositionMobile : (device === "tablet" ? boxBgPositionTablet : boxBgPositionDesktop);
+  const activeBoxBgRepeat = device === "mobile" ? boxBgRepeatMobile : (device === "tablet" ? boxBgRepeatTablet : boxBgRepeatDesktop);
+  const activeBoxBgAttachment = device === "mobile" ? boxBgAttachmentMobile : (device === "tablet" ? boxBgAttachmentTablet : boxBgAttachmentDesktop);
+  const activeBoxOverlayColor = device === "mobile" ? boxOverlayColorMobile : (device === "tablet" ? boxOverlayColorTablet : boxOverlayColorDesktop);
+  const activeBoxOverlayOpacity = device === "mobile" ? boxOverlayOpacityMobile : (device === "tablet" ? boxOverlayOpacityTablet : boxOverlayOpacityDesktop);
+  const hasActiveBoxOverlay = activeBoxOverlayOpacity > 0 && typeof activeBoxOverlayColor === "string" && activeBoxOverlayColor.trim() !== "" && activeBoxOverlayColor !== "transparent";
+  const activeBoxOverlayFill = hasActiveBoxOverlay ? `color-mix(in srgb, ${activeBoxOverlayColor} ${activeBoxOverlayOpacity}%, transparent)` : "transparent";
+  const activeBoxBackgroundImage = activeUseBox && activeBoxBgImage
+    ? (hasActiveBoxOverlay
+      ? `linear-gradient(${activeBoxOverlayFill}, ${activeBoxOverlayFill}), url("${activeBoxBgImage}")`
+      : `url("${activeBoxBgImage}")`)
+    : "none";
+  const globalRadius = "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))";
   const categoryLabelRadiusDesktop = resolveRadiusValue(cfg.categoryLabelBorderRadius ?? cfg.categoryBorderRadius, globalRadius);
   const categoryLabelRadiusTablet = resolveRadiusValue(cfg.tabletCategoryLabelBorderRadius ?? cfg.tabletCategoryBorderRadius ?? cfg.categoryLabelBorderRadius ?? cfg.categoryBorderRadius, categoryLabelRadiusDesktop);
   const categoryLabelRadiusMobile = resolveRadiusValue(cfg.mobileCategoryLabelBorderRadius ?? cfg.mobileCategoryBorderRadius ?? cfg.categoryLabelBorderRadius ?? cfg.categoryBorderRadius, categoryLabelRadiusDesktop);
   const categoryLabelRadius = device === "mobile"
     ? categoryLabelRadiusMobile
     : (device === "tablet" ? categoryLabelRadiusTablet : categoryLabelRadiusDesktop);
+  const currentCategoryLabelFs = device === "mobile" ? categoryLabelFsMobile : (device === "tablet" ? categoryLabelFsTablet : categoryLabelFsDesktop);
+  const currentCategoryLabelLineHeight = device === "mobile" ? categoryLabelLineHeightMobile : (device === "tablet" ? categoryLabelLineHeightTablet : categoryLabelLineHeightDesktop);
+  const currentCategoryLabelPaddingX = device === "mobile" ? categoryLabelPaddingXMobile : (device === "tablet" ? categoryLabelPaddingXTablet : categoryLabelPaddingXDesktop);
+  const currentCategoryLabelPaddingY = device === "mobile" ? categoryLabelPaddingYMobile : (device === "tablet" ? categoryLabelPaddingYTablet : categoryLabelPaddingYDesktop);
+  const currentCategoryLabelHasBg = categoryLabelBgColor !== "transparent" && categoryLabelBgColor !== "none";
   const boxRadiusDesktop = resolveRadiusValue(cfg.boxBorderRadius, globalRadius);
   const boxRadiusTablet = resolveRadiusValue(cfg.tabletBoxBorderRadius ?? cfg.boxBorderRadius, boxRadiusDesktop);
   const boxRadiusMobile = resolveRadiusValue(cfg.mobileBoxBorderRadius ?? cfg.boxBorderRadius, boxRadiusDesktop);
+  const boxPtMobile = cfg.mobileBoxPaddingTop !== undefined ? toPx(cfg.mobileBoxPaddingTop, "0px") : (cfg.boxPaddingTop !== undefined ? toPx(cfg.boxPaddingTop, "0px") : "0px");
+  const boxPrMobile = cfg.mobileBoxPaddingRight !== undefined ? toPx(cfg.mobileBoxPaddingRight, "0px") : (cfg.boxPaddingRight !== undefined ? toPx(cfg.boxPaddingRight, "0px") : "0px");
+  const boxPbMobile = cfg.mobileBoxPaddingBottom !== undefined ? toPx(cfg.mobileBoxPaddingBottom, "0px") : (cfg.boxPaddingBottom !== undefined ? toPx(cfg.boxPaddingBottom, "0px") : "0px");
+  const boxPlMobile = cfg.mobileBoxPaddingLeft !== undefined ? toPx(cfg.mobileBoxPaddingLeft, "0px") : (cfg.boxPaddingLeft !== undefined ? toPx(cfg.boxPaddingLeft, "0px") : "0px");
+  const boxPtTablet = cfg.tabletBoxPaddingTop !== undefined ? toPx(cfg.tabletBoxPaddingTop, "0px") : (cfg.boxPaddingTop !== undefined ? toPx(cfg.boxPaddingTop, "0px") : boxPtMobile);
+  const boxPrTablet = cfg.tabletBoxPaddingRight !== undefined ? toPx(cfg.tabletBoxPaddingRight, "0px") : (cfg.boxPaddingRight !== undefined ? toPx(cfg.boxPaddingRight, "0px") : boxPrMobile);
+  const boxPbTablet = cfg.tabletBoxPaddingBottom !== undefined ? toPx(cfg.tabletBoxPaddingBottom, "0px") : (cfg.boxPaddingBottom !== undefined ? toPx(cfg.boxPaddingBottom, "0px") : boxPbMobile);
+  const boxPlTablet = cfg.tabletBoxPaddingLeft !== undefined ? toPx(cfg.tabletBoxPaddingLeft, "0px") : (cfg.boxPaddingLeft !== undefined ? toPx(cfg.boxPaddingLeft, "0px") : boxPlMobile);
+  const boxPtDesktop = cfg.boxPaddingTop !== undefined ? toPx(cfg.boxPaddingTop, "0px") : boxPtTablet;
+  const boxPrDesktop = cfg.boxPaddingRight !== undefined ? toPx(cfg.boxPaddingRight, "0px") : boxPrTablet;
+  const boxPbDesktop = cfg.boxPaddingBottom !== undefined ? toPx(cfg.boxPaddingBottom, "0px") : boxPbTablet;
+  const boxPlDesktop = cfg.boxPaddingLeft !== undefined ? toPx(cfg.boxPaddingLeft, "0px") : boxPlTablet;
+  const activeBoxPt = device === "mobile" ? boxPtMobile : (device === "tablet" ? boxPtTablet : boxPtDesktop);
+  const activeBoxPr = device === "mobile" ? boxPrMobile : (device === "tablet" ? boxPrTablet : boxPrDesktop);
+  const activeBoxPb = device === "mobile" ? boxPbMobile : (device === "tablet" ? boxPbTablet : boxPbDesktop);
+  const activeBoxPl = device === "mobile" ? boxPlMobile : (device === "tablet" ? boxPlTablet : boxPlDesktop);
   const activeBoxRadius = device === "mobile" ? boxRadiusMobile : (device === "tablet" ? boxRadiusTablet : boxRadiusDesktop);
   const cardRadiusDesktop = resolveRadiusValue(cfg.gridBoxBorderRadius, globalRadius, { legacyDefaultNumbers: [0] });
   const cardRadiusTablet = resolveRadiusValue(cfg.tabletGridBoxBorderRadius ?? cfg.gridBoxBorderRadius, cardRadiusDesktop, { legacyDefaultNumbers: [0] });
   const cardRadiusMobile = resolveRadiusValue(cfg.mobileGridBoxBorderRadius ?? cfg.gridBoxBorderRadius, cardRadiusDesktop, { legacyDefaultNumbers: [0] });
   const cardRadius = device === "mobile" ? cardRadiusMobile : (device === "tablet" ? cardRadiusTablet : cardRadiusDesktop);
-  const cardBg = (cfg.gridBoxColor as string) || "var(--bg-elevated, #ffffff)";
+  const cardBg = normalizeLegacyNeutralSurface(cfg.gridBoxColor, "var(--bg-elevated, #ffffff)");
   const contentPaddingMobile = toPx(cfg.mobileContentPadding ?? cfg.contentPadding, "12px");
   const contentPaddingTablet = toPx(cfg.tabletContentPadding ?? cfg.contentPadding, contentPaddingMobile);
   const contentPaddingDesktop = toPx(cfg.contentPadding, contentPaddingTablet);
@@ -485,6 +618,13 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const blockTitleFsMobile = toPx(cfg.mobileBlockTitleFontSize ?? cfg.blockTitleFontSize, "20px");
   const blockTitleFsTablet = toPx(cfg.tabletBlockTitleFontSize ?? cfg.blockTitleFontSize, "22px");
   const blockTitleFsDesktop = toPx(cfg.blockTitleFontSize, "24px");
+  const blockTitleLhMobile = `${toNumber((cfg as any).mobileBlockTitleLineHeight ?? cfg.blockTitleLineHeight, 1.2)}`;
+  const blockTitleLhTablet = `${toNumber((cfg as any).tabletBlockTitleLineHeight ?? cfg.blockTitleLineHeight, 1.2)}`;
+  const blockTitleLhDesktop = `${toNumber(cfg.blockTitleLineHeight, 1.2)}`;
+  const currentBlockTitleColor = device === "mobile" ? blockTitleColorMobile : (device === "tablet" ? blockTitleColorTablet : blockTitleColorDesktop);
+  const currentBlockTitleBorder = device === "mobile" ? blockTitleBorderMobile : (device === "tablet" ? blockTitleBorderTablet : blockTitleBorderDesktop);
+  const currentBlockTitleFs = device === "mobile" ? blockTitleFsMobile : (device === "tablet" ? blockTitleFsTablet : blockTitleFsDesktop);
+  const currentBlockTitleLh = device === "mobile" ? blockTitleLhMobile : (device === "tablet" ? blockTitleLhTablet : blockTitleLhDesktop);
   const dotColorMobile = (cfg.mobileDotColor as string) || (cfg.dotColor as string) || "var(--accent)";
   const dotColorTablet = (cfg.tabletDotColor as string) || dotColorMobile;
   const dotColorDesktop = (cfg.dotColor as string) || dotColorTablet;
@@ -495,6 +635,28 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   const inactiveDotColor = device === "mobile" ? dotInactiveColorMobile : (device === "tablet" ? dotInactiveColorTablet : dotInactiveColorDesktop);
   const activeDotRingColor = `color-mix(in srgb, ${activeDotColor} 35%, transparent)`;
   const slideUnit = `calc((100% - (${gap} * ${Math.max(perView - 1, 0)})) / ${perView} + ${gap})`;
+  const titleSectionGap = device === "mobile" ? "12px" : (device === "tablet" ? "14px" : "16px");
+  const dotsSectionGap = device === "mobile" ? "12px" : "14px";
+  const currentInnerPaddingTop = device === "mobile" ? pTopMobile : (device === "tablet" ? pTopTablet : pTopDesktop);
+  const currentInnerPaddingRight = device === "mobile" ? pRightMobile : (device === "tablet" ? pRightTablet : pRightDesktop);
+  const currentInnerPaddingBottom = device === "mobile" ? pBottomMobile : (device === "tablet" ? pBottomTablet : pBottomDesktop);
+  const currentInnerPaddingLeft = device === "mobile" ? pLeftMobile : (device === "tablet" ? pLeftTablet : pLeftDesktop);
+  const effectiveContentBg = isPublicDarkMode ? "#ffffff" : "transparent";
+  const effectiveTitleColor = isPublicDarkMode ? "#0f172a" : titleColor;
+  const effectiveTitleHover = isPublicDarkMode ? "var(--home-hover-color, var(--accent))" : titleHover;
+  const effectiveMetaColor = isPublicDarkMode ? "#64748b" : metaColor;
+  const effectiveExcerptColor = isPublicDarkMode ? "#334155" : excerptColor;
+  const effectiveBlockTitleColorMobile = isPublicDarkMode ? "#ffffff" : blockTitleColorMobile;
+  const effectiveBlockTitleColorTablet = isPublicDarkMode ? "#ffffff" : blockTitleColorTablet;
+  const effectiveBlockTitleColorDesktop = isPublicDarkMode ? "#ffffff" : blockTitleColorDesktop;
+  const effectiveBlockTitleBorderMobile = isPublicDarkMode ? "#ffffff" : blockTitleBorderMobile;
+  const effectiveBlockTitleBorderTablet = isPublicDarkMode ? "#ffffff" : blockTitleBorderTablet;
+  const effectiveBlockTitleBorderDesktop = isPublicDarkMode ? "#ffffff" : blockTitleBorderDesktop;
+  const contentThemeVars = {
+    "--home-news-title-color": effectiveTitleColor,
+    "--home-meta-color": effectiveMetaColor,
+    "--home-excerpt-color": effectiveExcerptColor,
+  } as React.CSSProperties;
 
   const getAuthorName = (post: NewsGridSliderPost) => {
     if (typeof post.author === "string" && post.author.trim() !== "") return post.author;
@@ -508,7 +670,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
 
   if (data.length === 0) {
     return (
-      <div id={`news-grid-slider-${block.id}`} className="p-4 rounded-lg border border-[var(--border)] text-sm text-[var(--fg-muted)]">
+      <div id={`news-grid-slider-${block.id}`} className="p-4 rounded-lg border border-[var(--border)] text-sm [color:var(--muted-text,var(--home-meta-color,#9ca3af))]">
         Belum ada berita untuk ditampilkan.
       </div>
     );
@@ -517,47 +679,73 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
   return (
     <div
       id={`news-grid-slider-${block.id}`}
+      className="responsive-block-frame"
       style={{
-        backgroundColor: activeUseBox ? activeBoxColor : "transparent",
-        borderRadius: activeUseBox ? activeBoxRadius : "0",
-        border: activeUseBox ? "var(--box-border, 1px solid var(--border))" : "none",
-        boxShadow: activeUseBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
-        backgroundImage: activeUseBox && activeBoxBgImage ? `url("${activeBoxBgImage}")` : "none",
-        backgroundSize: activeUseBox && activeBoxBgImage ? "cover" : undefined,
-        backgroundPosition: activeUseBox && activeBoxBgImage ? "center" : undefined,
-        backgroundRepeat: activeUseBox && activeBoxBgImage ? "no-repeat" : undefined,
-        "--widget-title-border-color-mobile": blockTitleBorderMobile,
-        "--widget-title-border-color-tablet": blockTitleBorderTablet,
-        "--widget-title-border-color-desktop": blockTitleBorderDesktop
+        "--rb-mt-mobile": mTopMobile,
+        "--rb-mr-mobile": mRightMobile,
+        "--rb-mb-mobile": mBottomMobile,
+        "--rb-ml-mobile": mLeftMobile,
+        "--rb-pt-mobile": "0px",
+        "--rb-pr-mobile": "0px",
+        "--rb-pb-mobile": "0px",
+        "--rb-pl-mobile": "0px",
+        "--rb-mt-tablet": mTopTablet,
+        "--rb-mr-tablet": mRightTablet,
+        "--rb-mb-tablet": mBottomTablet,
+        "--rb-ml-tablet": mLeftTablet,
+        "--rb-pt-tablet": "0px",
+        "--rb-pr-tablet": "0px",
+        "--rb-pb-tablet": "0px",
+        "--rb-pl-tablet": "0px",
+        "--rb-mt-desktop": mTopDesktop,
+        "--rb-mr-desktop": mRightDesktop,
+        "--rb-mb-desktop": mBottomDesktop,
+        "--rb-ml-desktop": mLeftDesktop,
+        "--rb-pt-desktop": "0px",
+        "--rb-pr-desktop": "0px",
+        "--rb-pb-desktop": "0px",
+        "--rb-pl-desktop": "0px",
+        "--widget-title-size-mobile": blockTitleFsMobile,
+        "--widget-title-size-tablet": blockTitleFsTablet,
+        "--widget-title-size-desktop": blockTitleFsDesktop,
+        "--widget-title-color-mobile": effectiveBlockTitleColorMobile,
+        "--widget-title-color-tablet": effectiveBlockTitleColorTablet,
+        "--widget-title-color-desktop": effectiveBlockTitleColorDesktop,
+        "--widget-title-border-color-mobile": effectiveBlockTitleBorderMobile,
+        "--widget-title-border-color-tablet": effectiveBlockTitleBorderTablet,
+        "--widget-title-border-color-desktop": effectiveBlockTitleBorderDesktop
       } as React.CSSProperties}
     >
-      <style
-        dangerouslySetInnerHTML={{
-          __html: safeStyleTagCss(`
-            #news-grid-slider-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; }
-            #news-grid-slider-${block.id} .news-grid-slider-inner { padding-top: ${pTopMobile}; padding-right: ${pRightMobile}; padding-bottom: ${pBottomMobile}; padding-left: ${pLeftMobile}; }
-            #news-grid-slider-${block.id} .theme-widget-title span { color: ${blockTitleColorMobile}; font-size: ${blockTitleFsMobile}; }
-            #news-grid-slider-${block.id} .theme-widget-title .widget-title-bar { background-color: var(--widget-title-border-color-mobile); }
-            @media (min-width: 768px) {
-              #news-grid-slider-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; }
-              #news-grid-slider-${block.id} .news-grid-slider-inner { padding-top: ${pTopTablet}; padding-right: ${pRightTablet}; padding-bottom: ${pBottomTablet}; padding-left: ${pLeftTablet}; }
-              #news-grid-slider-${block.id} .theme-widget-title span { color: ${blockTitleColorTablet}; font-size: ${blockTitleFsTablet}; }
-              #news-grid-slider-${block.id} .theme-widget-title .widget-title-bar { background-color: var(--widget-title-border-color-tablet); }
-            }
-            @media (min-width: 1025px) {
-              #news-grid-slider-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; }
-              #news-grid-slider-${block.id} .news-grid-slider-inner { padding-top: ${pTopDesktop}; padding-right: ${pRightDesktop}; padding-bottom: ${pBottomDesktop}; padding-left: ${pLeftDesktop}; }
-              #news-grid-slider-${block.id} .theme-widget-title span { color: ${blockTitleColorDesktop}; font-size: ${blockTitleFsDesktop}; }
-              #news-grid-slider-${block.id} .theme-widget-title .widget-title-bar { background-color: var(--widget-title-border-color-desktop); }
-            }
-          `)
+      <div
+        style={{
+          backgroundColor: activeUseBox ? activeBoxColor : "transparent",
+          borderRadius: activeUseBox ? activeBoxRadius : "0",
+          border: activeUseBox ? "var(--box-border, 1px solid var(--border))" : "none",
+          boxShadow: activeUseBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
+          backgroundImage: activeBoxBackgroundImage,
+          backgroundSize: activeUseBox && activeBoxBgImage ? (hasActiveBoxOverlay ? `cover, ${activeBoxBgSize}` : activeBoxBgSize) : undefined,
+          backgroundPosition: activeUseBox && activeBoxBgImage ? (hasActiveBoxOverlay ? `center, ${activeBoxBgPosition}` : activeBoxBgPosition) : undefined,
+          backgroundRepeat: activeUseBox && activeBoxBgImage ? (hasActiveBoxOverlay ? `no-repeat, ${activeBoxBgRepeat}` : activeBoxBgRepeat) : undefined,
+          backgroundAttachment: activeUseBox && activeBoxBgImage ? (hasActiveBoxOverlay ? `scroll, ${activeBoxBgAttachment}` : activeBoxBgAttachment) : undefined,
+          paddingTop: activeUseBox ? activeBoxPt : "0px",
+          paddingRight: activeUseBox ? activeBoxPr : "0px",
+          paddingBottom: activeUseBox ? activeBoxPb : "0px",
+          paddingLeft: activeUseBox ? activeBoxPl : "0px",
         }}
-      />
-      <div className="news-grid-slider-inner">
+      >
+      <div
+        className="news-grid-slider-inner"
+        style={{
+          paddingTop: currentInnerPaddingTop,
+          paddingRight: currentInnerPaddingRight,
+          paddingBottom: currentInnerPaddingBottom,
+          paddingLeft: currentInnerPaddingLeft,
+        }}
+      >
         {showWidgetTitle && (
-          <h3 className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center theme-widget-title">
-            <div className="widget-title-bar w-1 h-5 mr-3" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)" }}></div>
-            <span>{title}</span>
+          <h3 className="font-bold border-b border-[color:var(--border,#e5e7eb)] pb-3 flex items-center theme-widget-title" style={{ marginBottom: titleSectionGap }}>
+            <div className="widget-title-bar" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)", backgroundColor: currentBlockTitleBorder }}></div>
+            <span style={{ color: currentBlockTitleColor, fontSize: currentBlockTitleFs, lineHeight: currentBlockTitleLh }}>{title}</span>
           </h3>
         )}
 
@@ -589,7 +777,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
             </>
           )}
 
-          <div className="overflow-hidden px-px">
+          <div className="overflow-hidden">
             <div
               className="flex"
               style={{ gap, transform: `translateX(calc(-1 * ${trackIndex} * ${slideUnit}))`, transition: useTransition ? `transform ${transitionMs}ms ease` : "none" }}
@@ -608,13 +796,13 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
               const dateIso = dateObj && !Number.isNaN(dateObj.getTime()) ? dateObj.toISOString() : "";
               const authorName = getAuthorName(post);
               return (
-                <article key={`${post.id || `${block.id}-${idx}`}-${idx}`} className="border border-[var(--border)] overflow-hidden shrink-0" style={{ width: `calc((100% - (${gap} * ${Math.max(perView - 1, 0)})) / ${perView})`, borderRadius: cardRadius, backgroundColor: cardBg }}>
+                <article key={`${post.id || `${block.id}-${idx}`}-${idx}`} className="news-grid-slider-item border border-[var(--border)] overflow-hidden shrink-0" style={{ width: `calc((100% - (${gap} * ${Math.max(perView - 1, 0)})) / ${perView})`, borderRadius: cardRadius, backgroundColor: cardBg }}>
                   <Link href={postLink} className="block">
-                    <div className="relative bg-gray-100" style={{ height: imageH }}>
+                    <div className="news-grid-slider-thumb relative bg-[color:var(--bg-surface,#f9fafb)]" style={{ height: imageH }}>
                       {imageUrl ? (
                         <Image src={imageUrl} alt={post.title} fill className="object-cover hover:scale-105 transition-transform duration-500" sizes="(max-width: 1024px) 50vw, 33vw" />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center text-[var(--fg-muted)] text-xs">No Image</div>
+                        <div className="absolute inset-0 flex items-center justify-center [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-xs">No Image</div>
                       )}
                       {isVideo && (
                         <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -626,25 +814,67 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
                         </span>
                       )}
                       {showCategory && post.category && (
-                        <span className="absolute top-2 left-2 text-[10px] font-bold uppercase tracking-wide px-2 py-1" style={{ color: categoryLabelColor, backgroundColor: categoryLabelBgColor, borderRadius: categoryLabelRadius }}>
+                        <span
+                          className="absolute top-2 left-2 font-bold uppercase tracking-wide"
+                          style={{
+                            color: categoryLabelColor,
+                            backgroundColor: categoryLabelBgColor,
+                            borderRadius: currentCategoryLabelHasBg ? categoryLabelRadius : "0",
+                            fontSize: currentCategoryLabelFs,
+                            lineHeight: currentCategoryLabelLineHeight,
+                            padding: currentCategoryLabelHasBg ? `${currentCategoryLabelPaddingY} ${currentCategoryLabelPaddingX}` : "0",
+                          }}
+                        >
                           {post.category.name}
                         </span>
                       )}
                     </div>
                   </Link>
-                  <div style={{ padding: contentPadding }}>
-                    <h4 className="mb-1.5" style={{ lineHeight: titleLh, fontSize: titleFs, fontWeight: titleFw }}>
-                      <Link href={postLink} className="transition-colors duration-300" style={{ color: titleColor }} onMouseEnter={(e) => { e.currentTarget.style.color = titleHover; }} onMouseLeave={(e) => { e.currentTarget.style.color = titleColor; }}>{post.title}</Link>
+                  <div
+                    className="news-grid-slider-content"
+                    style={{ padding: contentPadding, backgroundColor: effectiveContentBg, ...contentThemeVars }}
+                  >
+                    <h4
+                      className="news-grid-slider-title-wrap"
+                      style={{
+                        lineHeight: titleLh,
+                        fontSize: titleFs,
+                        fontWeight: titleFw,
+                        marginBottom: titleMb,
+                        fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))",
+                        fontSynthesis: "var(--home-news-title-synthesis, var(--font-heading-synthesis, none))",
+                      }}
+                    >
+                      <Link
+                        href={postLink}
+                        className="news-grid-slider-title transition-colors duration-300"
+                        style={{
+                          ["--news-grid-slider-title-color" as string]: effectiveTitleColor,
+                          ["--news-grid-slider-title-size" as string]: titleFs,
+                          ["--news-grid-slider-title-weight" as string]: titleFw,
+                          ["--news-grid-slider-title-font" as string]: "var(--home-news-title-font, var(--font-heading, sans-serif))",
+                          ["--news-grid-slider-title-hover" as string]: effectiveTitleHover,
+                          color: effectiveTitleColor,
+                          fontSynthesis: "inherit",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = effectiveTitleHover; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = effectiveTitleColor; }}
+                      >
+                        {post.title}
+                      </Link>
                     </h4>
                     {showMetaInfo && (showAuthor || showDate) && (
-                      <div className="flex items-center gap-2 mb-2" style={{ color: metaColor, fontSize: metaFs }}>
+                      <div className="news-grid-slider-meta flex items-center gap-2" style={{ color: effectiveMetaColor, fontSize: metaFs, lineHeight: metaLh, fontWeight: metaFw, marginBottom: metaMb }}>
                         {showAuthor && authorName && (
                           <div className="flex items-center gap-1.5">
-                            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] relative overflow-hidden" style={{ backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}>
+                            <span
+                              className="rounded-full flex items-center justify-center relative overflow-hidden shrink-0"
+                              style={{ width: "1.5em", height: "1.5em", fontSize: "0.92em", backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}
+                            >
                               {post.authorAvatar ? (
                                 <Image src={post.authorAvatar} alt={authorName} fill className="object-cover" sizes="16px" />
                               ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 opacity-80">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-80" style={{ width: "1em", height: "1em" }}>
                                   <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                                 </svg>
                               )}
@@ -652,10 +882,10 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
                             <span>{authorName}</span>
                           </div>
                         )}
-                        {showAuthor && authorName && showDate && dateVal && <span className="w-1 h-1 rounded-full" style={{ backgroundColor: "currentColor", opacity: 0.5 }} />}
+                        {showAuthor && authorName && showDate && dateVal && <span className="rounded-full shrink-0" style={{ width: "0.42em", height: "0.42em", backgroundColor: "currentColor", opacity: 0.5 }} />}
                         {showDate && dateVal && (
                           <div className="flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-70 shrink-0" style={{ width: "1.22em", height: "1.22em" }}>
                               <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
                             </svg>
                             <time dateTime={dateIso}>
@@ -666,7 +896,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
                       </div>
                     )}
                     {showExcerpt && (
-                      <p style={{ color: excerptColor, fontSize: excerptFs, lineHeight: excerptLh }}>
+                      <p className="news-grid-slider-excerpt" style={{ color: effectiveExcerptColor, fontSize: excerptFs, lineHeight: excerptLh, fontWeight: excerptFw }}>
                         {clampExcerpt(getExcerptSource(post, excerptLength), excerptLength)}
                       </p>
                     )}
@@ -679,7 +909,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
         </div>
 
         {showDots && pageCount > 1 && (
-          <div className="mt-3 flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-2" style={{ marginTop: dotsSectionGap }}>
             {Array.from({ length: pageCount }).map((_, idx) => (
               <button
                 key={`${block.id}-dot-${idx}`}
@@ -715,6 +945,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
             ))}
           </div>
         )}
+      </div>
       </div>
     </div>
   );

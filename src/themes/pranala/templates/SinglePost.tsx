@@ -7,11 +7,16 @@ import { PRANALA_BLOCKS } from "../blocks/registry";
 import Section from "../blocks/Section";
 import PranalaPostContent from "../components/PranalaPostContent";
 import PostWidgetRenderer from "../blockpost/PostWidgetRenderer";
-import { extractFirstSidebarSection, resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import SidebarWidgetRenderer from "../components/SidebarWidgetRenderer";
 import SidebarDebugPanel from "../components/SidebarDebugPanel";
+import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import { getFirstImageFromHtml } from "@/lib/content-images";
+import {
+  resolveThemeFontFamily,
+  resolveThemeFontSynthesis,
+} from "@/lib/font-utils";
 import { getYouTubeEmbedUrl } from "@/lib/utils";
-import { safeStyleTagCss } from "@/lib/sanitizer";
+import { buildPostWatermarkedImageUrl } from "@/lib/post-image-watermark";
 
 interface PranalaSinglePostProps {
   post: any;
@@ -20,10 +25,10 @@ interface PranalaSinglePostProps {
   blocks: any[];
   blockData?: Record<string, any[]>;
   inlineRelatedPosts?: any[];
-  sourceBlocksByLocation?: Record<string, any[]>;
   menusByLocation?: any;
   headerConfig?: any;
   footerConfig?: any;
+  preview?: boolean;
 }
 
 const parseLayout = (layoutStr: string = "100"): number[] => {
@@ -100,6 +105,28 @@ const toPx = (value: unknown): string | undefined => {
   if (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) return `${Number(value)}px`;
   return undefined;
 };
+const getResponsiveValue = (config: any, key: string, device: "desktop" | "tablet" | "mobile") => {
+  if (device === "desktop") return config?.[key];
+  const responsiveKey = `${device}${key.charAt(0).toUpperCase() + key.slice(1)}`;
+  return config?.[responsiveKey] ?? config?.[key];
+};
+const formatSpacing = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) return `${trimmed}px`;
+    return trimmed;
+  }
+  return undefined;
+};
+
+const resolvePublicFont = (font: unknown, fallback = "inherit") => {
+  const value = typeof font === "string" ? font.trim() : "";
+  if (!value) return fallback;
+  return resolveThemeFontFamily(value, fallback);
+};
 const resolveImageUrl = (item: any): string | undefined => {
   if (!item) return undefined;
   const candidates = [
@@ -121,14 +148,6 @@ const resolveImageUrl = (item: any): string | undefined => {
     }
   }
   return undefined;
-};
-const getFirstImageFromContent = (html: unknown): string | undefined => {
-  if (typeof html !== "string" || html.trim() === "") return undefined;
-  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
-  const src = match?.[1]?.trim();
-  if (!src) return undefined;
-  if (src.startsWith("http://") || src.startsWith("https://") || src.startsWith("/")) return src;
-  return `/${src.replace(/^\/+/, "")}`;
 };
 const normalizeRadiusValue = (value: unknown, fallback = "0.75rem"): string => {
   if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
@@ -165,7 +184,7 @@ const parseInlineRelatedPositions = (value: unknown): number[] => {
     .sort((a, b) => a - b);
   return parsed.length > 0 ? parsed : [2];
 };
-export default function PranalaSinglePost({ post, setting, categories, blocks, blockData = {}, inlineRelatedPosts = [], sourceBlocksByLocation, menusByLocation, headerConfig, footerConfig }: PranalaSinglePostProps) {
+export default function PranalaSinglePost({ post, setting, categories, blocks, blockData = {}, inlineRelatedPosts = [], menusByLocation, headerConfig, footerConfig, preview = false }: PranalaSinglePostProps) {
   const siteName = setting?.siteName || "Pranala News";
   const logoUrl = setting?.logoUrl;
   const accent = setting?.globalAccentColor || setting?.accentColor || "#f59e0b";
@@ -177,24 +196,153 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
   const postLinkHoverColor = setting?.postLinkHoverColor || setting?.postHoverColor || setting?.homeHoverColor || hoverColor;
   const postBadgeTextColor = setting?.postBadgeTextColor || metaColor;
   const postBadgeBgColor = setting?.postBadgeBgColor || "#f3f4f6";
+  const borderColor = setting?.globalBorderColor || "#e5e7eb";
+  const surfaceColor = setting?.globalSurfaceColor || "#f9fafb";
+  const elevatedColor = setting?.globalElevatedColor || "#ffffff";
+  const mutedTextColor = setting?.globalMutedTextColor || metaColor || "#9ca3af";
   const widgetTitleColor = setting?.homeWidgetTitleColor || setting?.globalWidgetTitleColor || headingColor;
   const widgetTitleSize = formatContainerSize(setting?.homeWidgetTitleFontSize ?? setting?.globalWidgetTitleFontSize, "24px");
   const widgetTitleWeight = typeof (setting?.homeWidgetTitleFontWeight ?? setting?.globalWidgetTitleFontWeight) === "string"
     ? String(setting?.homeWidgetTitleFontWeight ?? setting?.globalWidgetTitleFontWeight)
     : "700";
-  const widgetTitleFont = setting?.homeWidgetTitleFont || setting?.globalWidgetTitleFont || setting?.headingFont || "inherit";
   const newsTitleColor = setting?.homeNewsTitleColor || setting?.globalNewsTitleColor || headingColor;
   const newsTitleSize = formatContainerSize(setting?.homeNewsTitleFontSize ?? setting?.globalNewsTitleFontSize, "18px");
   const metaSize = formatContainerSize(setting?.homeMetaFontSize ?? setting?.globalMetaFontSize, "12px");
   const excerptTone = setting?.homeExcerptColor || setting?.globalExcerptColor || contentColor;
   const excerptSize = formatContainerSize(setting?.homeExcerptFontSize ?? setting?.globalExcerptFontSize, "14px");
+  const homeWidgetTitleFontValue =
+    setting?.homeWidgetTitleFont || setting?.globalWidgetTitleFont || setting?.headingFont || "Inter";
+  const postTitleFontValue = setting?.postTitleFont || setting?.headingFont || "Inter";
+  const postSubtitleFontValue = setting?.postSubtitleFont || setting?.bodyFont || "Inter";
+  const postContentFontValue = setting?.postContentFont || setting?.globalContentFont || setting?.bodyFont || "Inter";
+  const homeNewsTitleFontValue = setting?.homeNewsTitleFont || setting?.globalNewsTitleFont || setting?.headingFont || "inherit";
+  const homeMetaFontValue = setting?.homeMetaFont || setting?.globalMetaFont || setting?.bodyFont || "inherit";
+  const homeExcerptFontValue = setting?.homeExcerptFont || setting?.globalExcerptFont || setting?.bodyFont || "Inter";
   const postTitleSize = formatContainerSize(setting?.postTitleFontSize, "3rem");
   const postTitleWeight = typeof setting?.postTitleFontWeight === "string" ? setting.postTitleFontWeight : "700";
-  const postTitleFont = setting?.postTitleFont || setting?.headingFont || "Inter";
+  const postTitleFont = resolvePublicFont(postTitleFontValue, "Inter");
+  const postTitleSynthesis = resolveThemeFontSynthesis(postTitleFontValue);
+  const postTitleLineHeight = String(setting?.postTitleLineHeight || "1.15");
   const postSubtitleSize = formatContainerSize(setting?.postSubtitleFontSize, "1.125rem");
   const postSubtitleWeight = typeof setting?.postSubtitleFontWeight === "string" ? setting.postSubtitleFontWeight : "400";
-  const postSubtitleFont = setting?.postSubtitleFont || setting?.bodyFont || "Inter";
+  const postSubtitleFont = resolvePublicFont(postSubtitleFontValue, "Inter");
+  const postSubtitleSynthesis = resolveThemeFontSynthesis(postSubtitleFontValue);
+  const postContentFont = resolvePublicFont(postContentFontValue, "Inter");
+  const postContentSynthesis = resolveThemeFontSynthesis(postContentFontValue);
+  const homeNewsTitleFont = resolvePublicFont(homeNewsTitleFontValue, "inherit");
+  const homeNewsTitleSynthesis = resolveThemeFontSynthesis(homeNewsTitleFontValue);
+  const homeMetaFont = resolvePublicFont(homeMetaFontValue, "inherit");
+  const homeMetaSynthesis = resolveThemeFontSynthesis(homeMetaFontValue);
+  const homeExcerptFont = resolvePublicFont(homeExcerptFontValue, "Inter");
+  const homeExcerptSynthesis = resolveThemeFontSynthesis(homeExcerptFontValue);
+  const widgetTitleFont = resolvePublicFont(homeWidgetTitleFontValue, "Inter");
+  const widgetTitleSynthesis = resolveThemeFontSynthesis(homeWidgetTitleFontValue);
+  const postSubtitleLineHeight = String(setting?.postSubtitleLineHeight || "1.6");
+  const postContentLineHeight = String(setting?.postContentLineHeight || setting?.globalContentLineHeight || "1.8");
   const borderRadius = normalizeRadiusValue(setting?.postGlobalBorderRadius ?? setting?.globalBorderRadius ?? "0.75rem");
+  const renderWidgetWithSpacing = (
+    widget: any,
+    content: React.ReactNode,
+    growClass = "",
+    directions?: { mobile?: string; tablet?: string; desktop?: string }
+  ) => {
+    if (!widget) return null;
+    if (content == null || content === false) return null;
+    const normalizeAlign = (val: any) => (val === "center" || val === "right" || val === "left" || val === "justify" ? val : "left");
+    const normalizeVAlign = (val: any) => (val === "top" ? "top" : val === "bottom" ? "bottom" : val === "center" || val === "middle" ? "center" : "center");
+    const toSelf = (val: string, prefix = "") => (val === "center" ? `${prefix}self-center` : val === "bottom" ? `${prefix}self-end` : `${prefix}self-start`);
+    const config = widget?.config || {};
+
+    const vAlignDesktopRaw = getResponsiveValue(config, "verticalAlign", "desktop") ?? config.verticalAlign;
+    const vAlignTabletRaw = getResponsiveValue(config, "verticalAlign", "tablet") ?? vAlignDesktopRaw;
+    const vAlignMobileRaw = getResponsiveValue(config, "verticalAlign", "mobile") ?? vAlignTabletRaw;
+    const selfAlignMobile = directions?.mobile === "horizontal" ? toSelf(normalizeVAlign(vAlignMobileRaw)) : "";
+    const selfAlignTablet = directions?.tablet === "horizontal" ? toSelf(normalizeVAlign(vAlignTabletRaw), "md:") : "";
+    const selfAlignDesktop = directions?.desktop === "horizontal" ? toSelf(normalizeVAlign(vAlignDesktopRaw), "lg:") : "";
+    const selfAlignClass = `${selfAlignMobile} ${selfAlignTablet} ${selfAlignDesktop}`.trim();
+
+    const alignD = normalizeAlign(getResponsiveValue(config, "textAlign", "desktop") ?? config.textAlign ?? config.align);
+    const alignT = normalizeAlign(getResponsiveValue(config, "textAlign", "tablet") ?? alignD);
+    const alignM = normalizeAlign(getResponsiveValue(config, "textAlign", "mobile") ?? alignT);
+
+    const verticalAlignD = normalizeVAlign(vAlignDesktopRaw);
+    const verticalAlignT = normalizeVAlign(vAlignTabletRaw);
+    const verticalAlignM = normalizeVAlign(vAlignMobileRaw);
+
+    const mtD = formatSpacing(getResponsiveValue(config, "marginTop", "desktop")) ?? "0px";
+    const mrD = formatSpacing(getResponsiveValue(config, "marginRight", "desktop")) ?? "0px";
+    const mbD = formatSpacing(getResponsiveValue(config, "marginBottom", "desktop")) ?? "0px";
+    const mlD = formatSpacing(getResponsiveValue(config, "marginLeft", "desktop")) ?? "0px";
+    const ptD = formatSpacing(getResponsiveValue(config, "paddingTop", "desktop")) ?? "0px";
+    const prD = formatSpacing(getResponsiveValue(config, "paddingRight", "desktop")) ?? "0px";
+    const pbD = formatSpacing(getResponsiveValue(config, "paddingBottom", "desktop")) ?? "0px";
+    const plD = formatSpacing(getResponsiveValue(config, "paddingLeft", "desktop")) ?? "0px";
+
+    const mtT = formatSpacing(getResponsiveValue(config, "marginTop", "tablet")) ?? mtD;
+    const mrT = formatSpacing(getResponsiveValue(config, "marginRight", "tablet")) ?? mrD;
+    const mbT = formatSpacing(getResponsiveValue(config, "marginBottom", "tablet")) ?? mbD;
+    const mlT = formatSpacing(getResponsiveValue(config, "marginLeft", "tablet")) ?? mlD;
+    const ptT = formatSpacing(getResponsiveValue(config, "paddingTop", "tablet")) ?? ptD;
+    const prT = formatSpacing(getResponsiveValue(config, "paddingRight", "tablet")) ?? prD;
+    const pbT = formatSpacing(getResponsiveValue(config, "paddingBottom", "tablet")) ?? pbD;
+    const plT = formatSpacing(getResponsiveValue(config, "paddingLeft", "tablet")) ?? plD;
+
+    const mtM = formatSpacing(getResponsiveValue(config, "marginTop", "mobile")) ?? mtT;
+    const mrM = formatSpacing(getResponsiveValue(config, "marginRight", "mobile")) ?? mrT;
+    const mbM = formatSpacing(getResponsiveValue(config, "marginBottom", "mobile")) ?? mbT;
+    const mlM = formatSpacing(getResponsiveValue(config, "marginLeft", "mobile")) ?? mlT;
+    const ptM = formatSpacing(getResponsiveValue(config, "paddingTop", "mobile")) ?? ptT;
+    const prM = formatSpacing(getResponsiveValue(config, "paddingRight", "mobile")) ?? prT;
+    const pbM = formatSpacing(getResponsiveValue(config, "paddingBottom", "mobile")) ?? pbT;
+    const plM = formatSpacing(getResponsiveValue(config, "paddingLeft", "mobile")) ?? plT;
+
+    const mtDPos = verticalAlignD === "bottom" || verticalAlignD === "center" ? "auto" : mtD;
+    const mtTPos = verticalAlignT === "bottom" || verticalAlignT === "center" ? "auto" : mtT;
+    const mtMPos = verticalAlignM === "bottom" || verticalAlignM === "center" ? "auto" : mtM;
+    const mbDPos = verticalAlignD === "center" ? "auto" : mbD;
+    const mbTPos = verticalAlignT === "center" ? "auto" : mbT;
+    const mbMPos = verticalAlignM === "center" ? "auto" : mbM;
+
+    const styleVars: React.CSSProperties = {
+      ["--pw-ta-d" as any]: alignD,
+      ["--pw-ta-t" as any]: alignT,
+      ["--pw-ta-m" as any]: alignM,
+      ["--pw-mt-d" as any]: mtDPos,
+      ["--pw-mt-t" as any]: mtTPos,
+      ["--pw-mt-m" as any]: mtMPos,
+      ["--pw-mr-d" as any]: mrD,
+      ["--pw-mr-t" as any]: mrT,
+      ["--pw-mr-m" as any]: mrM,
+      ["--pw-mb-d" as any]: mbDPos,
+      ["--pw-mb-t" as any]: mbTPos,
+      ["--pw-mb-m" as any]: mbMPos,
+      ["--pw-ml-d" as any]: mlD,
+      ["--pw-ml-t" as any]: mlT,
+      ["--pw-ml-m" as any]: mlM,
+      ["--pw-pt-d" as any]: ptD,
+      ["--pw-pt-t" as any]: ptT,
+      ["--pw-pt-m" as any]: ptM,
+      ["--pw-pr-d" as any]: prD,
+      ["--pw-pr-t" as any]: prT,
+      ["--pw-pr-m" as any]: prM,
+      ["--pw-pb-d" as any]: pbD,
+      ["--pw-pb-t" as any]: pbT,
+      ["--pw-pb-m" as any]: pbM,
+      ["--pw-pl-d" as any]: plD,
+      ["--pw-pl-t" as any]: plT,
+      ["--pw-pl-m" as any]: plM,
+    };
+
+    return (
+      <div
+        key={widget.id}
+        style={styleVars}
+        className={`min-w-0 ${growClass} ${selfAlignClass} [text-align:var(--pw-ta-m)] md:[text-align:var(--pw-ta-t)] lg:[text-align:var(--pw-ta-d)] mt-[var(--pw-mt-m)] mr-[var(--pw-mr-m)] mb-[var(--pw-mb-m)] ml-[var(--pw-ml-m)] pt-[var(--pw-pt-m)] pr-[var(--pw-pr-m)] pb-[var(--pw-pb-m)] pl-[var(--pw-pl-m)] md:mt-[var(--pw-mt-t)] md:mr-[var(--pw-mr-t)] md:mb-[var(--pw-mb-t)] md:ml-[var(--pw-ml-t)] md:pt-[var(--pw-pt-t)] md:pr-[var(--pw-pr-t)] md:pb-[var(--pw-pb-t)] md:pl-[var(--pw-pl-t)] lg:mt-[var(--pw-mt-d)] lg:mr-[var(--pw-mr-d)] lg:mb-[var(--pw-mb-d)] lg:ml-[var(--pw-ml-d)] lg:pt-[var(--pw-pt-d)] lg:pr-[var(--pw-pr-d)] lg:pb-[var(--pw-pb-d)] lg:pl-[var(--pw-pl-d)]`.trim()}
+      >
+        {content}
+      </div>
+    );
+  };
   const isInfographicPost = String(post?.type || "").toUpperCase() === "INFOGRAPHIC";
   const infographicHeaderImageUrl = isInfographicPost
     ? (() => {
@@ -216,10 +364,17 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
         return undefined;
       })()
     : undefined;
-  const imageUrl = infographicHeaderImageUrl || resolveImageUrl(post) || getFirstImageFromContent(post?.content);
+  const imageUrl = infographicHeaderImageUrl || resolveImageUrl(post) || getFirstImageFromHtml(post?.content);
   const videoEmbedSrc = post?.type === "VIDEO" && typeof post?.videoUrl === "string" ? getYouTubeEmbedUrl(post.videoUrl) : null;
+  const featuredImageAlt =
+    typeof post?.featuredImageAlt === "string" && post.featuredImageAlt.trim() !== ""
+      ? post.featuredImageAlt.trim()
+      : post.title;
+  const watermarkEnabled = post?.postImageWatermarkEnabled === true;
+  const featuredImageSrc = buildPostWatermarkedImageUrl(imageUrl, setting, watermarkEnabled) || imageUrl || "";
   const containerMode = setting?.postContainerWidth || "boxed";
   const customWidth = setting?.postCustomContainerWidth || "1250";
+  const sectionContainerWidth = containerMode === "custom" ? `${customWidth}px` : "1250px";
   const containerClass = containerMode === "full" ? "w-full px-4" : "container mx-auto px-4";
   const containerStyle = containerMode === "full" ? {} : { maxWidth: containerMode === "custom" ? `${customWidth}px` : "1250px" };
   const inlineRelatedPositions = parseInlineRelatedPositions(setting?.postRelatedPositions);
@@ -239,15 +394,41 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
           <span>/</span>
           <span className="truncate max-w-[220px]">{post.title}</span>
         </div>
-        <h1 className="text-3xl md:text-5xl font-bold leading-tight" style={{ color: headingColor }}>{post.title}</h1>
-        {post.subtitle && <p className="text-lg" style={{ color: contentColor }}>{post.subtitle}</p>}
+        <h1
+          className="text-3xl md:text-5xl font-bold leading-tight"
+          style={{
+            color: headingColor,
+            lineHeight: postTitleLineHeight,
+            fontSize: postTitleSize,
+            fontWeight: postTitleWeight,
+            fontFamily: postTitleFont,
+            fontSynthesis: postTitleSynthesis,
+          }}
+        >
+          {post.title}
+        </h1>
+        {post.subtitle && (
+          <p
+            className="text-lg"
+            style={{
+              color: contentColor,
+              lineHeight: postSubtitleLineHeight,
+              fontSize: postSubtitleSize,
+              fontWeight: postSubtitleWeight,
+              fontFamily: postSubtitleFont,
+              fontSynthesis: postSubtitleSynthesis,
+            }}
+          >
+            {post.subtitle}
+          </p>
+        )}
         <div className="flex items-center gap-4 text-sm" style={{ color: metaColor }}>
           {post.author?.name && <span>{post.author.name}</span>}
           <span>•</span>
           <time>{formatLongDateId(post.publishedAt || post.createdAt)}</time>
         </div>
         {videoEmbedSrc ? (
-          <div className="relative w-full aspect-video overflow-hidden bg-black" style={{ borderRadius: "var(--home-main-box-radius, 0.75rem)" }}>
+          <div className="relative w-full aspect-video overflow-hidden bg-black" style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}>
             <iframe
               src={videoEmbedSrc}
               title={post.title || "Video"}
@@ -258,13 +439,25 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
             />
           </div>
         ) : imageUrl ? (
-          <div className="relative w-full aspect-video overflow-hidden bg-[var(--bg-elevated)]" style={{ borderRadius: "var(--home-main-box-radius, 0.75rem)" }}>
-            <Image src={imageUrl} alt={post.title} fill className="object-cover" unoptimized />
+          <div className="relative w-full aspect-video overflow-hidden bg-[var(--bg-elevated)]" style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}>
+            <Image src={featuredImageSrc} alt={featuredImageAlt} fill className="object-cover" unoptimized />
           </div>
         ) : null}
-        <div style={{ color: contentColor }}>
+        <div
+          className="post-content-body"
+          style={{
+            color: contentColor,
+            lineHeight: postContentLineHeight,
+            fontFamily: postContentFont,
+            fontWeight: setting?.postContentFontWeight || setting?.globalContentFontWeight || "400",
+            fontSynthesis: postContentSynthesis,
+            ["--post-content-widget-color" as keyof React.CSSProperties]: contentColor,
+            ["--post-content-widget-heading-color" as keyof React.CSSProperties]: headingColor,
+          }}
+        >
           <PranalaPostContent
             content={post.content || ""}
+            className="[&_p]:text-inherit [&_li]:text-inherit [&_blockquote]:text-inherit [&_h1]:text-inherit [&_h2]:text-inherit [&_h3]:text-inherit [&_h4]:text-inherit [&_h5]:text-inherit [&_h6]:text-inherit [&_strong]:text-inherit [&_a]:text-inherit [&_p]:leading-[inherit] [&_li]:leading-[inherit] [&_blockquote]:leading-[inherit] [&_p]:font-[inherit] [&_li]:font-[inherit] [&_blockquote]:font-[inherit]"
             inlineRelatedItems={inlineRelatedPosts}
             inlineRelatedConfig={{
               enabled: Boolean(setting?.postInlineRelated),
@@ -274,8 +467,13 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
               gridColumns: Math.min(4, Math.max(1, Number.parseInt(String(setting?.postInlineRelatedGridColumns || "2"), 10) || 2)),
               cardColumns: Math.min(2, Math.max(1, Number.parseInt(String(setting?.postInlineRelatedCardColumns || "1"), 10) || 1)),
               titleFontSize: Number.parseInt(String(setting?.postInlineRelatedTitleFontSize || "16"), 10) || 16,
+              titleFont: String(resolveThemeFontFamily(setting?.postInlineRelatedTitleFont || setting?.postTitleFont || setting?.postWidgetTitleFont || "Inter")),
               titleFontWeight: String(setting?.postInlineRelatedTitleFontWeight || "700"),
               titleLineHeight: String(setting?.postInlineRelatedTitleLineHeight || "1.35"),
+              headingText: String(setting?.postInlineRelatedHeadingText || "Baca Juga"),
+              headingFont: String(resolveThemeFontFamily(setting?.postInlineRelatedHeadingFont || setting?.postInlineRelatedTitleFont || setting?.postTitleFont || "Inter")),
+              headingFontWeight: String(setting?.postInlineRelatedHeadingFontWeight || "700"),
+              headingLetterSpacing: String(setting?.postInlineRelatedHeadingLetterSpacing || "0"),
               fontSize: Number.parseInt(String(setting?.postInlineRelatedFontSize || "14"), 10) || 14,
               headingColor: String(setting?.postInlineRelatedTitleColor || "#1e293b"),
               textColor: String(setting?.postInlineRelatedTextColor || "#1f2937"),
@@ -291,9 +489,16 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
     );
   };
 
-  const renderWidget = (widget: any) => {
+  const renderWidget = (widget: any, isInsideSection = false) => {
     const sourceWidgetId = widget?.config?.sourceWidgetId || widget?.sourceWidgetId;
     const widgetData = (blockData[widget.id] || (sourceWidgetId ? blockData[sourceWidgetId] : undefined)) || [];
+    const effectiveType = resolveBlockTypeAlias(widget?.type);
+    const subtitleText = typeof post?.subtitle === "string" ? post.subtitle.trim() : "";
+
+    // Avoid leaving an empty section gap when the subtitle widget exists but the post has no subtitle.
+    if (!preview && widget?.type === "post_subtitle" && subtitleText === "") {
+      return null;
+    }
       
     if (
       widget.config?.inheritedSidebarSource || 
@@ -337,17 +542,19 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
     const textAlign = config.textAlign === "left" || config.textAlign === "center" || config.textAlign === "right" || config.textAlign === "justify"
       ? config.textAlign
       : undefined;
-    const widgetContainerStyle: React.CSSProperties = {
-      marginTop: toPx(config.marginTop),
-      marginRight: toPx(config.marginRight),
-      marginBottom: toPx(config.marginBottom),
-      marginLeft: toPx(config.marginLeft),
-      paddingTop: toPx(config.paddingTop),
-      paddingRight: toPx(config.paddingRight),
-      paddingBottom: toPx(config.paddingBottom),
-      paddingLeft: toPx(config.paddingLeft),
-      textAlign,
-    };
+    const widgetContainerStyle: React.CSSProperties = isInsideSection
+      ? {}
+      : {
+          marginTop: toPx(config.marginTop),
+          marginRight: toPx(config.marginRight),
+          marginBottom: toPx(config.marginBottom),
+          marginLeft: toPx(config.marginLeft),
+          paddingTop: toPx(config.paddingTop),
+          paddingRight: toPx(config.paddingRight),
+          paddingBottom: toPx(config.paddingBottom),
+          paddingLeft: toPx(config.paddingLeft),
+          textAlign,
+        };
     
     const inheritedSidebarLocation = widget?.config?.inheritedSidebarLocation || widget?.inheritedSidebarLocation;
     const useSharedSidebarVisuals = widget?.config?.inheritedSidebarSource === true && inheritedSidebarLocation && inheritedSidebarLocation !== "post";
@@ -374,68 +581,36 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
             accentColor={accent}
             hoverColor={hoverColor}
             blockData={blockData}
+            preview={preview}
+            layoutHandledBySection={isInsideSection}
           />
         </div>
       );
     }
 
-    if (widget.type === "sidebar_widget" || widget.type === "tag_cloud" || widget.type === "ad_banner") {
-      const blockDef = PRANALA_BLOCKS[widget.type];
-      if (!blockDef) return null;
-      const Component = blockDef.component as React.ComponentType<Record<string, unknown>>;
-      const sourceWidgetId = widget?.config?.sourceWidgetId || widget?.sourceWidgetId;
-      const widgetData = blockData[widget.id] || (sourceWidgetId ? blockData[sourceWidgetId] : undefined) || [];
-      const normalizedWidget = config === rawConfig ? widget : { ...widget, config };
-      return (
-        <div className={`relative group/widget ${responsiveHideClass}`.trim()} style={widgetContainerStyle}>
-          <Component block={normalizedWidget} posts={widgetData} categories={categories} customTitle={title} accentColor={accent} borderRadius={borderRadius} />
-        </div>
-      );
-    }
-
-    return null;
+    const blockDef = PRANALA_BLOCKS[effectiveType];
+    if (!blockDef) return null;
+    const Component = blockDef.component as React.ComponentType<Record<string, unknown>>;
+    const normalizedWidget =
+      config === rawConfig && effectiveType === widget?.type
+        ? widget
+        : { ...widget, type: effectiveType, config };
+    return (
+      <div className={`relative group/widget ${responsiveHideClass}`.trim()} style={widgetContainerStyle}>
+        <Component block={normalizedWidget} posts={widgetData} categories={categories} customTitle={title} accentColor={accent} borderRadius={borderRadius} />
+      </div>
+    );
   };
 
   const renderSection = (section: any, isNested = false) => {
     const config = section.config || {};
-    const sourceLocation = config?.followSharedSidebar ? config?.sidebarSourceLocation : null;
-    const sourceSection =
-      sourceLocation === "home"
-        ? extractFirstSidebarSection(sourceBlocksByLocation?.home || [])
-        : sourceLocation === "archive"
-          ? extractFirstSidebarSection(sourceBlocksByLocation?.archive || [])
-          : sourceLocation === "post"
-            ? extractFirstSidebarSection(sourceBlocksByLocation?.post || [])
-            : null;
-    const shouldInheritSectionLayout =
-      config?.followSharedSidebar === true &&
-      sourceLocation === "home" &&
-      sourceSection?.config &&
-      typeof sourceSection.config === "object";
-    const effectiveConfig = shouldInheritSectionLayout
-      ? {
-          ...config,
-          layout: sourceSection.config.layout ?? config.layout,
-          blockGap: sourceSection.config.blockGap ?? config.blockGap,
-          tabletBlockGap: sourceSection.config.tabletBlockGap ?? config.tabletBlockGap,
-          mobileBlockGap: sourceSection.config.mobileBlockGap ?? config.mobileBlockGap,
-          columnGap: sourceSection.config.columnGap ?? config.columnGap,
-          tabletColumnGap: sourceSection.config.tabletColumnGap ?? config.tabletColumnGap,
-          mobileColumnGap: sourceSection.config.mobileColumnGap ?? config.mobileColumnGap,
-          containerWidth: sourceSection.config.containerWidth ?? config.containerWidth,
-          tabletContainerWidth: sourceSection.config.tabletContainerWidth ?? config.tabletContainerWidth,
-          mobileContainerWidth: sourceSection.config.mobileContainerWidth ?? config.mobileContainerWidth,
-          customContainerWidth: sourceSection.config.customContainerWidth ?? config.customContainerWidth,
-          tabletCustomContainerWidth: sourceSection.config.tabletCustomContainerWidth ?? config.tabletCustomContainerWidth,
-          mobileCustomContainerWidth: sourceSection.config.mobileCustomContainerWidth ?? config.mobileCustomContainerWidth,
-        }
-      : config;
     const responsiveHideClass = getResponsiveHideClass(config);
-    const layout = effectiveConfig.layout || "100";
+    const layout = config.layout || "100";
     const SectionComponent = Section;
     const colWidths = parseLayout(layout);
-    const children = resolveSectionChildrenWithSidebarSource(section, sourceBlocksByLocation, "post");
-    const visibleChildren = children.filter(isVisible);
+    const resolvedSection = section;
+    const sectionChildren = Array.isArray(resolvedSection?.config?.children) ? resolvedSection.config.children : [];
+    const visibleChildren = sectionChildren.filter(isVisible);
     const columns: any[][] = Array.from({ length: colWidths.length }, () => []);
 
     for (const child of visibleChildren) {
@@ -448,21 +623,21 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
       ? (colWidths[0] < colWidths[1] ? 0 : 1)
       : -1;
 
-    const dirMobile = effectiveConfig.mobileChildrenDirection === "horizontal" ? "horizontal" : "vertical";
-    const dirTablet = effectiveConfig.tabletChildrenDirection === "horizontal" ? "horizontal" : "vertical";
-    const dirDesktop = effectiveConfig.childrenDirection === "horizontal" ? "horizontal" : "vertical";
+    const dirMobile = config.mobileChildrenDirection === "horizontal" ? "horizontal" : "vertical";
+    const dirTablet = config.tabletChildrenDirection === "horizontal" ? "horizontal" : "vertical";
+    const dirDesktop = config.childrenDirection === "horizontal" ? "horizontal" : "vertical";
 
-    const alignMobile = effectiveConfig.mobileChildrenAlign === "right" ? "right" : effectiveConfig.mobileChildrenAlign === "center" ? "center" : "left";
-    const alignTablet = effectiveConfig.tabletChildrenAlign === "right" ? "right" : effectiveConfig.tabletChildrenAlign === "center" ? "center" : "left";
-    const alignDesktop = effectiveConfig.childrenAlign === "right" ? "right" : effectiveConfig.childrenAlign === "center" ? "center" : "left";
+    const alignMobile = config.mobileChildrenAlign === "right" ? "right" : config.mobileChildrenAlign === "center" ? "center" : "left";
+    const alignTablet = config.tabletChildrenAlign === "right" ? "right" : config.tabletChildrenAlign === "center" ? "center" : "left";
+    const alignDesktop = config.childrenAlign === "right" ? "right" : config.childrenAlign === "center" ? "center" : "left";
 
-    const vAlignMobile = effectiveConfig.mobileChildrenVerticalAlign === "bottom" ? "bottom" : effectiveConfig.mobileChildrenVerticalAlign === "center" ? "center" : "top";
-    const vAlignTablet = effectiveConfig.tabletChildrenVerticalAlign === "bottom" ? "bottom" : effectiveConfig.tabletChildrenVerticalAlign === "center" ? "center" : "top";
-    const vAlignDesktop = effectiveConfig.childrenVerticalAlign === "bottom" ? "bottom" : effectiveConfig.childrenVerticalAlign === "center" ? "center" : "top";
+    const vAlignMobile = config.mobileChildrenVerticalAlign === "bottom" ? "bottom" : config.mobileChildrenVerticalAlign === "center" ? "center" : "top";
+    const vAlignTablet = config.tabletChildrenVerticalAlign === "bottom" ? "bottom" : config.tabletChildrenVerticalAlign === "center" ? "center" : "top";
+    const vAlignDesktop = config.childrenVerticalAlign === "bottom" ? "bottom" : config.childrenVerticalAlign === "center" ? "center" : "top";
 
-    const sizeMobile = effectiveConfig.mobileChildrenSizing === "grow" ? "grow" : "auto";
-    const sizeTablet = effectiveConfig.tabletChildrenSizing === "grow" ? "grow" : "auto";
-    const sizeDesktop = effectiveConfig.childrenSizing === "grow" ? "grow" : "auto";
+    const sizeMobile = config.mobileChildrenSizing === "grow" ? "grow" : "auto";
+    const sizeTablet = config.tabletChildrenSizing === "grow" ? "grow" : "auto";
+    const sizeDesktop = config.childrenSizing === "grow" ? "grow" : "auto";
 
     const directionClassMobile = dirMobile === "horizontal" ? "flex-row flex-wrap" : "flex-col";
     const directionClassTablet = dirTablet === "horizontal" ? "md:flex-row md:flex-wrap" : "md:flex-col";
@@ -497,34 +672,23 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
     const renderedColumns = columns.map((items, i) => (
       <div
         key={`${section.id}-col-${i}`}
-        className={`${getColSpan(colWidths[i])} flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop} ${i === sidebarIndex ? "md:sticky md:top-24 md:self-start" : ""}`.trim()}
-        style={{ gap: "var(--section-widget-gap)" }}
+        className={`${getColSpan(colWidths[i])} flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop} ${i === sidebarIndex ? "md:sticky md:top-24 md:self-start" : ""} gap-[var(--sec-wgap-m)] md:gap-[var(--sec-wgap-t)] lg:gap-[var(--sec-wgap-d)]`.trim()}
       >
-        {items.map((widget: any) => (
-          <div
-            key={widget.id}
-            className={`${itemClass} ${(() => {
-              const vM = widget?.config?.mobileVerticalAlign ?? widget?.config?.tabletVerticalAlign ?? widget?.config?.verticalAlign;
-              const vT = widget?.config?.tabletVerticalAlign ?? widget?.config?.verticalAlign;
-              const vD = widget?.config?.verticalAlign;
-              const normalize = (val: any) => val === "bottom" ? "bottom" : val === "center" || val === "middle" ? "center" : "top";
-              const toSelf = (val: string, prefix = "") => val === "center" ? `${prefix}self-center` : val === "bottom" ? `${prefix}self-end` : `${prefix}self-start`;
-              const selfMobile = dirMobile === "horizontal" ? toSelf(normalize(vM)) : "";
-              const selfTablet = dirTablet === "horizontal" ? toSelf(normalize(vT), "md:") : "";
-              const selfDesktop = dirDesktop === "horizontal" ? toSelf(normalize(vD), "lg:") : "";
-              return `${selfMobile} ${selfTablet} ${selfDesktop}`.trim();
-            })()}`.trim()}
-          >
-            {widget.type === "section" ? renderSection(widget, true) : renderWidget(widget)}
-          </div>
-        ))}
+          {items.map((widget: any) =>
+            renderWidgetWithSpacing(
+              widget,
+              widget.type === "section" ? renderSection(widget, true) : renderWidget(widget, true),
+              itemClass,
+              { mobile: dirMobile, tablet: dirTablet, desktop: dirDesktop }
+            )
+          )}
       </div>
     ));
 
     return (
       <div key={section.id} className={responsiveHideClass}>
         <SectionComponent
-          block={shouldInheritSectionLayout ? { ...section, config: effectiveConfig } : section}
+          block={resolvedSection}
           layout={layout}
           colWidths={colWidths}
           isNested={isNested}
@@ -542,24 +706,33 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
       className="public-theme min-h-screen flex flex-col font-sans text-gray-900"
       style={{
         "--accent": accent,
+        "--border": borderColor,
+        "--bg-surface": surfaceColor,
+        "--bg-elevated": elevatedColor,
+        "--muted-text": mutedTextColor,
         "--post-hover-color": hoverColor,
         "--home-widget-title-color": widgetTitleColor,
         "--home-widget-title-size": widgetTitleSize,
         "--home-widget-title-weight": widgetTitleWeight,
         "--home-widget-title-font": widgetTitleFont,
+        "--home-widget-title-synthesis": widgetTitleSynthesis,
         "--home-news-title-color": newsTitleColor,
         "--home-news-title-size": newsTitleSize,
         "--home-news-title-weight": setting?.homeNewsTitleFontWeight || setting?.globalNewsTitleFontWeight || "600",
-        "--home-news-title-font": setting?.homeNewsTitleFont || setting?.globalNewsTitleFont || setting?.headingFont || "inherit",
+        "--home-news-title-font": homeNewsTitleFont,
+        "--home-news-title-synthesis": homeNewsTitleSynthesis,
         "--home-meta-color": metaColor,
         "--home-meta-size": metaSize,
         "--home-meta-weight": setting?.homeMetaFontWeight || setting?.globalMetaFontWeight || "500",
-        "--home-meta-font": setting?.homeMetaFont || setting?.globalMetaFont || setting?.bodyFont || "inherit",
+        "--home-meta-font": homeMetaFont,
+        "--home-meta-synthesis": homeMetaSynthesis,
         "--home-excerpt-color": excerptTone,
         "--home-excerpt-size": excerptSize,
         "--home-excerpt-weight": setting?.homeExcerptFontWeight || setting?.globalExcerptFontWeight || "400",
-        "--home-excerpt-font": setting?.homeExcerptFont || setting?.globalExcerptFont || setting?.bodyFont || "Inter",
+        "--home-excerpt-font": homeExcerptFont,
+        "--home-excerpt-synthesis": homeExcerptSynthesis,
         "--home-hover-color": setting?.homeHoverColor || hoverColor,
+        "--container-width": sectionContainerWidth,
         "--post-content-color": setting?.postContentColor || setting?.homeExcerptColor || setting?.globalExcerptColor || "#1f2937",
         "--post-content-heading-color": setting?.postHeadingColor || setting?.homeTitleColor || setting?.headingColor || "#111827",
         "--post-link-color": postLinkColor,
@@ -569,11 +742,19 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
         "--post-title-size": postTitleSize,
         "--post-title-weight": postTitleWeight,
         "--post-title-font": postTitleFont,
-        "--post-title-line-height": "1.15",
+        "--post-title-synthesis": postTitleSynthesis,
+        "--post-title-line-height": postTitleLineHeight,
         "--post-subtitle-size": postSubtitleSize,
         "--post-subtitle-weight": postSubtitleWeight,
         "--post-subtitle-font": postSubtitleFont,
-        "--post-subtitle-line-height": "1.6",
+        "--post-subtitle-synthesis": postSubtitleSynthesis,
+        "--post-subtitle-line-height": postSubtitleLineHeight,
+        "--post-content-font": postContentFont,
+        "--post-content-synthesis": postContentSynthesis,
+        "--post-content-weight": setting?.postContentFontWeight || setting?.globalContentFontWeight || "400",
+        "--post-content-heading-font": postTitleFont,
+        "--post-content-heading-synthesis": postTitleSynthesis,
+        "--post-content-heading-weight": postTitleWeight,
         "--home-main-box-radius": borderRadius,
       } as React.CSSProperties}
     >
@@ -587,150 +768,13 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
         headerConfig={headerConfig}
       />
       <SidebarDebugPanel pageKind="single-post" />
-      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-        @media (max-width: 767px) {
-            .hide-mobile-widget { display: none !important; }
-        }
-        @media (min-width: 768px) and (max-width: 1024px) {
-            .hide-tablet-widget { display: none !important; }
-        }
-        @media (min-width: 1025px) {
-            .hide-desktop-widget { display: none !important; }
-        }
-        .theme-widget-title { 
-            color: var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color))) !important;
-            font-size: var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size))) !important;
-            font-weight: var(--widget-title-weight, var(--home-widget-title-weight)) !important;
-            font-family: var(--widget-title-font, var(--home-widget-title-font), sans-serif) !important;
-        }
-        .widget-title-bar {
-            background-color: var(--widget-title-border-color-mobile, var(--widget-title-border-color, var(--accent))) !important;
-        }
-        @media (min-width: 768px) {
-            .theme-widget-title {
-                color: var(--widget-title-color-tablet, var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color)))) !important;
-                font-size: var(--widget-title-size-tablet, var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size)))) !important;
-            }
-            .widget-title-bar {
-                background-color: var(--widget-title-border-color-tablet, var(--widget-title-border-color-mobile, var(--widget-title-border-color, var(--accent)))) !important;
-            }
-        }
-        @media (min-width: 1025px) {
-            .theme-widget-title {
-                color: var(--widget-title-color-desktop, var(--widget-title-color-tablet, var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color))))) !important;
-                font-size: var(--widget-title-size-desktop, var(--widget-title-size-tablet, var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size))))) !important;
-            }
-            .widget-title-bar {
-                background-color: var(--widget-title-border-color-desktop, var(--widget-title-border-color-tablet, var(--widget-title-border-color-mobile, var(--widget-title-border-color, var(--accent))))) !important;
-            }
-        }
-        .theme-news-title { 
-            color: var(--home-news-title-color);
-            font-size: var(--home-news-title-size);
-            font-weight: var(--home-news-title-weight);
-            font-family: var(--home-news-title-font), sans-serif;
-        }
-        .theme-news-title:hover { color: var(--home-hover-color); }
-        .news-list-title,
-        .news-grid-title,
-        .hsl-title,
-        .hs-hero-title-link,
-        .hs-mini-title-link,
-        .popular-title,
-        .headline-big-title a,
-        .bullet-list-link {
-            color: var(--home-news-title-color);
-            font-size: var(--home-news-title-size);
-            font-weight: var(--home-news-title-weight);
-            font-family: var(--home-news-title-font), sans-serif;
-        }
-        .news-list-title:hover,
-        .news-grid-title:hover,
-        .hsl-title:hover,
-        .hs-hero-title-link:hover,
-        .hs-mini-title-link:hover,
-        .popular-title:hover,
-        .headline-big-title a:hover,
-        .bullet-list-link:hover {
-            color: var(--home-hover-color);
-        }
-        .theme-excerpt { 
-            color: var(--home-excerpt-color);
-            font-size: var(--home-excerpt-size);
-            font-weight: var(--home-excerpt-weight);
-            font-family: var(--home-excerpt-font), sans-serif;
-        }
-        .theme-meta { 
-            color: var(--home-meta-color);
-            font-size: var(--home-meta-size);
-            font-weight: var(--home-meta-weight);
-            font-family: var(--home-meta-font), sans-serif;
-        }
-        .theme-meta a { color: var(--home-meta-color); }
-        .theme-meta a:hover { color: var(--home-hover-color) !important; }
-        .post-content-body,
-        .post-content-body .prose,
-        .post-content-body .prose > *:not(.inline-related-root),
-        .post-content-body .prose > *:not(.inline-related-root) * {
-            color: var(--post-content-widget-color, var(--post-content-color)) !important;
-        }
-        .post-content-body .prose > *:not(.inline-related-root) h1,
-        .post-content-body .prose > *:not(.inline-related-root) h2,
-        .post-content-body .prose > *:not(.inline-related-root) h3,
-        .post-content-body .prose > *:not(.inline-related-root) h4,
-        .post-content-body .prose > *:not(.inline-related-root) h5,
-        .post-content-body .prose > *:not(.inline-related-root) h6,
-        .post-content-body .prose > *:not(.inline-related-root) strong {
-            color: var(--post-content-widget-heading-color, var(--post-content-heading-color)) !important;
-        }
-        .post-content-body .prose > *:not(.inline-related-root) a {
-            color: var(--post-link-color, var(--home-hover-color)) !important;
-            text-decoration-color: color-mix(in srgb, var(--post-link-color, var(--home-hover-color)) 60%, transparent);
-        }
-        .post-content-body .prose > *:not(.inline-related-root) a:hover {
-            color: var(--post-link-hover-color, var(--post-link-color, var(--home-hover-color))) !important;
-        }
-        .post-content-body .prose > *:not(.inline-related-root) figure,
-        .post-content-body .prose > *:not(.inline-related-root) figure.image,
-        .post-content-body .prose > *:not(.inline-related-root) .image,
-        .post-content-body .prose > *:not(.inline-related-root) .image-inline,
-        .post-content-body .prose > *:not(.inline-related-root) p > img {
-            width: 100% !important;
-            max-width: 100% !important;
-            margin-left: 0 !important;
-            margin-right: 0 !important;
-        }
-        .post-content-body .prose > *:not(.inline-related-root) img,
-        .post-content-body .prose > *:not(.inline-related-root) iframe {
-            width: 100% !important;
-            max-width: 100% !important;
-            height: auto;
-            border-radius: var(--home-main-box-radius, var(--radius-global, 0.5rem));
-            display: block;
-        }
-        html.public-dark .post-content-body,
-        html.public-dark .post-content-body .prose,
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root),
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) * {
-            color: var(--post-content-widget-color, var(--fg-secondary)) !important;
-        }
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) h1,
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) h2,
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) h3,
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) h4,
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) h5,
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) h6,
-        html.public-dark .post-content-body .prose > *:not(.inline-related-root) strong {
-            color: var(--post-content-widget-heading-color, var(--fg-primary)) !important;
-        }
-      `) }} />
       <main className={`flex-grow ${hasBuilderBlocks ? "w-full" : containerClass} pt-0 pb-12`} style={hasBuilderBlocks ? undefined : containerStyle}>
         {hasBuilderBlocks ? [...blocks].filter(isVisible).sort((a, b) => getOrder(a) - getOrder(b)).map((block) => {
           if (block.type === "section") return renderSection(block);
           return <React.Fragment key={block.id}>{renderWidget(block)}</React.Fragment>;
         }) : renderDefaultFallback()}
       </main>
-      <Footer siteName={siteName} logoUrl={logoUrl} categories={categories} footerConfig={footerConfig} menusByLocation={menusByLocation} />
+      <Footer siteName={siteName} logoUrl={logoUrl} categories={categories} footerConfig={footerConfig} menusByLocation={menusByLocation} setting={setting} />
     </div>
   );
 }

@@ -1,12 +1,14 @@
-import React from "react";
+import React, { useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Trash2, Settings, Plus, Layout, ArrowUp, ArrowDown, X, Copy, List, Grid, Megaphone } from "lucide-react";
 import { Block, Tag } from "./types";
 import WidgetItem from "./WidgetItem";
 import { getThemeBlocks } from "@/lib/block-registry";
 import { getThemePostWidgetGroups } from "@/lib/post-builder-theme-registry";
 import { ConfigValue } from "@/lib/page-builder-config";
-import { resolveSectionChildrenWithSidebarSource, SidebarSourceBlocksMap } from "@/lib/sidebar-reference";
+import { getSidebarColumnIndex, resolveSectionChildrenWithSidebarSource, SidebarSourceBlocksMap } from "@/lib/sidebar-reference";
 import { getThemeArchiveWidgetGroups } from "@/lib/archive-builder-theme-registry";
+import { getThemeFooterWidgetGroups, getThemeHeaderWidgetGroups } from "@/lib/header-footer-builder-theme-registry";
 
 interface SectionBlockProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
@@ -18,7 +20,7 @@ interface SectionBlockProps {
     setActiveSectionTab: (tab: 'layout' | 'style') => void;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
     setEditingChild: (child: { parentIndex: number, childId: string } | null) => void;
-    setActiveEditTab: (tab: 'content' | 'visual') => void;
+    setActiveEditTab: (tab: 'content' | 'visual' | 'advanced') => void;
     deleteChildBlock: (parentIndex: number, childId: string) => void;
     addChildBlock: (parentIndex: number, type: string, title: string, columnIndex: number) => void;
     tags: Tag[];
@@ -66,6 +68,56 @@ interface WidgetDefinition {
     icon: React.ComponentType<{ size?: number }>;
 }
 
+const POST_BUILDER_SIDEBAR_WIDGET_TYPES = new Set([
+    "sidebar_widget",
+    "tag_cloud",
+    "ad_banner",
+    "image_widget",
+    "section",
+]);
+
+const MODAL_THEME_VAR_NAMES = [
+    "--accent",
+    "--accent-hover",
+    "--accent-subtle",
+    "--bg-base",
+    "--bg-elevated",
+    "--bg-surface",
+    "--fg-primary",
+    "--fg-secondary",
+    "--fg-muted",
+    "--border",
+    "--border-strong",
+    "--font-display",
+    "--font-body",
+] as const;
+const ACCENT_CSS_VAR = "--accent" as const;
+
+function getPortalThemeVars(source: HTMLElement | null, accentColor: string): React.CSSProperties {
+    const fallback: React.CSSProperties & Record<string, string> = {
+        [ACCENT_CSS_VAR]: accentColor,
+        color: "var(--fg-primary)",
+    };
+
+    if (typeof window === "undefined") return fallback;
+
+    const computed = window.getComputedStyle(source ?? document.documentElement);
+    const style: React.CSSProperties & Record<string, string> = { color: "var(--fg-primary)" };
+
+    for (const name of MODAL_THEME_VAR_NAMES) {
+        const value = computed.getPropertyValue(name).trim();
+        if (value) {
+            style[name] = value;
+        }
+    }
+
+    if (!style[ACCENT_CSS_VAR]) {
+        style[ACCENT_CSS_VAR] = accentColor;
+    }
+
+    return style;
+}
+
 function SectionBlock({
     builderLocation = "home",
     block,
@@ -111,9 +163,17 @@ function SectionBlock({
     homeContainerWidth: _homeContainerWidth = "boxed",
     homeCustomContainerWidth: _homeCustomContainerWidth = "1200"
 }: SectionBlockProps) {
+    const sectionRootRef = useRef<HTMLDivElement | null>(null);
     const context = builderLocation === "post" ? "post" : "home";
     const postWidgetGroups = getThemePostWidgetGroups(activeTheme || "classic");
     const archiveWidgetGroups = getThemeArchiveWidgetGroups(activeTheme || "classic");
+    const postBuilderMainWidgets = [
+        ...postWidgetGroups.main,
+        ...postWidgetGroups.support.filter((widget) => !POST_BUILDER_SIDEBAR_WIDGET_TYPES.has(String(widget.type || ""))),
+    ];
+    const postBuilderSidebarWidgets = postWidgetGroups.support.filter((widget) =>
+        POST_BUILDER_SIDEBAR_WIDGET_TYPES.has(String(widget.type || "")),
+    );
     // --- HELPERS FOR RECURSIVE ACTIONS ---
     const handleUpdateConfig = (key: string, value: ConfigValue) => {
         if (updateBlockConfigById) {
@@ -141,7 +201,19 @@ function SectionBlock({
     };
 
     const handleAddChild = (type: string, title: string, columnIndex: number) => {
-        if (addChildBlockById) {
+        const sidebarColumnIndex = getSidebarColumnIndex((block.config as any)?.layout);
+        const isDedicatedSidebarSection = block.placement === "sidebar";
+        const shouldDetachSharedSidebar =
+            builderLocation !== "header" &&
+            builderLocation !== "footer" &&
+            block.config?.followSharedSidebar === true &&
+            (isDedicatedSidebarSection || (sidebarColumnIndex !== null && columnIndex === sidebarColumnIndex));
+
+        if (shouldDetachSharedSidebar) {
+            handleUpdateConfig("followSharedSidebar", false);
+        }
+
+        if (isNested && addChildBlockById) {
             addChildBlockById(block.id, type, title, columnIndex);
         } else {
             addChildBlock(index, type, title, columnIndex);
@@ -171,14 +243,32 @@ function SectionBlock({
 
     const getColumnStructure = (layout: string) => {
         switch(layout) {
-            case '100': return ['w-full'];
-            case '50-50': return ['w-1/2', 'w-1/2'];
-            case '33-66': return ['w-1/2', 'w-1/2'];
-            case '66-33': return ['w-1/2', 'w-1/2'];
-            case '33-33-33': return ['w-1/3', 'w-1/3', 'w-1/3'];
-            case '25-25-25-25': return ['w-1/4', 'w-1/4', 'w-1/4', 'w-1/4'];
-            default: return ['w-full'];
+            case '100': return [100];
+            case '50-50': return [50, 50];
+            case '33-66': return [33.333, 66.667];
+            case '66-33': return [66.667, 33.333];
+            case '33-33-33': return [33.333, 33.333, 33.333];
+            case '25-25-25-25': return [25, 25, 25, 25];
+            default: return [100];
         }
+    };
+
+    const toPreviewSize = (value: unknown, fallback: string) => {
+        if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+            if (!trimmed) return fallback;
+            if (/^\d+(\.\d+)?$/.test(trimmed)) return `${trimmed}px`;
+            return trimmed;
+        }
+        return fallback;
+    };
+
+    const getConfigNumber = (key: string, fallback: number) => {
+        const value = getResponsiveValue(key);
+        if (typeof value === "number" && Number.isFinite(value)) return value;
+        if (typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))) return Number(value);
+        return fallback;
     };
 
     const config = block.config || {};
@@ -200,9 +290,56 @@ function SectionBlock({
     const layoutConfig = getConfigString("layout", "100");
     const columns = getColumnStructure(layoutConfig);
     const isStackedLayout = activeDeviceTab === "mobile";
+    const sectionDirection = getConfigString("childrenDirection", "vertical") === "horizontal" ? "horizontal" : "vertical";
+    const sectionAlign = getConfigString("childrenAlign", "left");
+    const sectionVerticalAlign = getConfigString("childrenVerticalAlign", "top");
+    const sectionSizing = getConfigString("childrenSizing", "auto");
+    const sectionBlockGap = getConfigNumber("blockGap", 6) * 4;
+    const sectionColumnGap = getConfigNumber("columnGap", 6) * 4;
+    const sectionContainerWidth = getConfigString("containerWidth", "boxed");
+    const sectionCustomContainerWidth = toPreviewSize(getResponsiveValue("customContainerWidth"), "1200px");
+    const builderBoxedWidth = _containerWidth === "custom"
+        ? toPreviewSize(_customContainerWidth, "1200px")
+        : "1200px";
+    const previewContainerMaxWidth = isNested
+        ? "100%"
+        : sectionContainerWidth === "full"
+            ? "100%"
+            : sectionContainerWidth === "custom"
+                ? sectionCustomContainerWidth
+                : builderBoxedWidth;
+    const resolvedSectionChildren = builderLocation === "header" || builderLocation === "footer"
+        ? ((block.config as any)?.children || [])
+        : resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, builderLocation as any);
+
+    const columnContentStyle: React.CSSProperties = sectionDirection === "horizontal"
+        ? {
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: `${sectionBlockGap}px`,
+            justifyContent: sectionAlign === "center" ? "center" : sectionAlign === "right" ? "flex-end" : "flex-start",
+            alignItems: sectionVerticalAlign === "center" ? "center" : sectionVerticalAlign === "bottom" ? "flex-end" : "flex-start",
+          }
+        : {
+            display: "flex",
+            flexDirection: "column",
+            gap: `${sectionBlockGap}px`,
+            justifyContent: sectionVerticalAlign === "center" ? "center" : sectionVerticalAlign === "bottom" ? "flex-end" : "flex-start",
+            alignItems: "stretch",
+            textAlign: sectionAlign === "center" ? "center" : sectionAlign === "right" ? "right" : "left",
+          };
+
+    const portalThemeStyle =
+        activeAddMenu?.blockId === block.id
+            ? getPortalThemeVars(
+                (sectionRootRef.current?.closest(".page-builder") as HTMLElement | null) ?? sectionRootRef.current,
+                accentColor
+            )
+            : undefined;
 
     return (
-        <div className="relative group bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl shadow-sm hover:shadow-md transition-all">
+        <div ref={sectionRootRef} className="relative group bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl shadow-sm hover:shadow-md transition-all">
             {/* Section Header */}
             <div className="bg-[var(--bg-base)] px-4 py-2 border-b border-[var(--border)] flex justify-between items-center rounded-t-xl">
                 <div className="flex items-center gap-2">
@@ -212,10 +349,10 @@ function SectionBlock({
                         <button onClick={() => handleMoveSection("down")} className="p-1 hover:text-[var(--accent)]" title="Geser ke Bawah"><ArrowDown size={14} /></button>
                     </div>
                     
-                    <span className="text-xs font-bold text-[var(--fg-muted)] uppercase">{isNested ? "Inner Section" : "Section"}</span>
+                    <span className="text-xs font-bold text-[var(--fg-muted)] uppercase">Inner Section</span>
                     {/* Layout Switcher (Mini) */}
                     <div className="flex gap-1 ml-4">
-                        {['100', '50-50', '33-66', '66-33', '33-33-33'].map(l => (
+                        {['100', '50-50', '33-66', '66-33', '33-33-33', '25-25-25-25'].map(l => (
                             <button 
                                 key={l}
                                 onClick={() => handleUpdateResponsiveConfig("layout", l)}
@@ -234,18 +371,23 @@ function SectionBlock({
 
             <div className="rounded-b-xl overflow-hidden p-3 overflow-x-auto">
                 <div
-                    className={`relative flex min-h-[150px] ${isStackedLayout ? "flex-col" : "flex-row"} gap-3`}
+                    className={`relative min-h-[150px] mx-auto ${isStackedLayout ? "flex flex-col" : "flex flex-row"}`}
+                    style={{
+                        maxWidth: previewContainerMaxWidth,
+                        gap: `${sectionColumnGap}px`
+                    }}
                 >
-                    {columns.map((widthClass, colIndex) => {
-                        const resolvedSectionChildren = builderLocation === "header" || builderLocation === "footer"
-                          ? ((block.config as any)?.children || [])
-                          : resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, builderLocation as any);
+                    {columns.map((widthPercent, colIndex) => {
                         const colChildren = resolvedSectionChildren.filter((c: Block) => (c.config?.columnIndex || 0) === colIndex);
                         const isEmpty = colChildren.length === 0;
                         const effectiveSidebarContext = sidebarContext;
 
                         return (
-                        <div key={colIndex} className={`${isStackedLayout ? "w-full" : widthClass} p-3 bg-[var(--bg-surface)] relative group/col`}>
+                        <div
+                            key={colIndex}
+                            className="p-3 bg-[var(--bg-surface)] relative group/col min-w-0"
+                            style={isStackedLayout ? { width: "100%" } : { width: `${widthPercent}%`, flex: `0 0 ${widthPercent}%` }}
+                        >
                             {/* Empty State Placeholder */}
                             {isEmpty && (
                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -256,13 +398,15 @@ function SectionBlock({
                             )}
 
                             {/* Column Content */}
-                            <div className="relative z-10 flex flex-col items-stretch justify-start gap-3">
+                            <div className="relative z-10" style={columnContentStyle}>
                                 {colChildren.map((child: Block) => {
-                                    const wrapperClass = "";
+                                    const wrapperStyle: React.CSSProperties = sectionDirection === "horizontal" && sectionSizing === "grow"
+                                        ? { flex: "1 1 0", minWidth: 0 }
+                                        : { minWidth: 0 };
                                     if (child.type === 'section') {
                                         // Recursive Render for Nested Sections
                                         return (
-                                            <div key={child.id} className={wrapperClass}>
+                                            <div key={child.id} style={wrapperStyle}>
                                                 <SectionBlock 
                                                     builderLocation={builderLocation}
                                                     key={child.id}
@@ -308,7 +452,7 @@ function SectionBlock({
                                     }
 
                                     return (
-                                        <div key={child.id} className={wrapperClass}>
+                                        <div key={child.id} style={wrapperStyle}>
                                             <WidgetItem 
                                                 builderLocation={builderLocation}
                                                 key={child.id}
@@ -371,25 +515,33 @@ function SectionBlock({
                                     </button>
                                     
                                     {/* Widget Picker Modal (Full Screen Centered) */}
-                                    {activeAddMenu?.blockId === block.id && activeAddMenu?.colIndex === colIndex && (
-                                        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={(e) => { e.stopPropagation(); setActiveAddMenu(null); }}>
-                                            <div className="bg-[var(--bg-elevated)] border border-[var(--border)] w-full max-w-5xl h-[85vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
+                                    {activeAddMenu?.blockId === block.id && activeAddMenu?.colIndex === colIndex && typeof document !== "undefined" && createPortal(
+                                        <>
+                                            <div
+                                                className="fixed inset-y-0 left-0 z-[9998] bg-black/35 pointer-events-none animate-fade-in"
+                                                style={{ right: "var(--admin-scrollbar-width, 0px)" }}
+                                            />
+                                            <div
+                                                className="widget-picker-modal-root fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto p-4 sm:p-6 bg-transparent animate-fade-in"
+                                                style={portalThemeStyle}
+                                                onClick={(e) => { e.stopPropagation(); setActiveAddMenu(null); }}
+                                            >
+                                                <div className="isolate bg-[var(--bg-elevated)] border border-[var(--border)] w-full max-w-[920px] max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3rem)] rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scale-in" onClick={(e) => e.stopPropagation()}>
                                                 {/* Header */}
-                                                <div className="px-6 py-4 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-elevated)] sticky top-0 z-10">
+                                                <div className="px-4 py-2.5 border-b border-[var(--border)] flex justify-between items-center gap-3 bg-[var(--bg-elevated)] sticky top-0 z-10">
                                                     <div>
-                                                        <h3 className="text-xl font-bold text-[var(--fg-primary)]">Pilih Widget</h3>
-                                                        <p className="text-sm text-[var(--fg-secondary)]">Tambahkan elemen baru ke dalam kolom ini</p>
+                                                        <h3 className="text-base sm:text-lg font-bold text-[var(--fg-primary)] leading-tight">Pilih Widget</h3>
                                                     </div>
                                                     <button 
                                                         onClick={() => setActiveAddMenu(null)}
-                                                        className="p-2 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--fg-muted)] hover:text-red-500"
+                                                        className="p-1.5 hover:bg-[var(--bg-surface)] rounded-full transition-colors text-[var(--fg-muted)] hover:text-red-500 shrink-0"
                                                     >
-                                                        <X size={24} />
+                                                        <X size={20} />
                                                     </button>
                                                 </div>
 
                                                 {/* Content Scrollable */}
-                                                <div className="flex-1 overflow-y-auto p-8 bg-[var(--bg-surface)] custom-scrollbar">
+                                                <div className="flex-1 min-h-0 overflow-y-auto p-3 sm:p-4 bg-[var(--bg-surface)] custom-scrollbar">
                                                     {(() => {
                                                         const currentContext = builderLocation === 'post' ? 'post' : 'home';
                                                         
@@ -409,7 +561,7 @@ function SectionBlock({
                                                             general: normalizedThemeBlocks.filter(b => ['widget'].includes(b.category || ""))
                                                         };
                                                         
-                                                        // Special "Inner Section" block (Hardcoded as it's a builder feature, not a theme widget)
+                                                        // Special section block (Hardcoded as it's a builder feature, not a theme widget)
                                                         const innerSectionBlock: WidgetDefinition = { 
                                                             type: "section", 
                                                             label: "Inner Section", 
@@ -418,77 +570,32 @@ function SectionBlock({
                                                             desc: "Buat kolom tambahan di dalam kolom ini." 
                                                         };
 
-                                                        groups.main.push(innerSectionBlock);
                                                         groups.sidebar.push(innerSectionBlock);
 
-                                                        // Header/Footer Widget Definitions
-                                                        const FOOTER_WIDGET_GROUPS: Record<string, { main: WidgetDefinition[]; sidebar: WidgetDefinition[] }> = {
-                                                            classic: {
-                                                                main: [
-                                                                    { type: "footer_logo", label: "Logo", icon: Layout, desc: "Logo atau nama situs (samakan dengan Header Logo)." },
-                                                                    { type: "footer_menu", label: "Menu Footer", icon: List, desc: "Menu khusus lokasi Footer." },
-                                                                    { type: "footer_text", label: "Teks", icon: Grid, desc: "Teks bebas (alamat, kontak, dsb)." },
-                                                                    { type: "footer_social", label: "Social Links", icon: Grid, desc: "Link media sosial." },
-                                                                    { type: "footer_categories", label: "Kategori", icon: List, desc: "List kategori (otomatis dari data kategori)." },
-                                                                    { type: "footer_custom_links", label: "Custom Links", icon: List, desc: "Daftar link custom (mirip Custom Links pada Menu)." },
-                                                                    { type: "footer_copyright", label: "Copyright", icon: Megaphone, desc: "Teks copyright + tahun." },
-                                                                    innerSectionBlock,
-                                                                ],
-                                                                sidebar: [],
-                                                            },
-                                                            pranala: {
-                                                                main: [
-                                                                    { type: "footer_logo", label: "Logo", icon: Layout, desc: "Logo atau nama situs (samakan dengan Header Logo)." },
-                                                                    { type: "footer_menu", label: "Menu Footer", icon: List, desc: "Menu khusus lokasi Footer." },
-                                                                    { type: "footer_text", label: "Teks", icon: Grid, desc: "Teks bebas (alamat, kontak, dsb)." },
-                                                                    { type: "footer_social", label: "Social Links", icon: Grid, desc: "Link media sosial." },
-                                                                    { type: "footer_categories", label: "Kategori", icon: List, desc: "List kategori (otomatis dari data kategori)." },
-                                                                    { type: "footer_custom_links", label: "Custom Links", icon: List, desc: "Daftar link custom (mirip Custom Links pada Menu)." },
-                                                                    { type: "footer_copyright", label: "Copyright", icon: Megaphone, desc: "Teks copyright + tahun." },
-                                                                    innerSectionBlock,
-                                                                ],
-                                                                sidebar: [],
-                                                            },
-                                                        };
-                                                        const footerThemeKey = (activeTheme && FOOTER_WIDGET_GROUPS[activeTheme]) ? activeTheme : 'classic';
-                                                        
-                                                        const headerGroups = {
-                                                            main: [
-                                                                { type: "header_logo", label: "Logo", icon: Layout, desc: "Logo atau nama situs." },
-                                                                { type: "header_menu_primary", label: "Menu Primary", icon: List, desc: "Menu lokasi Primary." },
-                                                                { type: "header_menu_secondary", label: "Menu Secondary", icon: List, desc: "Menu lokasi Secondary." },
-                                                                { type: "header_search", label: "Search", icon: Grid, desc: "Tombol search." },
-                                                                { type: "header_theme_toggle", label: "Theme Toggle", icon: Grid, desc: "Tombol ganti tema." },
-                                                                { type: "header_login", label: "Tombol Masuk", icon: Megaphone, desc: "Tombol login/masuk." },
-                                                                { type: "header_mobile_menu_toggle", label: "Hamburger Menu (Mobile)", icon: List, desc: "Tombol hamburger untuk membuka menu off-canvas di mobile." },
-                                                                { type: "ad_banner", label: "Iklan Banner", icon: Megaphone, desc: "Banner iklan dari Manajemen Iklan (posisi: HEADER)." },
-                                                                innerSectionBlock,
-                                                            ],
-                                                            sidebar: [],
-                                                        };
+                                                        const footerGroups = getThemeFooterWidgetGroups(activeTheme || "classic");
+                                                        const headerGroups = getThemeHeaderWidgetGroups(activeTheme || "classic");
 
                                                         return (
-                                                            <div className="space-y-10">
+                                                            <div className="space-y-5">
                                                                 {builderLocation === 'header' ? (
                                                                     <div>
-                                                                        <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                        <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-[var(--border)] pb-2">
                                                                             <div className="w-1.5 h-5 bg-[var(--accent)] rounded-full"></div>
                                                                             Elemen Header
                                                                         </h4>
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                                                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                                                                             {(headerGroups.main as WidgetDefinition[]).map((widget) => {
                                                                                 const Icon = widget.icon;
                                                                                 return (
                                                                                     <button 
                                                                                         key={widget.type}
                                                                                         onClick={(e) => { e.stopPropagation(); handleAddChild(widget.type!, widget.label, colIndex); }}
-                                                                                        className="flex flex-col items-start p-5 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                        className="flex items-center gap-2.5 p-3 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-sm transition-all duration-200 text-left group min-h-[64px] w-full"
                                                                                     >
-                                                                                        <div className={`p-3.5 rounded-xl mb-4 ${widget.isSpecial ? 'bg-[var(--accent-subtle)] text-[var(--accent)]' : 'bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors'}`}>
-                                                                                            <Icon size={28} />
+                                                                                        <div className="p-2 rounded-lg bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors shrink-0">
+                                                                                            <Icon size={18} />
                                                                                         </div>
-                                                                                        <span className="font-bold text-lg text-[var(--fg-primary)] mb-2 group-hover:text-[var(--accent)] transition-colors">{widget.label}</span>
-                                                                                        <span className="text-sm text-[var(--fg-muted)] leading-relaxed">{widget.desc}</span>
+                                                                                        <span className="font-semibold text-sm text-[var(--fg-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug">{widget.label}</span>
                                                                                     </button>
                                                                                 );
                                                                             })}
@@ -496,24 +603,23 @@ function SectionBlock({
                                                                     </div>
                                                                 ) : builderLocation === 'footer' ? (
                                                                     <div>
-                                                                        <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                        <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-[var(--border)] pb-2">
                                                                             <div className="w-1.5 h-5 bg-[var(--accent)] rounded-full"></div>
                                                                             Elemen Footer
                                                                         </h4>
-                                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                                                            {(FOOTER_WIDGET_GROUPS[footerThemeKey].main as WidgetDefinition[]).map((widget) => {
+                                                                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                                                            {(footerGroups.main as WidgetDefinition[]).map((widget) => {
                                                                                 const Icon = widget.icon;
                                                                                 return (
                                                                                     <button 
                                                                                         key={widget.type}
                                                                                         onClick={(e) => { e.stopPropagation(); handleAddChild(widget.type!, widget.label, colIndex); }}
-                                                                                        className="flex flex-col items-start p-5 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                        className="flex items-center gap-2.5 p-3 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-sm transition-all duration-200 text-left group min-h-[64px] w-full"
                                                                                     >
-                                                                                        <div className={`p-3.5 rounded-xl mb-4 ${widget.isSpecial ? 'bg-[var(--accent-subtle)] text-[var(--accent)]' : 'bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors'}`}>
-                                                                                            <Icon size={28} />
+                                                                                        <div className="p-2 rounded-lg bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors shrink-0">
+                                                                                            <Icon size={18} />
                                                                                         </div>
-                                                                                        <span className="font-bold text-lg text-[var(--fg-primary)] mb-2 group-hover:text-[var(--accent)] transition-colors">{widget.label}</span>
-                                                                                        <span className="text-sm text-[var(--fg-muted)] leading-relaxed">{widget.desc}</span>
+                                                                                        <span className="font-semibold text-sm text-[var(--fg-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug">{widget.label}</span>
                                                                                     </button>
                                                                                 );
                                                                             })}
@@ -523,11 +629,11 @@ function SectionBlock({
                                                                     <>
                                                                         {/* Section 1: Widget Utama */}
                                                                         <div>
-                                                                            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-gray-200 pb-2">
-                                                                                <div className="w-1.5 h-5 bg-blue-600 rounded-full"></div>
-                                                                                {builderLocation === 'archive' ? 'Widget Arsip' : 'Widget Utama (Main Content)'}
+                                                                            <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                                <div className={`w-1.5 h-5 rounded-full ${builderLocation === 'archive' ? 'bg-indigo-600' : 'bg-[var(--accent)]'}`}></div>
+                                                                                {builderLocation === 'archive' ? 'Widget Utama Arsip' : 'Widget Utama (Main Content)'}
                                                                             </h4>
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                                                            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                                                                                 {(builderLocation === 'archive' ? archiveWidgetGroups.main : groups.main).map((widget: WidgetDefinition) => {
                                                                                     const Icon = widget.icon;
                                                                                     const widgetType = widget.id ?? widget.type;
@@ -536,13 +642,12 @@ function SectionBlock({
                                                                                         <button 
                                                                                             key={widgetType}
                                                                                             onClick={(e) => { e.stopPropagation(); handleAddChild(widgetType, widget.label, colIndex); }}
-                                                                                            className="flex flex-col items-start p-5 bg-white border border-gray-200 rounded-xl hover:border-blue-500 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                            className="flex items-center gap-2.5 p-3 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-sm transition-all duration-200 text-left group min-h-[64px] w-full"
                                                                                         >
-                                                                                            <div className={`p-3.5 rounded-xl mb-4 ${widget.isSpecial ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors'}`}>
-                                                                                                <Icon size={28} />
+                                                                                            <div className="p-2 rounded-lg bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors shrink-0">
+                                                                                                <Icon size={18} />
                                                                                             </div>
-                                                                                            <span className="font-bold text-lg text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">{widget.label}</span>
-                                                                                            <span className="text-sm text-gray-500 leading-relaxed">{widget.description || widget.desc}</span>
+                                                                                            <span className="font-semibold text-sm text-[var(--fg-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug">{widget.label}</span>
                                                                                         </button>
                                                                                     );
                                                                                 })}
@@ -551,29 +656,25 @@ function SectionBlock({
 
                                                                         {/* Section 2: Sidebar Widgets */}
                                                                         <div>
-                                                                            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-gray-200 pb-2">
-                                                                                <div className="w-1.5 h-5 bg-orange-500 rounded-full"></div>
-                                                                                Widget Sidebar & Tambahan
+                                                                            <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                                <div className={`w-1.5 h-5 rounded-full ${builderLocation === 'archive' ? 'bg-orange-500' : 'bg-[var(--accent)]'}`}></div>
+                                                                                {builderLocation === 'archive' ? 'Widget Sidebar & Pendukung Arsip' : 'Widget Sidebar & Tambahan'}
                                                                             </h4>
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                                                                            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                                                                                 {(builderLocation === 'archive' ? archiveWidgetGroups.support : groups.sidebar).map((widget: WidgetDefinition) => {
                                                                                     const Icon = widget.icon;
                                                                                     const widgetType = widget.id ?? widget.type;
                                                                                     if (!widgetType) return null;
-                                                                                    // Skip special block in sidebar list to avoid duplicates if desired, or keep it.
-                                                                                    if (widget.type === 'section') return null; 
-
                                                                                     return (
                                                                                         <button 
                                                                                             key={widgetType}
                                                                                             onClick={(e) => { e.stopPropagation(); handleAddChild(widgetType, widget.label, colIndex); }}
-                                                                                            className="flex flex-col items-start p-5 bg-white border border-gray-200 rounded-xl hover:border-orange-500 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                            className="flex items-center gap-2.5 p-3 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-sm transition-all duration-200 text-left group min-h-[64px] w-full"
                                                                                         >
-                                                                                            <div className={`p-3.5 rounded-xl mb-4 ${widget.isSpecial ? 'bg-purple-50 text-purple-600' : 'bg-orange-50 text-orange-600 group-hover:bg-orange-600 group-hover:text-white transition-colors'}`}>
-                                                                                                <Icon size={28} />
+                                                                                            <div className="p-2 rounded-lg bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors shrink-0">
+                                                                                                <Icon size={18} />
                                                                                             </div>
-                                                                                            <span className="font-bold text-lg text-gray-800 mb-2 group-hover:text-orange-600 transition-colors">{widget.label}</span>
-                                                                                            <span className="text-sm text-gray-500 leading-relaxed">{widget.description || widget.desc}</span>
+                                                                                            <span className="font-semibold text-sm text-[var(--fg-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug">{widget.label}</span>
                                                                                         </button>
                                                                                     );
                                                                                 })}
@@ -583,12 +684,12 @@ function SectionBlock({
                                                                 ) : (
                                                                     <>
                                                                         <div>
-                                                                            <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                            <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-[var(--border)] pb-2">
                                                                                 <div className="w-1.5 h-5 bg-[var(--accent)] rounded-full"></div>
                                                                                 Struktur Konten Utama Post
                                                                             </h4>
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                                                                {postWidgetGroups.main.map((widget) => {
+                                                                            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                                                                {postBuilderMainWidgets.map((widget) => {
                                                                                     const Icon = widget.icon;
                                                                                     const widgetType = widget.type;
                                                                                     if (!widgetType) return null;
@@ -596,13 +697,12 @@ function SectionBlock({
                                                                                         <button
                                                                                             key={widgetType}
                                                                                             onClick={(e) => { e.stopPropagation(); handleAddChild(widgetType, widget.label, colIndex); }}
-                                                                                            className="flex flex-col items-start p-5 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                            className="flex items-center gap-2.5 p-3 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-sm transition-all duration-200 text-left group min-h-[64px] w-full"
                                                                                         >
-                                                                                            <div className="p-3.5 rounded-xl mb-4 bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors">
-                                                                                                <Icon size={28} />
+                                                                                            <div className="p-2 rounded-lg bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors shrink-0">
+                                                                                                <Icon size={18} />
                                                                                             </div>
-                                                                                            <span className="font-bold text-lg text-[var(--fg-primary)] mb-2 group-hover:text-[var(--accent)] transition-colors">{widget.label}</span>
-                                                                                            <span className="text-sm text-[var(--fg-muted)] leading-relaxed">{widget.description || widget.desc}</span>
+                                                                                            <span className="font-semibold text-sm text-[var(--fg-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug">{widget.label}</span>
                                                                                         </button>
                                                                                     );
                                                                                 })}
@@ -610,12 +710,12 @@ function SectionBlock({
                                                                         </div>
 
                                                                         <div>
-                                                                            <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-5 flex items-center gap-2 border-b border-[var(--border)] pb-2">
+                                                                            <h4 className="text-sm font-bold text-[var(--fg-muted)] uppercase tracking-wider mb-4 flex items-center gap-2 border-b border-[var(--border)] pb-2">
                                                                                 <div className="w-1.5 h-5 bg-[var(--accent)] rounded-full"></div>
                                                                                 Elemen Pendukung & Sidebar
                                                                             </h4>
-                                                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                                                                                {postWidgetGroups.support.map((widget) => {
+                                                                            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                                                                                {postBuilderSidebarWidgets.map((widget) => {
                                                                                     const Icon = widget.icon;
                                                                                     const widgetType = widget.type;
                                                                                     if (!widgetType) return null;
@@ -623,13 +723,12 @@ function SectionBlock({
                                                                                         <button
                                                                                             key={widgetType}
                                                                                             onClick={(e) => { e.stopPropagation(); handleAddChild(widgetType, widget.label, colIndex); }}
-                                                                                            className="flex flex-col items-start p-5 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-lg hover:-translate-y-1 transition-all duration-200 text-left group h-full w-full"
+                                                                                            className="flex items-center gap-2.5 p-3 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-xl hover:border-[var(--accent)] hover:shadow-sm transition-all duration-200 text-left group min-h-[64px] w-full"
                                                                                         >
-                                                                                            <div className={`p-3.5 rounded-xl mb-4 ${widget.isSpecial ? 'bg-[var(--bg-base)] text-[var(--accent)]' : 'bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors'}`}>
-                                                                                                <Icon size={28} />
+                                                                                            <div className="p-2 rounded-lg bg-[var(--bg-base)] text-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white transition-colors shrink-0">
+                                                                                                <Icon size={18} />
                                                                                             </div>
-                                                                                            <span className="font-bold text-lg text-[var(--fg-primary)] mb-2 group-hover:text-[var(--accent)] transition-colors">{widget.label}</span>
-                                                                                            <span className="text-sm text-[var(--fg-muted)] leading-relaxed">{widget.description || widget.desc}</span>
+                                                                                            <span className="font-semibold text-sm text-[var(--fg-primary)] group-hover:text-[var(--accent)] transition-colors leading-snug">{widget.label}</span>
                                                                                         </button>
                                                                                     );
                                                                                 })}
@@ -643,12 +742,13 @@ function SectionBlock({
                                                 </div>
                                                 
                                                 {/* Footer hint */}
-                                                <div className="px-6 py-4 bg-[var(--bg-base)] border-t border-[var(--border)] text-xs text-[var(--fg-muted)] text-center flex justify-between items-center">
-                                                    <span>Tips: Gunakan widget yang sesuai dengan lebar kolom.</span>
+                                                <div className="px-4 py-2 bg-[var(--bg-base)] border-t border-[var(--border)] text-[11px] text-[var(--fg-muted)] text-center flex justify-end items-center gap-3">
                                                     <button onClick={() => setActiveAddMenu(null)} className="text-[var(--fg-muted)] hover:text-[var(--fg-primary)] underline">Tutup</button>
                                                 </div>
                                             </div>
-                                        </div>
+                                            </div>
+                                        </>,
+                                        document.body
                                     )}
                                 </div>
                             </div>

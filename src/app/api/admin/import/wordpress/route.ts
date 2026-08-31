@@ -4,7 +4,9 @@ import { parseStringPromise } from "xml2js";
 import { Role, PostStatus, PostType } from "@prisma/client";
 import fs from "fs";
 import path from "path";
-import { assertRateLimit, isToolEnabledForRequest, requireAdmin } from "@/lib/api-guards";
+import { assertRateLimit, isToolEnabledForRequest } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
+import { normalizeRedirectPath } from "@/lib/redirects";
 
 // Simple slugify fallback if utils doesn't have it
 function simpleSlugify(text: string) {
@@ -16,6 +18,61 @@ function simpleSlugify(text: string) {
         .replace(/[^\w\-]+/g, '') // Remove all non-word chars
         .replace(/\-\-+/g, '-');  // Replace multiple - with single -
 }
+
+function getXmlScalarValue(input: any): string {
+    if (typeof input === "string") return input.trim();
+    if (input && typeof input === "object" && typeof input._ === "string") return input._.trim();
+    return "";
+}
+
+function getLegacyPostPath(item: any): string {
+    const link = getXmlScalarValue(item?.link?.[0]);
+    if (link) return normalizeRedirectPath(link);
+
+    const guid = getXmlScalarValue(item?.guid?.[0]);
+    if (guid) return normalizeRedirectPath(guid);
+
+    return "";
+}
+
+function isValidDate(value: Date) {
+    return !Number.isNaN(value.getTime());
+}
+
+// #region debug-point A:wp-import-formdata-logger
+async function reportWpImportDebug(
+    hypothesisId: string,
+    location: string,
+    msg: string,
+    data: Record<string, unknown>,
+    traceId: string,
+) {
+    try {
+        const envPath = path.join(process.cwd(), ".dbg", "wp-import-formdata.env");
+        let url = "http://127.0.0.1:7777/event";
+        let sessionId = "wp-import-formdata";
+        if (fs.existsSync(envPath)) {
+            const envText = fs.readFileSync(envPath, "utf8");
+            url = envText.match(/DEBUG_SERVER_URL=(.+)/)?.[1]?.trim() || url;
+            sessionId = envText.match(/DEBUG_SESSION_ID=(.+)/)?.[1]?.trim() || sessionId;
+        }
+        await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sessionId,
+                runId: "pre-fix",
+                hypothesisId,
+                location,
+                msg: `[DEBUG] ${msg}`,
+                data,
+                traceId,
+                ts: Date.now(),
+            }),
+        }).catch(() => {});
+    } catch {}
+}
+// #endregion
 
 // Advanced WP Auto Paragraph function
 function wpAutoP(content: string) {
@@ -60,10 +117,11 @@ function wpAutoP(content: string) {
 }
 
 export async function POST(req: NextRequest) {
+    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     try {
         const admin = await requireAdmin();
         if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        if (!isToolEnabledForRequest(req, "wp_import")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        if (!(await isToolEnabledForRequest(req, "wp_import"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
         const rl = assertRateLimit(req, "tools:wp_import", { windowMs: 60_000, max: 5 });
         if (!rl.ok) {
             return NextResponse.json(
@@ -72,15 +130,58 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // #region debug-point B:before-formdata
+        await reportWpImportDebug(
+            "B",
+            "src/app/api/admin/import/wordpress/route.ts:before-formdata",
+            "about to parse multipart body",
+            {
+                method: req.method,
+                pathname: req.nextUrl.pathname,
+                contentType: req.headers.get("content-type"),
+                contentLength: req.headers.get("content-length"),
+            },
+            traceId,
+        );
+        // #endregion
         const formData = await req.formData();
         const file = formData.get("file") as File;
         const mode = formData.get("mode") as string; // 'analyze' | 'import'
+
+        // #region debug-point C:after-formdata
+        await reportWpImportDebug(
+            "C",
+            "src/app/api/admin/import/wordpress/route.ts:after-formdata",
+            "multipart body parsed successfully",
+            {
+                mode,
+                hasFile: Boolean(file),
+                fileName: file?.name || null,
+                fileType: file?.type || null,
+                fileSize: typeof file?.size === "number" ? file.size : null,
+            },
+            traceId,
+        );
+        // #endregion
 
         if (!file) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
         const xmlText = await file.text();
+        // #region debug-point D:after-file-text
+        await reportWpImportDebug(
+            "D",
+            "src/app/api/admin/import/wordpress/route.ts:after-file-text",
+            "xml text loaded",
+            {
+                mode,
+                fileName: file.name,
+                xmlLength: xmlText.length,
+            },
+            traceId,
+        );
+        // #endregion
         const result = await parseStringPromise(xmlText);
 
         if (!result.rss || !result.rss.channel || !result.rss.channel[0]) {
@@ -160,6 +261,10 @@ export async function POST(req: NextRequest) {
         // MODE: IMPORT
         if (mode === 'import') {
             let importedCount = 0;
+            let redirectCreatedCount = 0;
+            let redirectSkippedCount = 0;
+            let skippedDuplicateCount = 0;
+            const skippedDuplicates: string[] = [];
 
             // Ensure upload directory exists
             const uploadDir = path.join(process.cwd(), 'public/uploads/imported');
@@ -195,7 +300,7 @@ export async function POST(req: NextRequest) {
             }
 
             // 2. Process Categories
-            const categoryMap = new Map<string, string>(); // name -> id
+            const categoryMap = new Map<string, { id: string; slug: string }>(); // name -> category info
             // Ensure "Uncategorized" exists
             let defaultCategory = await prisma.category.findFirst({ where: { slug: 'uncategorized' } });
             if (!defaultCategory) {
@@ -203,7 +308,7 @@ export async function POST(req: NextRequest) {
                     data: { name: "Uncategorized", slug: "uncategorized" }
                 });
             }
-            categoryMap.set("Uncategorized", defaultCategory.id);
+            categoryMap.set("Uncategorized", { id: defaultCategory.id, slug: defaultCategory.slug });
 
             for (const catName of Array.from(categoriesToImport)) {
                 const slug = simpleSlugify(catName);
@@ -214,7 +319,7 @@ export async function POST(req: NextRequest) {
                         data: { name: catName, slug }
                     });
                 }
-                categoryMap.set(catName, category.id);
+                categoryMap.set(catName, { id: category.id, slug: category.slug });
             }
 
             // 4. Process Posts
@@ -224,6 +329,7 @@ export async function POST(req: NextRequest) {
                     const wpSlug = item['wp:post_name']?.[0] || simpleSlugify(title);
                     const date = item['wp:post_date']?.[0] ? new Date(item['wp:post_date']?.[0]) : new Date();
                     const status = item['wp:status']?.[0] === 'publish' ? PostStatus.PUBLISHED : PostStatus.DRAFT;
+                    const legacyPath = getLegacyPostPath(item);
                     
                     const authorName = item['dc:creator']?.[0];
                     let authorId = authorMap.get(authorName);
@@ -255,10 +361,13 @@ export async function POST(req: NextRequest) {
 
                     // Find Categories
                     let categoryId = defaultCategory?.id;
+                    let categorySlug = defaultCategory?.slug || "uncategorized";
                     const itemCats = item.category || [];
                     for (const cat of itemCats) {
                         if (cat.$ && cat.$.domain === 'category' && categoryMap.has(cat._)) {
-                            categoryId = categoryMap.get(cat._)!;
+                            const mappedCategory = categoryMap.get(cat._)!;
+                            categoryId = mappedCategory.id;
+                            categorySlug = mappedCategory.slug;
                             break; 
                         }
                     }
@@ -266,21 +375,53 @@ export async function POST(req: NextRequest) {
                     if (!categoryId) {
                          // Fallback to Uncategorized if not found in map
                          categoryId = defaultCategory!.id;
+                         categorySlug = defaultCategory!.slug;
                     }
 
-                    // Check duplicate slug
                     let finalSlug = wpSlug;
                     if (!finalSlug || finalSlug.length === 0) {
                         finalSlug = `post-${Math.random().toString(36).substring(7)}`;
                     }
 
-                    let counter = 1;
-                    const existingPost = await prisma.post.findUnique({ where: { slug: finalSlug } });
-                    if (existingPost) {
-                        while (await prisma.post.findUnique({ where: { slug: `${finalSlug}-${counter}` } })) {
-                            counter++;
+                    const duplicateReasons: string[] = [];
+
+                    const existingSlugPost = await prisma.post.findUnique({
+                        where: { slug: finalSlug },
+                        select: { id: true },
+                    });
+                    if (existingSlugPost) {
+                        duplicateReasons.push(`slug ${finalSlug}`);
+                    }
+
+                    if (title && isValidDate(date)) {
+                        const existingSameTitleAndDate = await prisma.post.findFirst({
+                            where: status === PostStatus.PUBLISHED
+                                ? {
+                                    title,
+                                    publishedAt: date,
+                                }
+                                : {
+                                    title,
+                                    createdAt: date,
+                                },
+                            select: { id: true },
+                        });
+                        if (existingSameTitleAndDate) {
+                            duplicateReasons.push(
+                                status === PostStatus.PUBLISHED
+                                    ? "judul + tanggal publish"
+                                    : "judul + tanggal buat"
+                            );
                         }
-                        finalSlug = `${finalSlug}-${counter}`;
+                    }
+
+                    if (duplicateReasons.length > 0) {
+                        skippedDuplicateCount++;
+                        if (skippedDuplicates.length < 10) {
+                            skippedDuplicates.push(`${title} [${duplicateReasons.join(", ")}]`);
+                        }
+                        console.warn(`Skipping duplicate import: ${title}`, duplicateReasons);
+                        continue;
                     }
 
                     // Prepare Tags
@@ -342,7 +483,7 @@ export async function POST(req: NextRequest) {
                     // We will store the remote URL for now. 
                     // The "Media Migrator" tool will later download it and update this field.
                     
-                    await prisma.post.create({
+                    const createdPost = await prisma.post.create({
                         data: {
                             title,
                             slug: finalSlug,
@@ -365,6 +506,43 @@ export async function POST(req: NextRequest) {
                         }
                     });
 
+                    const newPath = normalizeRedirectPath(`/${categorySlug}/${finalSlug}`);
+                    if (status === PostStatus.PUBLISHED && legacyPath && legacyPath !== newPath) {
+                        const existingRedirect = await prisma.redirectRule.findUnique({
+                            where: { oldPath: legacyPath },
+                            select: { id: true, note: true, newPath: true, statusCode: true, isActive: true },
+                        });
+
+                        if (existingRedirect) {
+                            const isAutoImportRedirect = typeof existingRedirect.note === "string" && existingRedirect.note.startsWith("Auto import WordPress:");
+                            if (isAutoImportRedirect) {
+                                await prisma.redirectRule.update({
+                                    where: { id: existingRedirect.id },
+                                    data: {
+                                        newPath,
+                                        statusCode: 301,
+                                        isActive: true,
+                                        note: `Auto import WordPress: ${createdPost.title}`,
+                                    },
+                                });
+                                redirectCreatedCount++;
+                            } else {
+                                redirectSkippedCount++;
+                            }
+                        } else {
+                            await prisma.redirectRule.create({
+                                data: {
+                                    oldPath: legacyPath,
+                                    newPath,
+                                    statusCode: 301,
+                                    isActive: true,
+                                    note: `Auto import WordPress: ${createdPost.title}`,
+                                },
+                            });
+                            redirectCreatedCount++;
+                        }
+                    }
+
                     importedCount++;
                 } catch (err) {
                     console.error("Failed to import post:", item.title?.[0], err);
@@ -373,13 +551,30 @@ export async function POST(req: NextRequest) {
 
             return NextResponse.json({ 
                 success: true, 
-                importedCount 
+                importedCount,
+                skippedDuplicateCount,
+                skippedDuplicates,
+                redirectCreatedCount,
+                redirectSkippedCount,
             });
         }
 
         return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
 
     } catch (error: any) {
+        // #region debug-point E:catch
+        await reportWpImportDebug(
+            "E",
+            "src/app/api/admin/import/wordpress/route.ts:catch",
+            "import route failed",
+            {
+                errorName: error instanceof Error ? error.name : typeof error,
+                errorMessage: error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : null,
+            },
+            traceId,
+        );
+        // #endregion
         console.error("Import Error:", error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }

@@ -46,7 +46,10 @@ export default function ClassicArchive({ title, description, posts, setting, cat
                  {posts.map((post) => (
                      <div key={post.id} className="group">
                          {/* Thumbnail */}
-                         <div className="relative w-full aspect-[4/3] mb-4 overflow-hidden rounded-lg bg-gray-100">
+                        <div
+                          className="relative w-full aspect-[4/3] mb-4 overflow-hidden bg-gray-100"
+                          style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
+                        >
                              {post.image || post.featuredImage?.fileUrl ? (
                                  <Image 
                                     src={post.image || post.featuredImage?.fileUrl} 

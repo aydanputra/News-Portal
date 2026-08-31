@@ -4,7 +4,6 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { getResponsiveBoolValues, getResponsiveValue, getResponsiveValues, pickResponsiveValue, type ResponsiveDevice } from "./responsive";
 import { resolveWidgetRadius } from "./radius";
-import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface TagCloudProps {
   block: {
@@ -34,6 +33,10 @@ function getTagsFromPosts(posts: any[]) {
         }
     });
     return Array.from(tagsMap.values()).sort((a: any, b: any) => b.count - a.count);
+}
+
+function sanitizeCssUrl(url: string) {
+  return url.replace(/["\\\n\r()]/g, "").trim();
 }
 
 export default function TagCloud({ block, posts, customTitle, accentColor, borderRadius, previewDevice }: TagCloudProps) {
@@ -78,12 +81,33 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
     return () => observer.disconnect();
   }, []);
 
+  const isNeutralSurfaceColor = (value: unknown) => {
+    const v = normalizeHexLike(value);
+    return [
+      "#fff",
+      "#ffffff",
+      "#f9fafb",
+      "#f8fafc",
+      "#f3f4f6",
+      "#f5f5f5",
+      "white",
+      "rgb(255,255,255)",
+      "rgba(255,255,255,1)",
+      "rgba(255,255,255,0.95)",
+      "rgba(255,255,255,0.9)",
+      "var(--bg-elevated)",
+      "var(--bg-elevated,#ffffff)",
+      "var(--bg-surface)",
+      "var(--bg-surface,#f9fafb)",
+      "var(--card,white)",
+      "var(--card,#ffffff)",
+    ].includes(v);
+  };
+
   const normalizeColor = (value: unknown, fallback: string) => {
     if (typeof value !== "string") return fallback;
-    const v = value.trim().toLowerCase();
-    if (!v) return fallback;
-    if (v === "#fff" || v === "#ffffff" || v === "white") return fallback;
-    if (v === "#f9fafb" || v === "#f3f4f6" || v === "#f5f5f5") return fallback;
+    const v = value.trim();
+    if (!v || isNeutralSurfaceColor(v)) return fallback;
     return value;
   };
 
@@ -133,19 +157,41 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
     return fallback;
   };
 
+  const widgetTitleSizeFallback = "var(--home-widget-title-size, 20px)";
   const blockTitleFsMobile = (config as any).mobileBlockTitleFontSize
-    ? formatFontSize((config as any).mobileBlockTitleFontSize, 'var(--home-widget-title-size, 1.25rem)')
-    : formatFontSize(config.blockTitleFontSize, 'var(--home-widget-title-size, 1.25rem)');
+    ? formatFontSize((config as any).mobileBlockTitleFontSize, widgetTitleSizeFallback)
+    : formatFontSize(config.blockTitleFontSize, widgetTitleSizeFallback);
   const blockTitleFsTablet = (config as any).tabletBlockTitleFontSize
     ? formatFontSize((config as any).tabletBlockTitleFontSize, blockTitleFsMobile)
     : blockTitleFsMobile;
   const blockTitleFsDesktop = config.blockTitleFontSize
     ? formatFontSize(config.blockTitleFontSize, blockTitleFsTablet)
     : blockTitleFsTablet;
+  const rawBlockTitleLineHeight = getResponsiveValue<number | string>(configRecord, "blockTitleLineHeight", device);
+  const blockTitleLineHeight =
+    rawBlockTitleLineHeight !== undefined &&
+    rawBlockTitleLineHeight !== null &&
+    `${rawBlockTitleLineHeight}`.trim() !== ""
+      ? rawBlockTitleLineHeight
+      : undefined;
+  const rawBlockTitleMarginBottom = getResponsiveValue<number | string>(configRecord, "blockTitleMarginBottom", device);
+  const blockTitleMarginBottom =
+    rawBlockTitleMarginBottom !== undefined &&
+    rawBlockTitleMarginBottom !== null &&
+    `${rawBlockTitleMarginBottom}`.trim() !== ""
+      ? formatFontSize(rawBlockTitleMarginBottom, "0.75rem")
+      : "0.75rem";
+  const rawBlockTitlePaddingBottom = getResponsiveValue<number | string>(configRecord, "blockTitlePaddingBottom", device);
+  const blockTitlePaddingBottom =
+    rawBlockTitlePaddingBottom !== undefined &&
+    rawBlockTitlePaddingBottom !== null &&
+    `${rawBlockTitlePaddingBottom}`.trim() !== ""
+      ? formatFontSize(rawBlockTitlePaddingBottom, "0.75rem")
+      : "0.75rem";
 
   const defaultTagStyles = isPublicDarkMode
     ? {
-        bg: "rgba(30, 41, 59, 0.62)",
+        bg: "transparent",
         color: "var(--fg-primary, #f9fafb)",
         border: "rgba(148, 163, 184, 0.35)",
         hoverBg: "rgba(51, 65, 85, 0.85)",
@@ -153,7 +199,7 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
         hoverBorder: "rgba(148, 163, 184, 0.5)",
       }
     : {
-        bg: "var(--post-badge-bg-color, var(--load-more-bg))",
+        bg: "transparent",
         color: "var(--post-badge-text-color, var(--load-more-text))",
         border: "var(--load-more-border)",
         hoverBg: "var(--load-more-bg-hover)",
@@ -172,8 +218,9 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
   const legacyLightTagColor = ["#374151", "#4b5563", "var(--load-more-text)", "var(--post-badge-text-color,var(--load-more-text))"];
   const legacyLightTagBorder = ["#f3f4f6", "#e5e7eb", "var(--load-more-border)"];
   const legacyLightTagHoverBg = ["#2563eb", "var(--load-more-bg-hover)"];
-  const legacyLightTagHoverColor = ["#ffffff", "#fff", "var(--load-more-text-hover)", "var(--post-link-hover-color,var(--load-more-text-hover))"];
   const legacyLightTagHoverBorder = ["#2563eb", "var(--load-more-border-hover)"];
+  const legacyDarkUnsafeTagColor = ["#111827", "#1f2937", "#0f172a", "#000000", "#000"];
+  const legacyDarkUnsafeTagBorder = ["#111827", "#1f2937", "#0f172a", "#374151", "#4b5563", "#000000", "#000"];
 
   const resolveTagColor = (
     rawValue: string | undefined,
@@ -193,8 +240,15 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
   
   // Hover Logic
   const tagHoverBg = resolveTagColor(rawTagHoverBg, defaultTagStyles.hoverBg, legacyLightTagHoverBg);
-  const tagHoverColor = resolveTagColor(rawTagHoverColor, defaultTagStyles.hoverColor, legacyLightTagHoverColor);
+  const tagHoverColor =
+    typeof rawTagHoverColor === "string" && rawTagHoverColor.trim() !== ""
+      ? rawTagHoverColor
+      : defaultTagStyles.hoverColor;
   const tagHoverBorderColor = resolveTagColor(rawTagHoverBorderColor, defaultTagStyles.hoverBorder, legacyLightTagHoverBorder); 
+  const effectiveTagColor = isPublicDarkMode && isOneOf(tagColor, legacyDarkUnsafeTagColor) ? defaultTagStyles.color : tagColor;
+  const effectiveTagBorderColor = isPublicDarkMode && isOneOf(tagBorderColor, legacyDarkUnsafeTagBorder) ? defaultTagStyles.border : tagBorderColor;
+  const effectiveTagHoverColor = isPublicDarkMode && isOneOf(tagHoverColor, legacyDarkUnsafeTagColor) ? defaultTagStyles.hoverColor : tagHoverColor;
+  const effectiveTagHoverBorderColor = isPublicDarkMode && isOneOf(tagHoverBorderColor, legacyDarkUnsafeTagBorder) ? defaultTagStyles.hoverBorder : tagHoverBorderColor;
   
   const responsiveTagFontSize = getResponsiveValue<number | string>(configRecord, "tagFontSize", device);
   const tagFontSize = responsiveTagFontSize !== undefined && responsiveTagFontSize !== null && `${responsiveTagFontSize}`.trim() !== ""
@@ -219,12 +273,77 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
   const useBoxDesktop = useBoxValues.desktop;
   const useBoxTablet = useBoxValues.tablet;
   const useBoxMobile = useBoxValues.mobile;
-  const useBox = pickResponsiveValue(useBoxValues, device);
   const rawBoxColorValues = getResponsiveValues<string>(configRecord, "boxColor");
-  const boxColorDesktop = normalizeColor(rawBoxColorValues.desktop, 'var(--bg-elevated, #ffffff)');
+  const boxColorDesktop = normalizeColor(rawBoxColorValues.desktop, 'transparent');
   const boxColorTablet = normalizeColor(rawBoxColorValues.tablet, boxColorDesktop);
   const boxColorMobile = normalizeColor(rawBoxColorValues.mobile, boxColorDesktop);
+  const boxBgImageDesktop = typeof config.backgroundImage === "string" ? sanitizeCssUrl(config.backgroundImage) : "";
+  const boxBgImageTablet = typeof (config as any).tabletBackgroundImage === "string" && (config as any).tabletBackgroundImage.trim() !== ""
+    ? sanitizeCssUrl((config as any).tabletBackgroundImage)
+    : boxBgImageDesktop;
+  const boxBgImageMobile = typeof (config as any).mobileBackgroundImage === "string" && (config as any).mobileBackgroundImage.trim() !== ""
+    ? sanitizeCssUrl((config as any).mobileBackgroundImage)
+    : boxBgImageTablet;
+  const boxBgSizeDesktop = typeof config.backgroundSize === "string" && config.backgroundSize.trim() !== "" ? config.backgroundSize : "cover";
+  const boxBgSizeTablet = typeof (config as any).tabletBackgroundSize === "string" && (config as any).tabletBackgroundSize.trim() !== ""
+    ? (config as any).tabletBackgroundSize
+    : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof (config as any).mobileBackgroundSize === "string" && (config as any).mobileBackgroundSize.trim() !== ""
+    ? (config as any).mobileBackgroundSize
+    : boxBgSizeTablet;
+  const boxBgPositionDesktop = typeof config.backgroundPosition === "string" && config.backgroundPosition.trim() !== "" ? config.backgroundPosition : "center";
+  const boxBgPositionTablet = typeof (config as any).tabletBackgroundPosition === "string" && (config as any).tabletBackgroundPosition.trim() !== ""
+    ? (config as any).tabletBackgroundPosition
+    : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof (config as any).mobileBackgroundPosition === "string" && (config as any).mobileBackgroundPosition.trim() !== ""
+    ? (config as any).mobileBackgroundPosition
+    : boxBgPositionTablet;
+  const boxBgRepeatDesktop = typeof config.backgroundRepeat === "string" && config.backgroundRepeat.trim() !== "" ? config.backgroundRepeat : "no-repeat";
+  const boxBgRepeatTablet = typeof (config as any).tabletBackgroundRepeat === "string" && (config as any).tabletBackgroundRepeat.trim() !== ""
+    ? (config as any).tabletBackgroundRepeat
+    : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof (config as any).mobileBackgroundRepeat === "string" && (config as any).mobileBackgroundRepeat.trim() !== ""
+    ? (config as any).mobileBackgroundRepeat
+    : boxBgRepeatTablet;
+  const boxBgAttachmentDesktop = typeof config.backgroundAttachment === "string" && config.backgroundAttachment.trim() !== "" ? config.backgroundAttachment : "scroll";
+  const boxBgAttachmentTablet = typeof (config as any).tabletBackgroundAttachment === "string" && (config as any).tabletBackgroundAttachment.trim() !== ""
+    ? (config as any).tabletBackgroundAttachment
+    : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof (config as any).mobileBackgroundAttachment === "string" && (config as any).mobileBackgroundAttachment.trim() !== ""
+    ? (config as any).mobileBackgroundAttachment
+    : boxBgAttachmentTablet;
+  const boxOverlayColorDesktop = typeof config.backgroundOverlayColor === "string" ? config.backgroundOverlayColor : "transparent";
+  const boxOverlayColorTablet = typeof (config as any).tabletBackgroundOverlayColor === "string" && (config as any).tabletBackgroundOverlayColor.trim() !== ""
+    ? (config as any).tabletBackgroundOverlayColor
+    : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof (config as any).mobileBackgroundOverlayColor === "string" && (config as any).mobileBackgroundOverlayColor.trim() !== ""
+    ? (config as any).mobileBackgroundOverlayColor
+    : boxOverlayColorTablet;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number(config.backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number((config as any).tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number((config as any).mobileBackgroundOverlayOpacity ?? boxOverlayOpacityTablet) || 0));
+  const useBox = pickResponsiveValue({ desktop: useBoxDesktop, tablet: useBoxTablet, mobile: useBoxMobile }, device);
   const boxColor = pickResponsiveValue({ desktop: boxColorDesktop, tablet: boxColorTablet, mobile: boxColorMobile }, device);
+  const currentBoxBgImage = pickResponsiveValue({ desktop: boxBgImageDesktop, tablet: boxBgImageTablet, mobile: boxBgImageMobile }, device);
+  const currentBoxBgSize = pickResponsiveValue({ desktop: boxBgSizeDesktop, tablet: boxBgSizeTablet, mobile: boxBgSizeMobile }, device);
+  const currentBoxBgPosition = pickResponsiveValue({ desktop: boxBgPositionDesktop, tablet: boxBgPositionTablet, mobile: boxBgPositionMobile }, device);
+  const currentBoxBgRepeat = pickResponsiveValue({ desktop: boxBgRepeatDesktop, tablet: boxBgRepeatTablet, mobile: boxBgRepeatMobile }, device);
+  const currentBoxBgAttachment = pickResponsiveValue({ desktop: boxBgAttachmentDesktop, tablet: boxBgAttachmentTablet, mobile: boxBgAttachmentMobile }, device);
+  const currentBoxOverlayColor = pickResponsiveValue({ desktop: boxOverlayColorDesktop, tablet: boxOverlayColorTablet, mobile: boxOverlayColorMobile }, device);
+  const currentBoxOverlayOpacity = pickResponsiveValue({ desktop: boxOverlayOpacityDesktop, tablet: boxOverlayOpacityTablet, mobile: boxOverlayOpacityMobile }, device);
+  const hasCurrentBoxOverlay =
+    currentBoxOverlayOpacity > 0 &&
+    typeof currentBoxOverlayColor === "string" &&
+    currentBoxOverlayColor.trim() !== "" &&
+    currentBoxOverlayColor !== "transparent";
+  const currentBoxOverlayFill = hasCurrentBoxOverlay
+    ? `color-mix(in srgb, ${currentBoxOverlayColor} ${currentBoxOverlayOpacity}%, transparent)`
+    : "transparent";
+  const currentBoxBackgroundImage = useBox && currentBoxBgImage
+    ? (hasCurrentBoxOverlay
+      ? `linear-gradient(${currentBoxOverlayFill}, ${currentBoxOverlayFill}), url("${currentBoxBgImage}")`
+      : `url("${currentBoxBgImage}")`)
+    : "none";
   // Helper for radius
   const boxRadiusValues = getResponsiveValues<string>(configRecord, "boxBorderRadius");
   const responsiveBoxRadius = pickResponsiveValue(boxRadiusValues, device);
@@ -245,9 +364,9 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
   const mBottomDesktop = config.marginBottom !== undefined ? `${config.marginBottom}px` : mBottomTablet;
   const mLeftDesktop = config.marginLeft !== undefined ? `${config.marginLeft}px` : mLeftTablet;
 
-  const paddingFallbackMobile = useBoxMobile ? 'var(--box-padding, 1.5rem)' : '0px';
-  const paddingFallbackTablet = useBoxTablet ? 'var(--box-padding, 1.5rem)' : '0px';
-  const paddingFallbackDesktop = useBoxDesktop ? 'var(--box-padding, 1.5rem)' : '0px';
+  const paddingFallbackMobile = '0px';
+  const paddingFallbackTablet = '0px';
+  const paddingFallbackDesktop = '0px';
   const basePaddingTop = config.paddingTop !== undefined ? `${config.paddingTop}px` : undefined;
   const basePaddingRight = config.paddingRight !== undefined ? `${config.paddingRight}px` : undefined;
   const basePaddingBottom = config.paddingBottom !== undefined ? `${config.paddingBottom}px` : undefined;
@@ -266,6 +385,22 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
   const pRightDesktop = basePaddingRight ?? paddingFallbackDesktop;
   const pBottomDesktop = basePaddingBottom ?? paddingFallbackDesktop;
   const pLeftDesktop = basePaddingLeft ?? paddingFallbackDesktop;
+  const boxPtMobile = config.mobileBoxPaddingTop !== undefined ? `${config.mobileBoxPaddingTop}px` : (config.boxPaddingTop !== undefined ? `${config.boxPaddingTop}px` : (useBoxMobile ? 'var(--box-padding, 1.5rem)' : '0px'));
+  const boxPrMobile = config.mobileBoxPaddingRight !== undefined ? `${config.mobileBoxPaddingRight}px` : (config.boxPaddingRight !== undefined ? `${config.boxPaddingRight}px` : (useBoxMobile ? 'var(--box-padding, 1.5rem)' : '0px'));
+  const boxPbMobile = config.mobileBoxPaddingBottom !== undefined ? `${config.mobileBoxPaddingBottom}px` : (config.boxPaddingBottom !== undefined ? `${config.boxPaddingBottom}px` : (useBoxMobile ? 'var(--box-padding, 1.5rem)' : '0px'));
+  const boxPlMobile = config.mobileBoxPaddingLeft !== undefined ? `${config.mobileBoxPaddingLeft}px` : (config.boxPaddingLeft !== undefined ? `${config.boxPaddingLeft}px` : (useBoxMobile ? 'var(--box-padding, 1.5rem)' : '0px'));
+  const boxPtTablet = config.tabletBoxPaddingTop !== undefined ? `${config.tabletBoxPaddingTop}px` : (config.boxPaddingTop !== undefined ? `${config.boxPaddingTop}px` : (useBoxTablet ? boxPtMobile : '0px'));
+  const boxPrTablet = config.tabletBoxPaddingRight !== undefined ? `${config.tabletBoxPaddingRight}px` : (config.boxPaddingRight !== undefined ? `${config.boxPaddingRight}px` : (useBoxTablet ? boxPrMobile : '0px'));
+  const boxPbTablet = config.tabletBoxPaddingBottom !== undefined ? `${config.tabletBoxPaddingBottom}px` : (config.boxPaddingBottom !== undefined ? `${config.boxPaddingBottom}px` : (useBoxTablet ? boxPbMobile : '0px'));
+  const boxPlTablet = config.tabletBoxPaddingLeft !== undefined ? `${config.tabletBoxPaddingLeft}px` : (config.boxPaddingLeft !== undefined ? `${config.boxPaddingLeft}px` : (useBoxTablet ? boxPlMobile : '0px'));
+  const boxPtDesktop = config.boxPaddingTop !== undefined ? `${config.boxPaddingTop}px` : (useBoxDesktop ? boxPtTablet : '0px');
+  const boxPrDesktop = config.boxPaddingRight !== undefined ? `${config.boxPaddingRight}px` : (useBoxDesktop ? boxPrTablet : '0px');
+  const boxPbDesktop = config.boxPaddingBottom !== undefined ? `${config.boxPaddingBottom}px` : (useBoxDesktop ? boxPbTablet : '0px');
+  const boxPlDesktop = config.boxPaddingLeft !== undefined ? `${config.boxPaddingLeft}px` : (useBoxDesktop ? boxPlTablet : '0px');
+  const currentBoxPt = pickResponsiveValue({ desktop: boxPtDesktop, tablet: boxPtTablet, mobile: boxPtMobile }, device);
+  const currentBoxPr = pickResponsiveValue({ desktop: boxPrDesktop, tablet: boxPrTablet, mobile: boxPrMobile }, device);
+  const currentBoxPb = pickResponsiveValue({ desktop: boxPbDesktop, tablet: boxPbTablet, mobile: boxPbMobile }, device);
+  const currentBoxPl = pickResponsiveValue({ desktop: boxPlDesktop, tablet: boxPlTablet, mobile: boxPlMobile }, device);
 
   // Data Logic
   let tags: any[] = [];
@@ -280,10 +415,6 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
   }
 
   const containerStyle = {
-      backgroundColor: useBox ? boxColor : 'transparent',
-      borderRadius: useBox ? boxBorderRadius : '0',
-      boxShadow: useBox ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none',
-      border: useBox ? 'var(--box-border, 1px solid var(--border))' : 'none',
       '--accent': effectiveAccent,
       '--widget-title-size-mobile': blockTitleFsMobile,
       '--widget-title-size-tablet': blockTitleFsTablet,
@@ -294,50 +425,92 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
       '--widget-title-border-color-mobile': blockTitleBorderColorMobile,
       '--widget-title-border-color-tablet': blockTitleBorderColorTablet,
       '--widget-title-border-color-desktop': blockTitleBorderColorDesktop,
+      '--rb-mt-mobile': mTopMobile,
+      '--rb-mr-mobile': mRightMobile,
+      '--rb-mb-mobile': mBottomMobile,
+      '--rb-ml-mobile': mLeftMobile,
+      '--rb-pt-mobile': pTopMobile,
+      '--rb-pr-mobile': pRightMobile,
+      '--rb-pb-mobile': pBottomMobile,
+      '--rb-pl-mobile': pLeftMobile,
+      '--rb-mt-tablet': mTopTablet,
+      '--rb-mr-tablet': mRightTablet,
+      '--rb-mb-tablet': mBottomTablet,
+      '--rb-ml-tablet': mLeftTablet,
+      '--rb-pt-tablet': pTopTablet,
+      '--rb-pr-tablet': pRightTablet,
+      '--rb-pb-tablet': pBottomTablet,
+      '--rb-pl-tablet': pLeftTablet,
+      '--rb-mt-desktop': mTopDesktop,
+      '--rb-mr-desktop': mRightDesktop,
+      '--rb-mb-desktop': mBottomDesktop,
+      '--rb-ml-desktop': mLeftDesktop,
+      '--rb-pt-desktop': pTopDesktop,
+      '--rb-pr-desktop': pRightDesktop,
+      '--rb-pb-desktop': pBottomDesktop,
+      '--rb-pl-desktop': pLeftDesktop,
   } as React.CSSProperties;
 
   if (tags.length === 0) {
       return (
-          <div id={`tag-cloud-${block.id}`} className={`${visibilityClass}`} style={containerStyle}>
-              <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-                #tag-cloud-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; }
-                @media (min-width: 768px) { #tag-cloud-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; } }
-                @media (min-width: 1025px) { #tag-cloud-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; } }
-                html.public-dark #tag-cloud-${block.id} .theme-widget-title { border-bottom-color: var(--border) !important; }
-                html.public-dark #tag-cloud-${block.id} .tag-cloud-empty { color: var(--fg-secondary, #cbd5e1) !important; }
-                html.public-dark #tag-cloud-${block.id} .tag-item {
-                  background-color: rgba(30, 41, 59, 0.62) !important;
-                  color: var(--fg-primary, #f8fafc) !important;
-                  border-color: rgba(148, 163, 184, 0.35) !important;
-                }
-                html.public-dark #tag-cloud-${block.id} .tag-item:hover {
-                  background-color: rgba(51, 65, 85, 0.85) !important;
-                  color: var(--fg-primary, #f8fafc) !important;
-                  border-color: rgba(148, 163, 184, 0.5) !important;
-                }
-              `) }} />
+          <div id={`tag-cloud-${block.id}`} className={`tag-cloud-block responsive-block-frame ${visibilityClass}`.trim()} style={containerStyle}>
+              <div
+                style={{
+                  backgroundColor: useBox ? boxColor : 'transparent',
+                  borderRadius: useBox ? boxBorderRadius : '0',
+                  boxShadow: useBox ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none',
+                  border: useBox ? 'var(--box-border, 1px solid var(--border))' : 'none',
+                  backgroundImage: currentBoxBackgroundImage,
+                  backgroundSize: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+                  backgroundPosition: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+                  backgroundRepeat: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+                  backgroundAttachment: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+                  paddingTop: useBox ? currentBoxPt : '0px',
+                  paddingRight: useBox ? currentBoxPr : '0px',
+                  paddingBottom: useBox ? currentBoxPb : '0px',
+                  paddingLeft: useBox ? currentBoxPl : '0px',
+                }}
+              >
               {(config.showTitle !== false) && (
-                  <h3 className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center theme-widget-title">
-                      <div className="widget-title-bar w-1 h-5 mr-3" style={{ borderRadius: 'var(--home-main-box-radius, 0.75rem)' }}></div>
+                  <h3
+                    className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title"
+                    style={{ lineHeight: blockTitleLineHeight, marginBottom: blockTitleMarginBottom, paddingBottom: blockTitlePaddingBottom }}
+                  >
+                      <div className="widget-title-bar" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)" }}></div>
                       <span>{title}</span>
                   </h3>
               )}
-              <p className="text-gray-500 text-sm tag-cloud-empty">Belum ada tag.</p>
+              <p className="text-sm [color:var(--home-meta-color,#9ca3af)] tag-cloud-empty">Belum ada tag.</p>
+              </div>
           </div>
       );
   }
 
   return (
-    <div id={`tag-cloud-${block.id}`} className={`${visibilityClass}`} style={containerStyle}>
-      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-        #tag-cloud-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${pTopMobile} !important; padding-right: ${pRightMobile} !important; padding-bottom: ${pBottomMobile} !important; padding-left: ${pLeftMobile} !important; }
-        @media (min-width: 768px) { #tag-cloud-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${pTopTablet} !important; padding-right: ${pRightTablet} !important; padding-bottom: ${pBottomTablet} !important; padding-left: ${pLeftTablet} !important; } }
-        @media (min-width: 1025px) { #tag-cloud-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${pTopDesktop} !important; padding-right: ${pRightDesktop} !important; padding-bottom: ${pBottomDesktop} !important; padding-left: ${pLeftDesktop} !important; } }
-        html.public-dark #tag-cloud-${block.id} .theme-widget-title { border-bottom-color: var(--border) !important; }
-      `) }} />
+    <div id={`tag-cloud-${block.id}`} className={`tag-cloud-block responsive-block-frame ${visibilityClass}`.trim()} style={containerStyle}>
+      <div
+        style={{
+          backgroundColor: useBox ? boxColor : 'transparent',
+          borderRadius: useBox ? boxBorderRadius : '0',
+          boxShadow: useBox ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none',
+          border: useBox ? 'var(--box-border, 1px solid var(--border))' : 'none',
+          backgroundImage: currentBoxBackgroundImage,
+          backgroundSize: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+          backgroundPosition: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+          backgroundRepeat: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+          backgroundAttachment: useBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+          paddingTop: useBox ? currentBoxPt : '0px',
+          paddingRight: useBox ? currentBoxPr : '0px',
+          paddingBottom: useBox ? currentBoxPb : '0px',
+          paddingLeft: useBox ? currentBoxPl : '0px',
+        }}
+      >
       {(config.showTitle !== false) && (
-          <h3 className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center theme-widget-title">
-              <div className="widget-title-bar w-1 h-5 mr-3" style={{ borderRadius: 'var(--home-main-box-radius, 0.75rem)' }}></div>
+          <h3
+            className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title"
+            style={{ lineHeight: blockTitleLineHeight, marginBottom: blockTitleMarginBottom, paddingBottom: blockTitlePaddingBottom }}
+          >
+              <div className="widget-title-bar" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)" }}></div>
               <span>{title}</span>
           </h3>
       )}
@@ -348,18 +521,18 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
                rowGap: gapY,
                 columnGap: gapX,
                 '--tag-bg': tagBg,
-                '--tag-color': tagColor,
-                '--tag-border-color': tagBorderColor,
+                '--tag-color': effectiveTagColor,
+                '--tag-border-color': effectiveTagBorderColor,
                 '--tag-hover-bg': tagHoverBg,
-                '--tag-hover-color': tagHoverColor,
-                '--tag-hover-border-color': tagHoverBorderColor,
+                '--tag-hover-color': effectiveTagHoverColor,
+                '--tag-hover-border-color': effectiveTagHoverBorderColor,
            } as React.CSSProperties}
       >
         {tags.slice(0, limit).map((tag) => (
           <Link 
             key={tag.slug || tag.name} 
             href={`/tag/${tag.slug || tag.name.toLowerCase().replace(/\s+/g, '-')}`} 
-            className="transition-all hover:scale-105 inline-block tag-item border hover:!bg-[var(--tag-hover-bg)] hover:!text-[var(--tag-hover-color)] hover:!border-[var(--tag-hover-border-color)]"
+            className="transition-all hover:scale-105 inline-block tag-item border"
             style={{ 
                 backgroundColor: 'var(--tag-bg)',
                 color: 'var(--tag-color)',
@@ -368,10 +541,21 @@ export default function TagCloud({ block, posts, customTitle, accentColor, borde
                 borderRadius: tagRadius,
                 padding: `${tagPaddingY} ${tagPaddingX}`,
             } as React.CSSProperties}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = tagHoverBg;
+              e.currentTarget.style.color = effectiveTagHoverColor;
+              e.currentTarget.style.borderColor = effectiveTagHoverBorderColor;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = tagBg;
+              e.currentTarget.style.color = effectiveTagColor;
+              e.currentTarget.style.borderColor = effectiveTagBorderColor;
+            }}
           >
             #{tag.name}
           </Link>
         ))}
+      </div>
       </div>
     </div>
   );

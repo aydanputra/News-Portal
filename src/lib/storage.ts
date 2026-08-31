@@ -10,6 +10,8 @@ export interface StorageProvider {
   getPublicUrl(key: string): string;
 }
 
+export type StorageProviderName = "local" | "s3";
+
 export class LocalStorage implements StorageProvider {
   private uploadDir: string;
 
@@ -122,9 +124,48 @@ export class S3Storage implements StorageProvider {
   }
 }
 
-// Singleton Instance Factory
-// If S3_ACCESS_KEY is present, assume S3 is configured. Otherwise use LocalStorage.
-const isS3Configured = !!process.env.S3_ACCESS_KEY;
-console.log(`[Storage] Initializing storage provider: ${isS3Configured ? "S3" : "Local Filesystem"}`);
+function resolveStorageProviderName(): StorageProviderName {
+  const explicitProvider = String(process.env.STORAGE_PROVIDER || "").trim().toLowerCase();
+  if (explicitProvider === "local") return "local";
+  if (explicitProvider === "s3") return "s3";
 
-export const storage = isS3Configured ? new S3Storage() : new LocalStorage();
+  // Backward-compatible fallback: if old S3 envs are still present, keep honoring them.
+  return process.env.S3_ACCESS_KEY ? "s3" : "local";
+}
+
+export function getStorageKeyFromUrl(fileUrl: string): string | null {
+  const raw = String(fileUrl || "").trim();
+  if (!raw) return null;
+
+  if (raw.startsWith("/uploads/")) {
+    return raw.replace(/^\/+/, "");
+  }
+
+  try {
+    const parsed = new URL(raw);
+    if (parsed.pathname.startsWith("/uploads/")) {
+      return parsed.pathname.replace(/^\/+/, "");
+    }
+
+    const publicBase = String(process.env.S3_PUBLIC_URL || "").trim();
+    if (publicBase) {
+      const normalizedBase = publicBase.endsWith("/") ? publicBase.slice(0, -1) : publicBase;
+      if (raw.startsWith(normalizedBase + "/")) {
+        return raw.slice(normalizedBase.length + 1);
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+const storageProviderName = resolveStorageProviderName();
+console.log(
+  `[Storage] Initializing storage provider: ${
+    storageProviderName === "s3" ? "S3-compatible" : "Local Filesystem"
+  }`,
+);
+
+export const storage = storageProviderName === "s3" ? new S3Storage() : new LocalStorage();

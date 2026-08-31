@@ -1,6 +1,11 @@
 "use client";
 
 import React from "react";
+import {
+  getThemeFontLoadFamilies,
+  resolveThemeFontSynthesis,
+  resolveThemeFontFamily,
+} from "@/lib/font-utils";
 
 interface ThemeFontLoaderProps {
   headingFont: string;
@@ -12,8 +17,14 @@ const AVAILABLE_LOCAL_FONTS = ['lato', 'poppins', 'inter', 'roboto'];
 
 export default function ThemeFontLoader({ headingFont, bodyFont }: ThemeFontLoaderProps) {
   // Generate list font yang unik
-  const fonts = [headingFont, bodyFont].filter(Boolean);
+  const fonts = [headingFont, bodyFont].flatMap((font) => getThemeFontLoadFamilies(font));
   const uniqueFonts = [...new Set(fonts)];
+  const resolvedHeadingFont = resolveThemeFontFamily(headingFont);
+  const resolvedBodyFont = resolveThemeFontFamily(bodyFont);
+  const headingSizeAdjust = "none";
+  const bodySizeAdjust = "none";
+  const headingFontSynthesis = resolveThemeFontSynthesis(headingFont);
+  const bodyFontSynthesis = resolveThemeFontSynthesis(bodyFont);
   
   if (uniqueFonts.length === 0) return null;
 
@@ -48,10 +59,14 @@ export default function ThemeFontLoader({ headingFont, bodyFont }: ThemeFontLoad
       {/* Inline style untuk fallback font */}
       <style jsx global>{`
         body {
-          font-family: '${bodyFont}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-family: ${resolvedBodyFont};
+          font-synthesis: ${bodyFontSynthesis};
+          font-size-adjust: ${bodySizeAdjust};
         }
         h1, h2, h3, h4, h5, h6 {
-          font-family: '${headingFont}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          font-family: ${resolvedHeadingFont};
+          font-synthesis: ${headingFontSynthesis};
+          font-size-adjust: ${headingSizeAdjust};
         }
       `}</style>
     </>

@@ -9,7 +9,7 @@ interface PostPublishWidgetProps {
   publishedAt: string | null;
   rejectionReason?: string | null;
   onStatusChange: (status: string) => void;
-  onDateChange: (date: string) => void;
+  onDateChange: (date: string | null) => void;
   onRejectionReasonChange?: (reason: string) => void;
   loading?: boolean;
 }
@@ -75,7 +75,16 @@ export default function PostPublishWidget({
   const formatDateForInput = (dateString: string | null) => {
     if (!dateString) return "";
     const date = new Date(dateString);
-    return date.toISOString().slice(0, 16); // YYYY-MM-DDTHH:mm
+    if (Number.isNaN(date.getTime())) return "";
+    const pad = (value: number) => String(value).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
+
+  const normalizeInputToIso = (value: string) => {
+    if (!value) return null;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toISOString();
   };
 
   return (
@@ -139,7 +148,7 @@ export default function PostPublishWidget({
           <input
             type="datetime-local"
             value={formatDateForInput(publishedAt)}
-            onChange={(e) => onDateChange(e.target.value)}
+            onChange={(e) => onDateChange(normalizeInputToIso(e.target.value))}
             className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 sm:text-sm p-2 border"
           />
           {currentStatus === "SCHEDULED" && (

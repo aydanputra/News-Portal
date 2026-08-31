@@ -2,54 +2,52 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { LayoutDashboard, Cog, FileText, Image as ImageIcon, Plus, Tags, User } from "lucide-react";
+import { LayoutDashboard, Cog, FileText, Plus, Tags, User, BarChart3, Save } from "lucide-react";
+import { useAdminSession } from "@/components/admin/AdminSessionContext";
 
-export default function BottomNav() {
+export default function BottomNav({ roleOverride }: { roleOverride?: string | null }) {
   const pathname = usePathname();
-  const [role, setRole] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!active) return;
-        setRole(data?.role || null);
-      })
-      .catch(() => {
-        if (!active) return;
-        setRole(null);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const effectiveRole = role || "WRITER";
+  const { user } = useAdminSession();
+  const effectiveRole = roleOverride || user?.role || "WRITER";
   const showSettings = effectiveRole === "ADMIN" || effectiveRole === "SUPER_ADMIN";
   const showCategories = effectiveRole === "EDITOR";
+  const showAnalytics = effectiveRole === "EDITOR" || effectiveRole === "ADMIN" || effectiveRole === "SUPER_ADMIN";
+  const isPostEditorPage = pathname === "/admin/posts/new" || /^\/admin\/posts\/[^/]+\/edit$/.test(pathname);
+  const submitLabel = pathname === "/admin/posts/new" ? "Simpan atau publish berita" : "Simpan perubahan berita";
 
   return (
     <div className="bottom-nav hide-desktop">
-      <div className="flex justify-around items-center h-full max-w-md mx-auto relative px-2">
-        {/* Dashboard (icon standard) */}
+      <div className="mx-auto grid h-full max-w-lg grid-cols-5 items-end gap-1 px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-2">
         <NavItem href="/admin/dashboard" icon={<LayoutDashboard size={20} />} label="Dasbor" active={pathname === "/admin/dashboard"} />
-        {/* Artikel */}
         <NavItem href="/admin/posts" icon={<FileText size={20} />} label="Artikel" active={pathname.startsWith("/admin/posts") && pathname !== "/admin/posts/new"} />
-        
-        {/* FAB Create */}
-        <div className="relative -top-6">
-            <Link 
-                href="/admin/posts/new"
-                className="flex items-center justify-center w-14 h-14 bg-[var(--accent)] rounded-full text-black shadow-lg shadow-amber-500/30 hover:bg-[var(--accent-hover)] hover:scale-105 transition-all active:scale-95 border-4 border-[var(--bg-base)]"
+
+        <div className="relative flex items-start justify-center">
+          {isPostEditorPage ? (
+            <button
+              type="submit"
+              form="post-editor-form"
+              aria-label={submitLabel}
+              title={submitLabel}
+              className="flex h-14 w-14 -translate-y-5 items-center justify-center rounded-full border-4 border-[var(--bg-base)] bg-[var(--accent)] text-black shadow-lg shadow-amber-500/30 transition-all hover:scale-105 hover:bg-[var(--accent-hover)] active:scale-95"
             >
-                <Plus size={28} />
+              <Save size={24} />
+            </button>
+          ) : (
+            <Link
+              href="/admin/posts/new"
+              aria-label="Tulis berita baru"
+              className="flex h-14 w-14 -translate-y-5 items-center justify-center rounded-full border-4 border-[var(--bg-base)] bg-[var(--accent)] text-black shadow-lg shadow-amber-500/30 transition-all hover:scale-105 hover:bg-[var(--accent-hover)] active:scale-95"
+            >
+              <Plus size={28} />
             </Link>
+          )}
         </div>
-        
-        {/* Image */}
-        <NavItem href="/admin/media" icon={<ImageIcon size={20} />} label="Gambar" active={pathname.startsWith("/admin/media")} />
+
+        {showAnalytics ? (
+          <NavItem href="/admin/analytics" icon={<BarChart3 size={20} />} label="Laporan" active={pathname.startsWith("/admin/analytics")} />
+        ) : (
+          <div aria-hidden="true" />
+        )}
         {showSettings ? (
           <NavItem href="/admin/settings" icon={<Cog size={20} />} label="Pengaturan" active={pathname === "/admin/settings"} />
         ) : showCategories ? (
@@ -64,14 +62,14 @@ export default function BottomNav() {
 
 function NavItem({ href, icon, label, active }: { href: string; icon: React.ReactNode; label: string; active?: boolean }) {
   return (
-    <Link 
-      href={href} 
-      className={`flex flex-col items-center justify-center py-1 px-2 min-w-[64px] rounded-lg transition-colors ${active ? "text-[var(--accent)]" : "text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"}`}
+    <Link
+      href={href}
+      className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-center transition-colors ${
+        active ? "bg-[var(--bg-surface)] text-[var(--accent)]" : "text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"
+      }`}
     >
-      <div className={`mb-1 transition-transform ${active ? "-translate-y-1" : ""}`}>
-        {icon}
-      </div>
-      <span className={`text-[10px] font-bold leading-none ${active ? "opacity-100" : "opacity-70"}`}>{label}</span>
+      <div className={`transition-transform ${active ? "-translate-y-0.5" : ""}`}>{icon}</div>
+      <span className={`text-[10px] font-bold leading-none ${active ? "opacity-100" : "opacity-80"}`}>{label}</span>
     </Link>
   );
 }

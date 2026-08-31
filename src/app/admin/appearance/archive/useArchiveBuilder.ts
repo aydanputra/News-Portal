@@ -2,10 +2,264 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Block, Category, Tag } from "../../homepage/types";
 import { ConfigValue } from "@/lib/page-builder-config";
-import { buildArchiveChildConfig } from "@/lib/page-builder-child-presets";
+import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import { normalizeBlockTree } from "@/lib/homepage-block-migrations";
+import {
+  buildArchiveChildConfig,
+  buildHomepageChildConfig,
+  getSidebarWidgetDefaultTitle,
+  isSidebarWidgetAutoTitle,
+} from "@/lib/page-builder-child-presets";
 import { getThemeDefaultArchiveBlocks } from "@/lib/archive-builder-theme-registry";
 
 const MAX_HISTORY = 50;
+const TAG_CLOUD_AUTO_TITLES = new Set(["Tag Cloud", "Tag Populer"]);
+const AD_BANNER_AUTO_TITLES = new Set(["Iklan Banner", "Ad Banner"]);
+
+const isAuxiliaryAutoTitle = (type: string, title: string) => {
+  if (type === "sidebar_widget") return isSidebarWidgetAutoTitle(title);
+  if (type === "tag_cloud") return TAG_CLOUD_AUTO_TITLES.has(title);
+  if (type === "ad_banner") return AD_BANNER_AUTO_TITLES.has(title);
+  return false;
+};
+
+const getMeaningfulConfigKeys = (config: Record<string, unknown>) =>
+  Object.keys(config).filter((key) => key !== "children" && key !== "columnIndex" && key !== "title");
+
+const shouldDirectlyCopyHomepageAuxiliaryDefaults = (
+  normalizedType: string,
+  rawConfig: Record<string, unknown>,
+  resolvedTitle: string,
+) => {
+  if (resolvedTitle === "" || isAuxiliaryAutoTitle(normalizedType, resolvedTitle)) {
+    return true;
+  }
+
+  const keys = getMeaningfulConfigKeys(rawConfig);
+  if (keys.length === 0) return true;
+
+  if (normalizedType === "sidebar_widget") {
+    return keys.every((key) => ["widgetType", "limit", "useBox", "showTitle"].includes(key));
+  }
+
+  if (normalizedType === "tag_cloud") {
+    return keys.every((key) => ["limit", "useBox", "showTitle"].includes(key));
+  }
+
+  if (normalizedType === "ad_banner") {
+    const selectedAdId =
+      typeof rawConfig.selectedAdId === "string" ? rawConfig.selectedAdId.trim() : "";
+    const position =
+      typeof rawConfig.position === "string" ? rawConfig.position.trim() : "";
+    if (selectedAdId !== "" || position !== "") return false;
+    return keys.every((key) => ["selectedAdId", "position", "useBox", "showTitle", "hideWhenEmpty"].includes(key));
+  }
+
+  return false;
+};
+
+const hasConfigValue = (value: unknown) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  return true;
+};
+
+const mergeMissingConfigDefaults = (
+  config: Record<string, unknown>,
+  defaults: Record<string, unknown>,
+): Record<string, unknown> => {
+  const merged = { ...config };
+  for (const [key, value] of Object.entries(defaults)) {
+    if (key === "children" || key === "columnIndex") continue;
+    if (!hasConfigValue(merged[key])) {
+      merged[key] = value;
+    }
+  }
+  return merged;
+};
+
+const cloneBlockConfig = (value: Block["config"]): Block["config"] => {
+  if (!value || typeof value !== "object") return {};
+  return JSON.parse(JSON.stringify(value)) as Block["config"];
+};
+
+const findHomepageTemplateConfigInBlocks = (
+  sourceBlocks: Block[],
+  targetType: string,
+  targetWidgetType?: string,
+  preferredTitle?: string,
+): Block["config"] | undefined => {
+  const visit = (blocksToVisit: Block[]): Block["config"] | undefined => {
+    let firstTypeMatch: Block["config"] | undefined;
+    let firstWidgetTypeMatch: Block["config"] | undefined;
+
+    for (const block of blocksToVisit) {
+      const normalizedType = resolveBlockTypeAlias(String(block.type || ""));
+      if (normalizedType === targetType) {
+        const clonedConfig = cloneBlockConfig(block.config);
+        if (!targetWidgetType || targetType !== "sidebar_widget") {
+          return clonedConfig;
+        }
+
+        if (!firstTypeMatch) firstTypeMatch = clonedConfig;
+
+        const currentWidgetType =
+          clonedConfig &&
+          typeof clonedConfig === "object" &&
+          !Array.isArray(clonedConfig) &&
+          typeof clonedConfig.widgetType === "string"
+            ? clonedConfig.widgetType
+            : "";
+
+        if (currentWidgetType === targetWidgetType) {
+          if (!firstWidgetTypeMatch) firstWidgetTypeMatch = clonedConfig;
+
+          const currentTitle =
+            typeof block.title === "string" && block.title.trim() !== ""
+              ? block.title.trim()
+              : clonedConfig &&
+                  typeof clonedConfig === "object" &&
+                  !Array.isArray(clonedConfig) &&
+                  typeof clonedConfig.title === "string"
+                ? clonedConfig.title.trim()
+                : "";
+
+          if (!preferredTitle || currentTitle === preferredTitle) {
+            return clonedConfig;
+          }
+        }
+      }
+
+      const children = Array.isArray(block.config?.children) ? (block.config.children as Block[]) : [];
+      if (children.length > 0) {
+        const nested = visit(children);
+        if (nested) return nested;
+      }
+    }
+
+    if (firstWidgetTypeMatch) return firstWidgetTypeMatch;
+    return firstTypeMatch;
+  };
+
+  return visit(sourceBlocks);
+};
+
+const buildHomepageSidebarAuxiliaryConfigFromTemplateBlocks = (
+  homepageTemplateBlocks: Block[],
+  normalizedType: string,
+  title: string,
+  columnIndex: number,
+  widgetTypeOverride?: string,
+): Block["config"] => {
+  const preferredTitle =
+    normalizedType === "sidebar_widget"
+      ? getSidebarWidgetDefaultTitle(widgetTypeOverride || "popular_posts", title)
+      : title;
+  const templateConfig = findHomepageTemplateConfigInBlocks(
+    homepageTemplateBlocks,
+    normalizedType,
+    widgetTypeOverride,
+    preferredTitle,
+  );
+  const templateWidgetType =
+    normalizedType === "sidebar_widget" && typeof templateConfig?.widgetType === "string"
+      ? templateConfig.widgetType
+      : widgetTypeOverride || "popular_posts";
+  const resolvedTitle =
+    normalizedType === "sidebar_widget"
+      ? getSidebarWidgetDefaultTitle(templateWidgetType, title)
+      : title;
+  const fallbackConfig = buildHomepageChildConfig(normalizedType, resolvedTitle, columnIndex) as Record<string, unknown>;
+
+  if (templateConfig && typeof templateConfig === "object" && !Array.isArray(templateConfig)) {
+    return {
+      ...templateConfig,
+      columnIndex,
+      ...(normalizedType !== "ad_banner" ? { title: resolvedTitle } : {}),
+    } as Block["config"];
+  }
+
+  return fallbackConfig as Block["config"];
+};
+
+const hydrateArchiveSidebarAuxiliaryDefaultsWithTemplates = (
+  sourceBlocks: Block[],
+  homepageTemplateBlocks: Block[],
+): Block[] => {
+  const hydrateBlock = (block: Block): Block => {
+    const normalizedBlock = normalizeBlockTree(block) as Block;
+    const normalizedType = resolveBlockTypeAlias(String(normalizedBlock.type || ""));
+    const rawConfig =
+      normalizedBlock.config && typeof normalizedBlock.config === "object" && !Array.isArray(normalizedBlock.config)
+        ? { ...(normalizedBlock.config as Record<string, unknown>) }
+        : {};
+
+    if (Array.isArray(rawConfig.children)) {
+      rawConfig.children = rawConfig.children.map((child) => hydrateBlock(child as Block));
+    }
+
+    if (!["sidebar_widget", "tag_cloud", "ad_banner"].includes(normalizedType)) {
+      return {
+        ...normalizedBlock,
+        config: rawConfig as Block["config"],
+      };
+    }
+
+    const columnIndex =
+      typeof rawConfig.columnIndex === "number" && Number.isFinite(rawConfig.columnIndex) ? rawConfig.columnIndex : 0;
+    const widgetType =
+      normalizedType === "sidebar_widget" && typeof rawConfig.widgetType === "string" && rawConfig.widgetType.trim() !== ""
+        ? rawConfig.widgetType.trim()
+        : undefined;
+    const resolvedTitle =
+      typeof normalizedBlock.title === "string" && normalizedBlock.title.trim() !== ""
+        ? normalizedBlock.title.trim()
+        : typeof rawConfig.title === "string" && rawConfig.title.trim() !== ""
+          ? rawConfig.title.trim()
+          : "";
+    const homepageDefaults = buildHomepageSidebarAuxiliaryConfigFromTemplateBlocks(
+      homepageTemplateBlocks,
+      normalizedType,
+      resolvedTitle,
+      columnIndex,
+      widgetType,
+    ) as Record<string, unknown>;
+    const homepageTitle =
+      typeof homepageDefaults.title === "string" && homepageDefaults.title.trim() !== ""
+        ? homepageDefaults.title.trim()
+        : resolvedTitle;
+    const shouldReplaceSidebarTitle =
+      normalizedType === "sidebar_widget" &&
+      (resolvedTitle === "" || isSidebarWidgetAutoTitle(resolvedTitle));
+    const nextTitle =
+      shouldReplaceSidebarTitle
+        ? homepageTitle
+        : resolvedTitle;
+    const shouldDirectCopy = shouldDirectlyCopyHomepageAuxiliaryDefaults(
+      normalizedType,
+      rawConfig,
+      resolvedTitle,
+    );
+    const mergedConfig = shouldDirectCopy
+      ? ({
+          ...homepageDefaults,
+          columnIndex,
+        } as Record<string, unknown>)
+      : mergeMissingConfigDefaults(rawConfig, homepageDefaults);
+
+    if (normalizedType !== "ad_banner" && typeof nextTitle === "string" && nextTitle.trim() !== "") {
+      mergedConfig.title = nextTitle;
+    }
+
+    return {
+      ...normalizedBlock,
+      ...(nextTitle !== "" ? { title: nextTitle } : {}),
+      config: mergedConfig as Block["config"],
+    };
+  };
+
+  return sourceBlocks.map((block) => hydrateBlock(block));
+};
 
 export function useArchiveBuilder() {
   const router = useRouter();
@@ -29,6 +283,7 @@ export function useArchiveBuilder() {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [homepageTemplateBlocks, setHomepageTemplateBlocks] = useState<Block[]>([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
 
@@ -83,7 +338,7 @@ export function useArchiveBuilder() {
   
   // Editing Child State
   const [editingChild, setEditingChild] = useState<{ parentIndex: number, childId: string } | null>(null);
-  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual">("content");
+  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual" | "advanced">("visual");
   
   // Section Editing State
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -99,6 +354,25 @@ export function useArchiveBuilder() {
     _setActiveSectionDeviceTab(device);
     _setActiveDeviceTab(device);
   }, []);
+
+  const buildHomepageSidebarAuxiliaryConfig = useCallback((
+    normalizedType: string,
+    title: string,
+    columnIndex: number,
+    widgetTypeOverride?: string,
+  ): Block["config"] => {
+    return buildHomepageSidebarAuxiliaryConfigFromTemplateBlocks(
+      homepageTemplateBlocks,
+      normalizedType,
+      title,
+      columnIndex,
+      widgetTypeOverride,
+    );
+  }, [homepageTemplateBlocks]);
+
+  const hydrateArchiveSidebarAuxiliaryDefaults = useCallback((sourceBlocks: Block[]): Block[] => {
+    return hydrateArchiveSidebarAuxiliaryDefaultsWithTemplates(sourceBlocks, homepageTemplateBlocks);
+  }, [homepageTemplateBlocks]);
 
   // Helper to update blocks (without history) - e.g. for initial load
   const setBlocks = useCallback((newBlocksOrFn: Block[] | ((prev: Block[]) => Block[])) => {
@@ -204,10 +478,10 @@ export function useArchiveBuilder() {
                 setExcerptColor(settingsData.excerptColor || "#64748b");
                 setMetaColor(settingsData.metaColor || "#94a3b8");
                 setHomeWidgetTitleColor(settingsData.homeWidgetTitleColor || settingsData.headingColor || "#1e293b");
-                setHomeNewsTitleColor(settingsData.homeNewsTitleColor || settingsData.headingColor || "#1e293b");
-                setHomeHoverColor(settingsData.homeHoverColor || settingsData.primaryColor || "#2563eb");
-                setHomeExcerptColor(settingsData.homeExcerptColor || settingsData.excerptColor || "#64748b");
-                setHomeMetaColor(settingsData.homeMetaColor || settingsData.metaColor || "#94a3b8");
+                setHomeNewsTitleColor(settingsData.homeNewsTitleColor || settingsData.headingColor || "#111827");
+                setHomeHoverColor(settingsData.homeHoverColor || settingsData.globalAccentColor || settingsData.accentColor || "#2563eb");
+                setHomeExcerptColor(settingsData.homeExcerptColor || settingsData.excerptColor || "#4b5563");
+                setHomeMetaColor(settingsData.homeMetaColor || settingsData.metaColor || "#9ca3af");
                 setHeadingFont(settingsData.headingFont || "Inter");
                 setBodyFont(settingsData.bodyFont || "Inter");
                 setGlobalBorderRadius(settingsData.globalBorderRadius || "0.5rem");
@@ -222,12 +496,34 @@ export function useArchiveBuilder() {
             }
 
             // 3. Fetch Blocks based on Active Theme
-            const resBlocks = await fetch(`/api/homepage?location=archive&themeId=${currentTheme}`);
-            const blocksData = await resBlocks.json();
-            if (Array.isArray(blocksData) && blocksData.length > 0) {
-                setBlocks(blocksData);
+            const [resBlocks, resHomepageTemplateBlocks] = await Promise.all([
+                fetch(`/api/homepage?location=archive&themeId=${currentTheme}`),
+                fetch(`/api/homepage?location=home&themeId=${currentTheme}`),
+            ]);
+            const [blocksData, homepageTemplateData] = await Promise.all([
+                resBlocks.ok ? resBlocks.json() : Promise.resolve([]),
+                resHomepageTemplateBlocks.ok ? resHomepageTemplateBlocks.json() : Promise.resolve([]),
+            ]);
+            const normalizedHomepageTemplateBlocks = Array.isArray(homepageTemplateData)
+                ? (homepageTemplateData as Block[])
+                : [];
+            setHomepageTemplateBlocks(normalizedHomepageTemplateBlocks);
+
+            const normalizedBlocks = Array.isArray(blocksData)
+                ? hydrateArchiveSidebarAuxiliaryDefaultsWithTemplates(
+                    blocksData as Block[],
+                    normalizedHomepageTemplateBlocks,
+                  )
+                : [];
+            if (normalizedBlocks.length > 0) {
+                setBlocks(normalizedBlocks);
             } else {
-                setBlocks(getThemeDefaultArchiveBlocks(currentTheme) as Block[]);
+                setBlocks(
+                  hydrateArchiveSidebarAuxiliaryDefaultsWithTemplates(
+                    getThemeDefaultArchiveBlocks(currentTheme) as Block[],
+                    normalizedHomepageTemplateBlocks,
+                  ),
+                );
             }
 
         } catch (error) {
@@ -270,16 +566,34 @@ export function useArchiveBuilder() {
   }, []);
 
   const createChildBlock = useCallback((type: string, title: string, columnIndex: number, order: number): Block => {
-      const config = buildArchiveChildConfig(type, title, columnIndex) as Block["config"];
-      return {
-          id: "child_" + type + "_" + Date.now(),
-          type: type,
-          title: title,
+      const normalizedType = resolveBlockTypeAlias(type);
+      const currentWidgetType =
+        normalizedType === "sidebar_widget"
+          ? "popular_posts"
+          : undefined;
+      const resolvedTitle = normalizedType === "sidebar_widget"
+        ? getSidebarWidgetDefaultTitle(currentWidgetType || "popular_posts", title)
+        : normalizedType === "section"
+          ? "Inner Section"
+          : title;
+      const shouldUseHomepageSidebarDefaults = ["sidebar_widget", "tag_cloud", "ad_banner"].includes(normalizedType);
+      const config = (
+        shouldUseHomepageSidebarDefaults
+          ? buildHomepageSidebarAuxiliaryConfig(normalizedType, resolvedTitle, columnIndex, currentWidgetType)
+          : buildArchiveChildConfig(normalizedType, resolvedTitle, columnIndex)
+      ) as Block["config"];
+      if (config && typeof config === "object" && !Array.isArray(config) && normalizedType !== "ad_banner") {
+        config.title = resolvedTitle;
+      }
+      return normalizeBlockTree({
+          id: "child_" + normalizedType + "_" + Date.now(),
+          type: normalizedType,
+          title: resolvedTitle,
           order,
           isVisible: true,
           config
-      };
-  }, []);
+      }) as Block;
+  }, [buildHomepageSidebarAuxiliaryConfig]);
 
   const deepCloneBlock = useCallback((block: Block): Block => {
       const randomSuffix = Math.random().toString(36).slice(2, 7);
@@ -300,7 +614,7 @@ export function useArchiveBuilder() {
           };
       }
       
-      return clonedBlock;
+      return normalizeBlockTree(clonedBlock);
   }, [getChildren]);
 
   const findBlockRecursive = useCallback((blocks: Block[], targetId: string): Block | null => {
@@ -900,6 +1214,11 @@ export function useArchiveBuilder() {
               setHeadingColor("#1e293b");
               setExcerptColor("#64748b");
               setMetaColor("#94a3b8");
+              setHomeWidgetTitleColor("#1e293b");
+              setHomeNewsTitleColor("#111827");
+              setHomeHoverColor("#2563eb");
+              setHomeExcerptColor("#4b5563");
+              setHomeMetaColor("#9ca3af");
               setHeadingFont("Inter");
               setBodyFont("Inter");
               setGlobalBorderRadius("0.5rem");
@@ -1030,7 +1349,11 @@ export function useArchiveBuilder() {
         const resFresh = await fetch(`/api/homepage?location=archive&themeId=${encodeURIComponent(activeTheme)}`, { cache: "no-store" });
         const freshBlocks = await resFresh.json();
         if (Array.isArray(freshBlocks)) {
-          setHistory({ past: [], present: freshBlocks, future: [] });
+          setHistory({
+            past: [],
+            present: hydrateArchiveSidebarAuxiliaryDefaults(freshBlocks as Block[]),
+            future: [],
+          });
         }
         setToast({ message: "Archive Builder berhasil diupdate!", type: "success" });
         router.refresh(); 
@@ -1054,6 +1377,7 @@ export function useArchiveBuilder() {
       blocks,
       categories,
       tags,
+      homepageTemplateBlocks,
       loading,
       toast,
       homeLayout,

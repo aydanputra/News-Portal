@@ -5,6 +5,7 @@ import Image from "next/image";
 import { Wrench, Printer, Save, ExternalLink } from "lucide-react";
 import { Image as ImageIcon } from "lucide-react";
 import MediaLibraryModal from "@/app/admin/components/MediaLibraryModal";
+import { ALL_TOOL_IDS } from "@/lib/tools";
 
 type PrintSettings = {
   enabled: boolean;
@@ -98,12 +99,7 @@ export default function AdminPrintToolsPage() {
           setPrintAllowed(true);
           return;
         }
-        const allowlistActive = Boolean(data.allowlistActive);
-        const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : [];
-        if (!allowlistActive) {
-          setPrintAllowed(true);
-          return;
-        }
+        const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : ALL_TOOL_IDS;
         setPrintAllowed(enabledTools.includes("print_tools"));
       })
       .catch(() => {

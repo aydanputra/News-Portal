@@ -35,10 +35,41 @@ interface SidebarWidgetProps {
 export default function SidebarWidget({ block, posts, categories, customTitle, accentColor }: SidebarWidgetProps) {
   const { config } = block;
   const title = customTitle || config?.title || "Widget Sidebar";
-  const widgetType = config?.widgetType || "popular_posts"; // Default popular
-  const limit = config?.limit || 5;
+  const [device, setDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
+  const toFontSize = (value: unknown, fallback: string) => {
+    if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+    if (typeof value === "string" && value.trim() !== "") {
+      return /^\d+(\.\d+)?$/.test(value.trim()) ? `${value.trim()}px` : value.trim();
+    }
+    return fallback;
+  };
+  const widgetTypeDesktop = config?.widgetType || "popular_posts";
+  const widgetTypeTablet = ((config as any)?.tabletWidgetType as string | undefined) || widgetTypeDesktop;
+  const widgetTypeMobile = ((config as any)?.mobileWidgetType as string | undefined) || widgetTypeDesktop;
+  const widgetType = device === "mobile" ? widgetTypeMobile : device === "tablet" ? widgetTypeTablet : widgetTypeDesktop;
+  const limitDesktop = Math.max(1, Number(config?.limit) || 5);
+  const limitTablet = Math.max(1, Number((config as any)?.tabletLimit) || limitDesktop);
+  const limitMobile = Math.max(1, Number((config as any)?.mobileLimit) || limitDesktop);
+  const limit = device === "mobile" ? limitMobile : device === "tablet" ? limitTablet : limitDesktop;
   const effectiveAccent = accentColor || 'var(--accent)';
   const showTitle = (config as any)?.showTitle !== false;
+
+  React.useEffect(() => {
+    const updateDevice = () => {
+      if (window.innerWidth < 768) {
+        setDevice("mobile");
+        return;
+      }
+      if (window.innerWidth < 1024) {
+        setDevice("tablet");
+        return;
+      }
+      setDevice("desktop");
+    };
+    updateDevice();
+    window.addEventListener("resize", updateDevice);
+    return () => window.removeEventListener("resize", updateDevice);
+  }, []);
 
   // Style untuk Container Widget
   const containerStyle = {
@@ -54,7 +85,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
   // Style untuk Judul Widget
   const titleStyle = {
       color: config?.blockTitleColor || 'var(--home-title-color)',
-      fontSize: config?.blockTitleFontSize ? `${config.blockTitleFontSize}px` : 'var(--home-title-size)',
+      fontSize: toFontSize(config?.blockTitleFontSize, 'var(--home-title-size)'),
       fontWeight: 'var(--home-title-weight, 700)',
       lineHeight: config?.blockTitleLineHeight || 1.4,
       borderColor: config?.blockTitleBorderColor || 'var(--accent)',
@@ -70,7 +101,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
         if (!categories || categories.length === 0) return <p className="text-[var(--fg-muted)] text-sm">Tidak ada kategori.</p>;
         return (
           <ul className="space-y-2">
-            {categories.map((cat) => (
+            {categories.slice(0, limit).map((cat) => (
               <li key={cat.id}>
                 <Link 
                     href={`/${cat.slug}`} 

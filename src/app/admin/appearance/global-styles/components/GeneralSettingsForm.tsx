@@ -92,7 +92,22 @@ const FontWeightSelect = ({ label, value, onChange }: { label: string, value: st
     </div>
 );
 
-const TypographyCard = ({ title, sizeValue, weightValue, fontValue, onSizeChange, onWeightChange, onFontChange }: any) => (
+const LineHeightSelect = ({ label, value, onChange }: { label: string, value: string, onChange: (val: string) => void }) => (
+    <div className="space-y-1">
+        <label className="block text-xs font-medium text-[var(--fg-secondary)]">{label}</label>
+        <select
+            className="input w-full text-sm h-12 px-3 leading-normal bg-[var(--bg-base)] border-[var(--border)] rounded focus:ring-2 focus:ring-[var(--ring)]"
+            value={value || "1.5"}
+            onChange={(e) => onChange(e.target.value)}
+        >
+            {["1", "1.1", "1.15", "1.2", "1.25", "1.3", "1.35", "1.4", "1.5", "1.6", "1.7", "1.8", "2"].map((lineHeight) => (
+                <option key={lineHeight} value={lineHeight}>{lineHeight}</option>
+            ))}
+        </select>
+    </div>
+);
+
+const TypographyCard = ({ title, sizeValue, weightValue, lineHeightValue, fontValue, onSizeChange, onWeightChange, onLineHeightChange, onFontChange }: any) => (
     <div className="p-4 bg-[var(--bg-base)] rounded-lg border border-[var(--border)] hover:border-[var(--border-hover)] transition-colors shadow-sm">
         <h4 className="text-sm font-semibold text-[var(--fg-primary)] mb-4 pb-2 border-b border-[var(--border)]">{title}</h4>
         <div className="space-y-4">
@@ -104,9 +119,10 @@ const TypographyCard = ({ title, sizeValue, weightValue, fontValue, onSizeChange
                     options={FONT_OPTIONS}
                 />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
                 <FontSizeSelect label="Ukuran" value={sizeValue} onChange={onSizeChange} />
                 <FontWeightSelect label="Ketebalan" value={weightValue} onChange={onWeightChange} />
+                <LineHeightSelect label="Line Height" value={lineHeightValue} onChange={onLineHeightChange} />
             </div>
         </div>
     </div>
@@ -264,6 +280,40 @@ export default function GeneralSettingsForm({ settings, handleChange, activeTab 
                             />
                         </div>
                     </div>
+
+                    {/* 4. Border & Surface */}
+                    <div>
+                        <h3 className="text-lg font-bold text-[var(--fg-primary)] mb-4 pb-2 border-b border-[var(--border)] flex items-center gap-2">
+                            <span className="w-2 h-6 bg-amber-500 rounded-sm"></span>
+                            Border & Surface
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border)]">
+                            <ColorInput
+                                label="Warna Border"
+                                desc="Default border untuk card, widget, dropdown, dan placeholder."
+                                value={settings.globalBorderColor || "#e5e7eb"}
+                                onChange={(v) => handleChange("globalBorderColor", v)}
+                            />
+                            <ColorInput
+                                label="Surface"
+                                desc="Latar permukaan lembut untuk widget, placeholder, dan area sekunder."
+                                value={settings.globalSurfaceColor || "#f9fafb"}
+                                onChange={(v) => handleChange("globalSurfaceColor", v)}
+                            />
+                            <ColorInput
+                                label="Elevated"
+                                desc="Latar card utama, dropdown, drawer, dan panel yang berada di atas surface."
+                                value={settings.globalElevatedColor || "#ffffff"}
+                                onChange={(v) => handleChange("globalElevatedColor", v)}
+                            />
+                            <ColorInput
+                                label="Muted Text"
+                                desc="Teks sekunder seperti helper, caption, empty state, dan tone redup."
+                                value={settings.globalMutedTextColor || settings.metaColor || "#9ca3af"}
+                                onChange={(v) => handleChange("globalMutedTextColor", v)}
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -281,23 +331,23 @@ export default function GeneralSettingsForm({ settings, handleChange, activeTab 
                         <div className="bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <TypographyCard 
                                 title="Judul Widget" 
-                                sizeValue={settings.homeWidgetTitleFontSize} weightValue={settings.homeWidgetTitleFontWeight} fontValue={settings.homeWidgetTitleFont}
-                                onSizeChange={(v: string) => handleChange("homeWidgetTitleFontSize", v)} onWeightChange={(v: string) => handleChange("homeWidgetTitleFontWeight", v)} onFontChange={(v: string) => handleChange("homeWidgetTitleFont", v)}
+                                sizeValue={settings.homeWidgetTitleFontSize} weightValue={settings.homeWidgetTitleFontWeight} lineHeightValue={settings.homeWidgetTitleLineHeight} fontValue={settings.homeWidgetTitleFont}
+                                onSizeChange={(v: string) => handleChange("homeWidgetTitleFontSize", v)} onWeightChange={(v: string) => handleChange("homeWidgetTitleFontWeight", v)} onLineHeightChange={(v: string) => handleChange("homeWidgetTitleLineHeight", v)} onFontChange={(v: string) => handleChange("homeWidgetTitleFont", v)}
                             />
                             <TypographyCard 
                                 title="Judul Berita" 
-                                sizeValue={settings.homeNewsTitleFontSize} weightValue={settings.homeNewsTitleFontWeight} fontValue={settings.homeNewsTitleFont}
-                                onSizeChange={(v: string) => handleChange("homeNewsTitleFontSize", v)} onWeightChange={(v: string) => handleChange("homeNewsTitleFontWeight", v)} onFontChange={(v: string) => handleChange("homeNewsTitleFont", v)}
+                                sizeValue={settings.homeNewsTitleFontSize} weightValue={settings.homeNewsTitleFontWeight} lineHeightValue={settings.homeNewsTitleLineHeight} fontValue={settings.homeNewsTitleFont}
+                                onSizeChange={(v: string) => handleChange("homeNewsTitleFontSize", v)} onWeightChange={(v: string) => handleChange("homeNewsTitleFontWeight", v)} onLineHeightChange={(v: string) => handleChange("homeNewsTitleLineHeight", v)} onFontChange={(v: string) => handleChange("homeNewsTitleFont", v)}
                             />
                             <TypographyCard 
                                 title="Ringkasan" 
-                                sizeValue={settings.homeExcerptFontSize} weightValue={settings.homeExcerptFontWeight} fontValue={settings.homeExcerptFont}
-                                onSizeChange={(v: string) => handleChange("homeExcerptFontSize", v)} onWeightChange={(v: string) => handleChange("homeExcerptFontWeight", v)} onFontChange={(v: string) => handleChange("homeExcerptFont", v)}
+                                sizeValue={settings.homeExcerptFontSize} weightValue={settings.homeExcerptFontWeight} lineHeightValue={settings.homeExcerptLineHeight} fontValue={settings.homeExcerptFont}
+                                onSizeChange={(v: string) => handleChange("homeExcerptFontSize", v)} onWeightChange={(v: string) => handleChange("homeExcerptFontWeight", v)} onLineHeightChange={(v: string) => handleChange("homeExcerptLineHeight", v)} onFontChange={(v: string) => handleChange("homeExcerptFont", v)}
                             />
                             <TypographyCard 
                                 title="Meta Data" 
-                                sizeValue={settings.homeMetaFontSize} weightValue={settings.homeMetaFontWeight} fontValue={settings.homeMetaFont}
-                                onSizeChange={(v: string) => handleChange("homeMetaFontSize", v)} onWeightChange={(v: string) => handleChange("homeMetaFontWeight", v)} onFontChange={(v: string) => handleChange("homeMetaFont", v)}
+                                sizeValue={settings.homeMetaFontSize} weightValue={settings.homeMetaFontWeight} lineHeightValue={settings.homeMetaLineHeight} fontValue={settings.homeMetaFont}
+                                onSizeChange={(v: string) => handleChange("homeMetaFontSize", v)} onWeightChange={(v: string) => handleChange("homeMetaFontWeight", v)} onLineHeightChange={(v: string) => handleChange("homeMetaLineHeight", v)} onFontChange={(v: string) => handleChange("homeMetaFont", v)}
                             />
                         </div>
                     </div>
@@ -310,24 +360,24 @@ export default function GeneralSettingsForm({ settings, handleChange, activeTab 
                         </h3>
                         <div className="bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <TypographyCard 
-                                title="Judul Berita" 
-                                sizeValue={settings.postTitleFontSize} weightValue={settings.postTitleFontWeight} fontValue={settings.postTitleFont}
-                                onSizeChange={(v: string) => handleChange("postTitleFontSize", v)} onWeightChange={(v: string) => handleChange("postTitleFontWeight", v)} onFontChange={(v: string) => handleChange("postTitleFont", v)}
+                                title="Judul Berita / Laman Statis" 
+                                sizeValue={settings.postTitleFontSize} weightValue={settings.postTitleFontWeight} lineHeightValue={settings.postTitleLineHeight} fontValue={settings.postTitleFont}
+                                onSizeChange={(v: string) => handleChange("postTitleFontSize", v)} onWeightChange={(v: string) => handleChange("postTitleFontWeight", v)} onLineHeightChange={(v: string) => handleChange("postTitleLineHeight", v)} onFontChange={(v: string) => handleChange("postTitleFont", v)}
                             />
                             <TypographyCard 
                                 title="Subjudul" 
-                                sizeValue={settings.postSubtitleFontSize} weightValue={settings.postSubtitleFontWeight} fontValue={settings.postSubtitleFont}
-                                onSizeChange={(v: string) => handleChange("postSubtitleFontSize", v)} onWeightChange={(v: string) => handleChange("postSubtitleFontWeight", v)} onFontChange={(v: string) => handleChange("postSubtitleFont", v)}
+                                sizeValue={settings.postSubtitleFontSize} weightValue={settings.postSubtitleFontWeight} lineHeightValue={settings.postSubtitleLineHeight} fontValue={settings.postSubtitleFont}
+                                onSizeChange={(v: string) => handleChange("postSubtitleFontSize", v)} onWeightChange={(v: string) => handleChange("postSubtitleFontWeight", v)} onLineHeightChange={(v: string) => handleChange("postSubtitleLineHeight", v)} onFontChange={(v: string) => handleChange("postSubtitleFont", v)}
                             />
                             <TypographyCard 
-                                title="Konten Artikel" 
-                                sizeValue={settings.postContentFontSize} weightValue={settings.postContentFontWeight} fontValue={settings.postContentFont}
-                                onSizeChange={(v: string) => handleChange("postContentFontSize", v)} onWeightChange={(v: string) => handleChange("postContentFontWeight", v)} onFontChange={(v: string) => handleChange("postContentFont", v)}
+                                title="Konten Artikel / Laman Statis" 
+                                sizeValue={settings.postContentFontSize} weightValue={settings.postContentFontWeight} lineHeightValue={settings.postContentLineHeight} fontValue={settings.postContentFont}
+                                onSizeChange={(v: string) => handleChange("postContentFontSize", v)} onWeightChange={(v: string) => handleChange("postContentFontWeight", v)} onLineHeightChange={(v: string) => handleChange("postContentLineHeight", v)} onFontChange={(v: string) => handleChange("postContentFont", v)}
                             />
                             <TypographyCard 
                                 title="Judul Widget" 
-                                sizeValue={settings.postWidgetTitleFontSize} weightValue={settings.postWidgetTitleFontWeight} fontValue={settings.postWidgetTitleFont}
-                                onSizeChange={(v: string) => handleChange("postWidgetTitleFontSize", v)} onWeightChange={(v: string) => handleChange("postWidgetTitleFontWeight", v)} onFontChange={(v: string) => handleChange("postWidgetTitleFont", v)}
+                                sizeValue={settings.postWidgetTitleFontSize} weightValue={settings.postWidgetTitleFontWeight} lineHeightValue={settings.postWidgetTitleLineHeight} fontValue={settings.postWidgetTitleFont}
+                                onSizeChange={(v: string) => handleChange("postWidgetTitleFontSize", v)} onWeightChange={(v: string) => handleChange("postWidgetTitleFontWeight", v)} onLineHeightChange={(v: string) => handleChange("postWidgetTitleLineHeight", v)} onFontChange={(v: string) => handleChange("postWidgetTitleFont", v)}
                             />
                         </div>
                     </div>
@@ -341,23 +391,23 @@ export default function GeneralSettingsForm({ settings, handleChange, activeTab 
                         <div className="bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                             <TypographyCard 
                                 title="Judul Widget Global" 
-                                sizeValue={settings.globalWidgetTitleFontSize} weightValue={settings.globalWidgetTitleFontWeight} fontValue={settings.globalWidgetTitleFont}
-                                onSizeChange={(v: string) => handleChange("globalWidgetTitleFontSize", v)} onWeightChange={(v: string) => handleChange("globalWidgetTitleFontWeight", v)} onFontChange={(v: string) => handleChange("globalWidgetTitleFont", v)}
+                                sizeValue={settings.globalWidgetTitleFontSize} weightValue={settings.globalWidgetTitleFontWeight} lineHeightValue={settings.globalWidgetTitleLineHeight} fontValue={settings.globalWidgetTitleFont}
+                                onSizeChange={(v: string) => handleChange("globalWidgetTitleFontSize", v)} onWeightChange={(v: string) => handleChange("globalWidgetTitleFontWeight", v)} onLineHeightChange={(v: string) => handleChange("globalWidgetTitleLineHeight", v)} onFontChange={(v: string) => handleChange("globalWidgetTitleFont", v)}
                             />
                             <TypographyCard 
                                 title="Judul Berita Global" 
-                                sizeValue={settings.globalNewsTitleFontSize} weightValue={settings.globalNewsTitleFontWeight} fontValue={settings.globalNewsTitleFont}
-                                onSizeChange={(v: string) => handleChange("globalNewsTitleFontSize", v)} onWeightChange={(v: string) => handleChange("globalNewsTitleFontWeight", v)} onFontChange={(v: string) => handleChange("globalNewsTitleFont", v)}
+                                sizeValue={settings.globalNewsTitleFontSize} weightValue={settings.globalNewsTitleFontWeight} lineHeightValue={settings.globalNewsTitleLineHeight} fontValue={settings.globalNewsTitleFont}
+                                onSizeChange={(v: string) => handleChange("globalNewsTitleFontSize", v)} onWeightChange={(v: string) => handleChange("globalNewsTitleFontWeight", v)} onLineHeightChange={(v: string) => handleChange("globalNewsTitleLineHeight", v)} onFontChange={(v: string) => handleChange("globalNewsTitleFont", v)}
                             />
                             <TypographyCard 
                                 title="Konten Global" 
-                                sizeValue={settings.globalContentFontSize} weightValue={settings.globalContentFontWeight} fontValue={settings.globalContentFont}
-                                onSizeChange={(v: string) => handleChange("globalContentFontSize", v)} onWeightChange={(v: string) => handleChange("globalContentFontWeight", v)} onFontChange={(v: string) => handleChange("globalContentFont", v)}
+                                sizeValue={settings.globalContentFontSize} weightValue={settings.globalContentFontWeight} lineHeightValue={settings.globalContentLineHeight} fontValue={settings.globalContentFont}
+                                onSizeChange={(v: string) => handleChange("globalContentFontSize", v)} onWeightChange={(v: string) => handleChange("globalContentFontWeight", v)} onLineHeightChange={(v: string) => handleChange("globalContentLineHeight", v)} onFontChange={(v: string) => handleChange("globalContentFont", v)}
                             />
                              <TypographyCard 
                                 title="Meta Data Global" 
-                                sizeValue={settings.globalMetaFontSize} weightValue={settings.globalMetaFontWeight} fontValue={settings.globalMetaFont}
-                                onSizeChange={(v: string) => handleChange("globalMetaFontSize", v)} onWeightChange={(v: string) => handleChange("globalMetaFontWeight", v)} onFontChange={(v: string) => handleChange("globalMetaFont", v)}
+                                sizeValue={settings.globalMetaFontSize} weightValue={settings.globalMetaFontWeight} lineHeightValue={settings.globalMetaLineHeight} fontValue={settings.globalMetaFont}
+                                onSizeChange={(v: string) => handleChange("globalMetaFontSize", v)} onWeightChange={(v: string) => handleChange("globalMetaFontWeight", v)} onLineHeightChange={(v: string) => handleChange("globalMetaLineHeight", v)} onFontChange={(v: string) => handleChange("globalMetaFont", v)}
                             />
                         </div>
                     </div>

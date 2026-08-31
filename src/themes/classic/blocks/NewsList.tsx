@@ -1,8 +1,11 @@
+"use client";
+
 // src/themes/classic/blocks/NewsList.tsx
 
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { getSingleCategoryArchiveSlug, getSingleTagArchiveSlug } from "@/lib/category-filters";
 
 interface NewsListProps {
   block: {
@@ -41,15 +44,39 @@ interface NewsListProps {
 
 export default function NewsList({ block, posts, customTitle, accentColor }: NewsListProps) {
   const { config } = block;
+  const [device, setDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
   // Prioritize customTitle prop, then config.title, then default
   const title = customTitle || config?.title || "Berita Terbaru";
   const showTitle = (config as any)?.showTitle !== false;
   const showImage = config?.showImage !== false; // Default true
   const showExcerpt = config?.showExcerpt !== false; // Default true, tapi cek config
   const effectiveAccent = accentColor || 'var(--accent)';
-  const categorySlug = (config as any)?.categorySlug || config?.category;
+  const categorySlug = getSingleCategoryArchiveSlug((config as any) || {}) || (config as any)?.categorySlug || config?.category;
   const filterType = (config as any)?.filterType || "category";
-  const tagSlug = (config as any)?.tagSlug;
+  const tagSlug = getSingleTagArchiveSlug((config as any) || {}) || (config as any)?.tagSlug;
+  const limitDesktop = Math.max(1, Number(config?.limit) || 5);
+  const limitTablet = Math.max(1, Number((config as any)?.tabletLimit) || limitDesktop);
+  const limitMobile = Math.max(1, Number((config as any)?.mobileLimit) || limitDesktop);
+  const currentLimit = device === "mobile" ? limitMobile : device === "tablet" ? limitTablet : limitDesktop;
+  const visiblePosts = posts.slice(0, currentLimit);
+
+  React.useEffect(() => {
+      const updateDevice = () => {
+          if (window.innerWidth < 768) {
+              setDevice("mobile");
+              return;
+          }
+          if (window.innerWidth < 1024) {
+              setDevice("tablet");
+              return;
+          }
+          setDevice("desktop");
+      };
+      updateDevice();
+      window.addEventListener("resize", updateDevice);
+      return () => window.removeEventListener("resize", updateDevice);
+  }, []);
+
   const normalizeFontWeight = (value: unknown, fallback: string) => {
       if (typeof value === 'number' && Number.isFinite(value)) return String(value);
       if (typeof value !== 'string') return fallback;
@@ -68,6 +95,14 @@ export default function NewsList({ block, posts, customTitle, accentColor }: New
       return map[v] || fallback;
   };
 
+  const toFontSize = (value: unknown, fallback: string) => {
+      if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+      if (typeof value === "string" && value.trim() !== "") {
+          return /^\d+(\.\d+)?$/.test(value.trim()) ? `${value.trim()}px` : value.trim();
+      }
+      return fallback;
+  };
+
   // Style untuk Container Widget
   const containerStyle = {
       backgroundColor: config?.boxColor || 'var(--box-bg, #ffffff)',
@@ -82,7 +117,7 @@ export default function NewsList({ block, posts, customTitle, accentColor }: New
   // Style untuk Judul Widget
   const titleStyle = {
       color: config?.blockTitleColor || 'var(--home-title-color)',
-      fontSize: config?.blockTitleFontSize ? `${config.blockTitleFontSize}px` : 'var(--home-title-size)',
+      fontSize: toFontSize(config?.blockTitleFontSize, 'var(--home-title-size)'),
       fontWeight: 'var(--home-title-weight, 700)',
       lineHeight: config?.blockTitleLineHeight || 1.4,
       borderColor: config?.blockTitleBorderColor || 'var(--accent)',
@@ -119,7 +154,7 @@ export default function NewsList({ block, posts, customTitle, accentColor }: New
        )}
        
        <div className="space-y-6">
-         {posts.map((post) => {
+        {visiblePosts.map((post) => {
              const postLink = post.category ? `/${post.category.slug}/${post.slug}` : `/post/${post.slug}`;
              const imageUrl = post.image || post.featuredImage?.fileUrl;
              const isVideo = String((post as any)?.type || "").toUpperCase() === "VIDEO";
@@ -134,7 +169,7 @@ export default function NewsList({ block, posts, customTitle, accentColor }: New
                         style={{
                             width: config?.imageWidth || '6rem', // 24 = 6rem
                             height: config?.imageHeight || '6rem',
-                            borderRadius: config?.imageBorderRadius ? `${config.imageBorderRadius}px` : 'var(--radius-md, 0.375rem)'
+                            borderRadius: 'var(--global-image-radius, var(--home-main-box-radius, 0.75rem))'
                         }}
                      >
                         {imageUrl ? (

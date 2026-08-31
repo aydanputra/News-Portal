@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
 import PostCard from "@/components/admin/PostCard";
+import type { AutoShareSettings } from "@/lib/auto-share";
 
 interface Post {
   id: string;
@@ -28,6 +29,7 @@ type Pagination = {
 export default function PostsPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [autoShareSettings, setAutoShareSettings] = useState<AutoShareSettings | null>(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft" | "review" | "trash">("all");
@@ -66,6 +68,23 @@ export default function PostsPage() {
         }
       })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/admin/tools/auto-share", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!active) return;
+        setAutoShareSettings(data?.settings || null);
+      })
+      .catch(() => {
+        if (!active) return;
+        setAutoShareSettings(null);
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const fetchPosts = useCallback(async () => {
@@ -132,7 +151,8 @@ export default function PostsPage() {
           return next;
         });
       } else {
-        alert("Gagal menghapus");
+        const data = await res.json().catch(() => null);
+        alert(data?.error || "Gagal menghapus");
       }
     } catch {
       alert("Error jaringan");
@@ -181,7 +201,8 @@ export default function PostsPage() {
           return next;
         });
       } else {
-        alert("Gagal menghapus permanen");
+        const data = await res.json().catch(() => null);
+        alert(data?.error || "Gagal menghapus permanen");
       }
     } catch {
       alert("Error jaringan");
@@ -455,6 +476,7 @@ export default function PostsPage() {
 
                   <PostCard
                     post={post as any}
+                    autoShareSettings={autoShareSettings}
                     onDelete={statusFilter === "trash" ? handleHardDelete : handleDelete}
                     showDelete={true}
                     hoverActions={false}
@@ -488,6 +510,7 @@ export default function PostsPage() {
                   <div className="flex-1 min-w-0 pr-2 py-2">
                     <PostCard
                       post={post as any}
+                      autoShareSettings={autoShareSettings}
                       onDelete={statusFilter === "trash" ? handleHardDelete : handleDelete}
                       showDelete={true}
                       hoverActions={false}

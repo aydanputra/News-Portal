@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireUser } from "@/lib/api-guards";
+import { requireUser } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
+const VERSION_CACHE_TTL_MS = 1000 * 60 * 30;
 
 type LatestInfo = {
   version: string;
@@ -10,6 +11,27 @@ type LatestInfo = {
 };
 
 type UpdateChannel = "stable" | "beta";
+
+type VersionCacheEntry = {
+  expiresAt: number;
+  data: {
+    channel: UpdateChannel;
+    source: "override" | "feed" | "github" | "none";
+    feedUrlUsed: string | null;
+    currentVersion: string;
+    latestVersion: string | null;
+    updateAvailable: boolean;
+    changelogUrl: string | null;
+    releasedAt: string | null;
+  };
+};
+
+const globalForVersionCache = globalThis as typeof globalThis & {
+  __adminVersionCache?: Map<string, VersionCacheEntry>;
+};
+
+const versionCache = globalForVersionCache.__adminVersionCache || new Map<string, VersionCacheEntry>();
+globalForVersionCache.__adminVersionCache = versionCache;
 
 function normalizeVersion(raw: unknown): string {
   const v = typeof raw === "string" ? raw.trim() : "";
@@ -77,84 +99,107 @@ async function fetchLatestFromGitHub(repo: string, channel: UpdateChannel, token
   return pickFromGitHubReleases(json, "beta");
 }
 
-export async function GET(_request: Request) {
-  try {
-    const user = await requireUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+async function resolveVersionPayload() {
+  const channel = normalizeChannel(process.env.UPDATE_CHANNEL);
+  const feedUrlRaw = normalizeVersion(process.env.UPDATE_FEED_URL);
+  const repo = normalizeVersion(process.env.GITHUB_REPO);
+  const ghToken = normalizeVersion(process.env.GITHUB_TOKEN);
+  const overrideLatest = normalizeVersion(process.env.LATEST_VERSION_OVERRIDE);
+  const overrideChangelogUrl = normalizeVersion(process.env.LATEST_CHANGELOG_URL_OVERRIDE);
+  const overrideReleasedAt = normalizeVersion(process.env.LATEST_RELEASED_AT_OVERRIDE);
+  const currentVersion =
+    normalizeVersion(process.env.APP_VERSION) ||
+    normalizeVersion(process.env.NEXT_PUBLIC_APP_VERSION) ||
+    normalizeVersion(process.env.VERCEL_GIT_COMMIT_SHA) ||
+    "unknown";
 
-    const currentVersion =
-      normalizeVersion(process.env.APP_VERSION) ||
-      normalizeVersion(process.env.NEXT_PUBLIC_APP_VERSION) ||
-      normalizeVersion(process.env.VERCEL_GIT_COMMIT_SHA) ||
-      "unknown";
+  const cacheKey = [
+    channel,
+    currentVersion,
+    feedUrlRaw,
+    repo,
+    overrideLatest,
+    overrideChangelogUrl,
+    overrideReleasedAt,
+  ].join("|");
+  const cached = versionCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.data;
+  }
 
-    const channel = normalizeChannel(process.env.UPDATE_CHANNEL);
-    const feedUrlRaw = normalizeVersion(process.env.UPDATE_FEED_URL);
-    const repo = normalizeVersion(process.env.GITHUB_REPO);
-    const ghToken = normalizeVersion(process.env.GITHUB_TOKEN);
-    const overrideLatest = normalizeVersion(process.env.LATEST_VERSION_OVERRIDE);
-    const overrideChangelogUrl = normalizeVersion(process.env.LATEST_CHANGELOG_URL_OVERRIDE);
-    const overrideReleasedAt = normalizeVersion(process.env.LATEST_RELEASED_AT_OVERRIDE);
-
-    let latest: LatestInfo | null = null;
-    let source: "override" | "feed" | "github" | "none" = "none";
-    let feedUrlUsed: string | null = null;
-    if (overrideLatest) {
-      source = "override";
-      latest = {
-        version: overrideLatest,
-        url: overrideChangelogUrl || undefined,
-        publishedAt: overrideReleasedAt || undefined,
-      };
-    } else if (feedUrlRaw) {
-      const resolved = feedUrlRaw.includes("{channel}") ? feedUrlRaw.replaceAll("{channel}", channel) : feedUrlRaw;
-      feedUrlUsed = resolved;
-      source = "feed";
-      const res = await fetch(resolved, { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json().catch(() => null);
-        if (json && typeof json === "object") {
-          const direct = normalizeVersion((json as any).latest || (json as any).version);
-          if (direct) {
-            latest = {
-              version: direct,
-              url: typeof (json as any).changelogUrl === "string" ? (json as any).changelogUrl : undefined,
-              publishedAt: typeof (json as any).releasedAt === "string" ? (json as any).releasedAt : undefined,
-            };
-          } else {
-            const channelsObj =
-              (json as any).channels && typeof (json as any).channels === "object" ? (json as any).channels : null;
-            const channelEntry = channelsObj ? (channelsObj as any)[channel] : null;
-            if (channelEntry && typeof channelEntry === "object") {
-              const v = normalizeVersion((channelEntry as any).latest || (channelEntry as any).version);
-              if (v) {
-                latest = {
-                  version: v,
-                  url: typeof (channelEntry as any).changelogUrl === "string" ? (channelEntry as any).changelogUrl : undefined,
-                  publishedAt: typeof (channelEntry as any).releasedAt === "string" ? (channelEntry as any).releasedAt : undefined,
-                };
-              }
+  let latest: LatestInfo | null = null;
+  let source: "override" | "feed" | "github" | "none" = "none";
+  let feedUrlUsed: string | null = null;
+  if (overrideLatest) {
+    source = "override";
+    latest = {
+      version: overrideLatest,
+      url: overrideChangelogUrl || undefined,
+      publishedAt: overrideReleasedAt || undefined,
+    };
+  } else if (feedUrlRaw) {
+    const resolved = feedUrlRaw.includes("{channel}") ? feedUrlRaw.replaceAll("{channel}", channel) : feedUrlRaw;
+    feedUrlUsed = resolved;
+    source = "feed";
+    const res = await fetch(resolved, { next: { revalidate: 1800 } });
+    if (res.ok) {
+      const json = await res.json().catch(() => null);
+      if (json && typeof json === "object") {
+        const direct = normalizeVersion((json as any).latest || (json as any).version);
+        if (direct) {
+          latest = {
+            version: direct,
+            url: typeof (json as any).changelogUrl === "string" ? (json as any).changelogUrl : undefined,
+            publishedAt: typeof (json as any).releasedAt === "string" ? (json as any).releasedAt : undefined,
+          };
+        } else {
+          const channelsObj =
+            (json as any).channels && typeof (json as any).channels === "object" ? (json as any).channels : null;
+          const channelEntry = channelsObj ? (channelsObj as any)[channel] : null;
+          if (channelEntry && typeof channelEntry === "object") {
+            const v = normalizeVersion((channelEntry as any).latest || (channelEntry as any).version);
+            if (v) {
+              latest = {
+                version: v,
+                url: typeof (channelEntry as any).changelogUrl === "string" ? (channelEntry as any).changelogUrl : undefined,
+                publishedAt: typeof (channelEntry as any).releasedAt === "string" ? (channelEntry as any).releasedAt : undefined,
+              };
             }
           }
         }
       }
-    } else if (repo) {
-      source = "github";
-      latest = await fetchLatestFromGitHub(repo, channel, ghToken || undefined);
     }
+  } else if (repo) {
+    source = "github";
+    latest = await fetchLatestFromGitHub(repo, channel, ghToken || undefined);
+  }
 
-    const latestVersion = latest?.version || null;
-    const updateAvailable = latestVersion ? isNewer(latestVersion, currentVersion) : false;
+  const latestVersion = latest?.version || null;
+  const payload = {
+    channel,
+    source,
+    feedUrlUsed,
+    currentVersion,
+    latestVersion,
+    updateAvailable: latestVersion ? isNewer(latestVersion, currentVersion) : false,
+    changelogUrl: latest?.url || null,
+    releasedAt: latest?.publishedAt || null,
+  };
+  versionCache.set(cacheKey, {
+    expiresAt: Date.now() + VERSION_CACHE_TTL_MS,
+    data: payload,
+  });
+  return payload;
+}
+
+export async function GET(_request: Request) {
+  try {
+    const user = await requireUser();
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const payload = await resolveVersionPayload();
 
     return NextResponse.json({
-      channel,
-      source,
-      feedUrlUsed,
-      currentVersion,
-      latestVersion,
-      updateAvailable,
-      changelogUrl: latest?.url || null,
-      releasedAt: latest?.publishedAt || null,
+      ...payload,
       user: { id: user.id, role: user.role },
     });
   } catch {

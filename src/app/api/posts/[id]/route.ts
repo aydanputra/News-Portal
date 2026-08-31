@@ -10,6 +10,7 @@ import { resolvePostTransition } from "@/lib/post-workflow";
 import { revalidateTag } from "next/cache";
 import { sanitizeContent } from "@/lib/sanitizer";
 import { validatePost } from "@/lib/validators/postValidator";
+import { normalizePostTypeMedia } from "@/lib/post-type-media";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,8 @@ async function checkAccess(postId: string, user: any) {
   const post = await prisma.post.findUnique({ where: { id: postId } });
   if (!post) return { error: "Berita tidak ditemukan", status: 404 };
 
-  // Admin & Editor boleh apa saja
-  if (user.role === "ADMIN" || user.role === "EDITOR") return { post };
+  // Super Admin, Admin, dan Editor boleh apa saja
+  if (user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "EDITOR") return { post };
 
   // Writer hanya boleh punya sendiri
   if (post.authorId !== user.id) {
@@ -147,18 +148,23 @@ export async function PUT(
     const validData = validation.data as any;
     const {
       title,
+      slug: requestedSlug,
       subtitle,
       content,
       categoryId,
       categoryIds,
       image,
       featuredImageId,
+      featuredImageAlt,
+      postImageWatermarkEnabled,
       imageCaption,
       publishedAt,
       tags,
       type,
       videoUrl,
       gallery,
+      focusKeyword,
+      canonicalUrl,
       status: requestedStatus,
       authorId,
       approvedById,
@@ -167,6 +173,7 @@ export async function PUT(
       viewsBase,
       reviewEditorIds,
     } = validData;
+    const normalizedMedia = normalizePostTypeMedia({ type, videoUrl, gallery });
     // Note: rejectionReason is not in validator yet, grab it from body for now as it's admin specific
     const rejectionReason = (body as any).rejectionReason;
 
@@ -175,6 +182,9 @@ export async function PUT(
     const hasReviewEditorIdsKey = Object.prototype.hasOwnProperty.call(validData, "reviewEditorIds");
     const normalizedReviewEditorIds =
       Array.isArray(reviewEditorIds) ? reviewEditorIds.map((v: any) => String(v || "").trim()).filter(Boolean) : [];
+    if (typeof requestedSlug === "string" && requestedSlug.trim() !== "" && !slugify(requestedSlug)) {
+      return NextResponse.json({ error: "Slug URL tidak valid" }, { status: 400 });
+    }
 
     const normalizedCategoryIds = Array.isArray(categoryIds) ? categoryIds : [];
     const effectiveCategoryIds = Array.from(new Set([categoryId, ...normalizedCategoryIds].filter((v) => typeof v === "string" && v.trim() !== "")));
@@ -218,8 +228,8 @@ export async function PUT(
       }
     }
 
-    if ((!finalImage || finalImage === "") && (type as PostType) === PostType.VIDEO && typeof videoUrl === "string" && videoUrl.trim() !== "") {
-      const thumbnail = getYouTubeThumbnailUrl(videoUrl, "hqdefault");
+    if ((!finalImage || finalImage === "") && (type as PostType) === PostType.VIDEO && typeof normalizedMedia.videoUrl === "string" && normalizedMedia.videoUrl.trim() !== "") {
+      const thumbnail = getYouTubeThumbnailUrl(normalizedMedia.videoUrl, "hqdefault");
       if (thumbnail) finalImage = thumbnail;
     }
 
@@ -228,8 +238,22 @@ export async function PUT(
     const updatedPost = await prisma.$transaction(async (tx) => {
         // Prepare slug inside transaction scope
         let slug = access.post?.slug;
-        if (title && title !== access.post?.title) {
+        const normalizedRequestedSlug =
+          typeof requestedSlug === "string" ? slugify(requestedSlug) : "";
+        if (normalizedRequestedSlug) {
+            slug = normalizedRequestedSlug;
+        } else if (title && title !== access.post?.title) {
             slug = slugify(title);
+            const existingSlug = await tx.post.findUnique({ where: { slug } });
+            if (existingSlug && existingSlug.id !== id) {
+                slug = `${slug}-${Date.now()}`;
+            }
+        }
+        if (!slug) {
+            throw new Error("Slug URL tidak valid");
+        }
+
+        if (slug !== access.post?.slug) {
             const existingSlug = await tx.post.findUnique({ where: { slug } });
             if (existingSlug && existingSlug.id !== id) {
                 slug = `${slug}-${Date.now()}`;
@@ -296,10 +320,14 @@ export async function PUT(
                 published: isPublished,
                 publishedAt: finalPublishedAt,
                 image: finalImage,
+                featuredImageAlt,
+                postImageWatermarkEnabled: postImageWatermarkEnabled === true,
                 imageCaption,
                 type: type as PostType,
-                videoUrl,
-                gallery: gallery ? gallery : undefined,
+                videoUrl: normalizedMedia.videoUrl,
+                gallery: normalizedMedia.gallery,
+                focusKeyword,
+                canonicalUrl: canonicalUrl || null,
                 metaTitle,
                 metaDesc
         };
@@ -552,6 +580,11 @@ export async function PUT(
     revalidateTag("homepage");
     revalidateTag("posts");
     revalidateTag(`post-${updatedPost.slug}`);
+    revalidateTag(`article-${updatedPost.slug}`);
+    if (access.post?.slug && access.post.slug !== updatedPost.slug) {
+      revalidateTag(`post-${access.post.slug}`);
+      revalidateTag(`article-${access.post.slug}`);
+    }
 
     return NextResponse.json(updatedPost);
   } catch (error) {

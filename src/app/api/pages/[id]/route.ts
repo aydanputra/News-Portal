@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireAdmin } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
 import { sanitizePageContent } from "@/lib/sanitizer";
 
 const updatePageSchema = z.object({

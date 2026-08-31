@@ -1,8 +1,9 @@
 import React from "react";
-import { ArrowUp, ArrowDown, Edit, Trash2, Copy, ArrowLeft, ArrowRight, Settings } from "lucide-react";
+import { ArrowUp, ArrowDown, Trash2, Copy, ArrowLeft, ArrowRight, Settings } from "lucide-react";
 import { Block, Tag } from "./types";
 import SectionBlock from "./SectionBlock";
 import { ConfigValue } from "@/lib/page-builder-config";
+import { getBlockLabel, resolveBlockTypeAlias } from "@/lib/block-registry";
 
 interface WidgetItemProps {
     builderLocation?: "home" | "archive" | "header" | "footer" | "post";
@@ -10,7 +11,7 @@ interface WidgetItemProps {
     parentIndex: number;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
     setEditingChild: (child: { parentIndex: number, childId: string } | null) => void;
-    setActiveEditTab: (tab: 'content' | 'visual') => void;
+    setActiveEditTab: (tab: 'content' | 'visual' | 'advanced') => void;
     deleteChildBlock: (parentIndex: number, childId: string) => void;
     tags: Tag[];
     accentColor: string;
@@ -116,6 +117,7 @@ function WidgetItem({
     }, [activeDeviceTab, context]);
 
     const isPostWidgetType = typeof child.type === "string" && child.type.startsWith("post_");
+    const effectiveChildType = typeof child.type === "string" ? resolveBlockTypeAlias(child.type) : child.type;
 
     const _deviceLabel = activeDeviceTab === "desktop" ? "Desktop" : activeDeviceTab === "tablet" ? "Tablet" : "Mobile";
     void _deviceLabel;
@@ -126,6 +128,7 @@ function WidgetItem({
 
     const canOpenWidgetSettings = builderLocation !== "header"
         || child.type === "ad_banner"
+        || child.type === "image_widget"
         || child.type === "header_logo"
         || child.type === "header_menu_primary"
         || child.type === "header_menu_secondary"
@@ -166,6 +169,15 @@ function WidgetItem({
     const currentColumnIndex = typeof child.config?.columnIndex === "number" ? child.config.columnIndex : 0;
 
     const widgetLabelMap: Record<string, string> = {
+        classic_hero: "Hero",
+        news_hero_slider: "Hero Slider",
+        news_hero_split_4: "Hero + 4 Mini",
+        news_headline_big: "Headline Big",
+        news_grid_slider: "Grid Slider",
+        news_grid: "Grid News",
+        news_list: "Simple List",
+        news_list_highlight: "List Highlight",
+        news_bullet_list: "Bullet List",
         post_breadcrumb: "Breadcrumb",
         post_title: "Judul Artikel",
         post_subtitle: "Subjudul",
@@ -190,6 +202,15 @@ function WidgetItem({
     };
 
     const widgetBadgeTextMap: Record<string, string> = {
+        classic_hero: "HERO",
+        news_hero_slider: "SLIDER",
+        news_hero_split_4: "HERO+4",
+        news_headline_big: "HEADLINE",
+        news_grid_slider: "GRID SLIDER",
+        news_grid: "GRID",
+        news_list: "LIST",
+        news_list_highlight: "HIGHLIGHT",
+        news_bullet_list: "BULLET",
         post_breadcrumb: "BREADCRUMB",
         post_title: "JUDUL",
         post_subtitle: "SUBJUDUL",
@@ -210,10 +231,27 @@ function WidgetItem({
         archive_post_grid: "GRID",
         archive_post_list: "LIST",
         archive_pagination: "PAGIN",
-        archive_empty_state: "EMPTY"
+        archive_empty_state: "EMPTY",
+        footer_logo: "LOGO",
+        footer_menu: "MENU",
+        footer_text: "TEKS",
+        footer_social: "SOSIAL",
+        footer_categories: "KATEGORI",
+        footer_custom_links: "LINK",
+        footer_copyright: "COPYRIGHT",
+        image_widget: "GAMBAR"
     };
 
     const widgetBadgeClassMap: Record<string, string> = {
+        classic_hero: "bg-rose-500",
+        news_hero_slider: "bg-fuchsia-600",
+        news_hero_split_4: "bg-pink-500",
+        news_headline_big: "bg-orange-500",
+        news_grid_slider: "bg-cyan-500",
+        news_grid: "bg-cyan-600",
+        news_list: "bg-emerald-600",
+        news_list_highlight: "bg-lime-600",
+        news_bullet_list: "bg-amber-500",
         post_breadcrumb: "bg-slate-500",
         post_title: "bg-blue-500",
         post_subtitle: "bg-indigo-500",
@@ -234,7 +272,15 @@ function WidgetItem({
         archive_post_grid: "bg-cyan-600",
         archive_post_list: "bg-emerald-600",
         archive_pagination: "bg-amber-600",
-        archive_empty_state: "bg-rose-600"
+        archive_empty_state: "bg-rose-600",
+        footer_logo: "bg-slate-500",
+        footer_menu: "bg-indigo-500",
+        footer_text: "bg-sky-600",
+        footer_social: "bg-violet-500",
+        footer_categories: "bg-emerald-600",
+        footer_custom_links: "bg-slate-600",
+        footer_copyright: "bg-stone-500",
+        image_widget: "bg-amber-600"
     };
 
     if (isInnerSection || child.type === 'section') {
@@ -270,9 +316,21 @@ function WidgetItem({
             />
         );
     }
-    const badgeClass = widgetBadgeClassMap[child.type] || "bg-gray-500";
-    const displayTitle = widgetLabelMap[child.type] || child.title || child.type;
-    const badgeText = widgetBadgeTextMap[child.type] || String(displayTitle).toUpperCase();
+    const fallbackLabel =
+        typeof effectiveChildType === "string" && effectiveChildType.trim() !== ""
+            ? getBlockLabel(effectiveChildType, activeTheme)
+            : "";
+    const badgeClass = widgetBadgeClassMap[child.type] || (typeof effectiveChildType === "string" ? widgetBadgeClassMap[effectiveChildType] : undefined) || "bg-gray-500";
+    const displayTitle =
+        widgetLabelMap[child.type] ||
+        (typeof effectiveChildType === "string" ? widgetLabelMap[effectiveChildType] : undefined) ||
+        child.title ||
+        fallbackLabel ||
+        child.type;
+    const badgeText =
+        widgetBadgeTextMap[child.type] ||
+        (typeof effectiveChildType === "string" ? widgetBadgeTextMap[effectiveChildType] : undefined) ||
+        String(displayTitle).toUpperCase();
     const moveControlsBelow = isCompactLayout;
     const controlIconSize = moveControlsBelow ? 12 : 14;
     const controlPad = moveControlsBelow ? "p-1" : "p-1.5";
@@ -297,8 +355,13 @@ function WidgetItem({
                     <button onClick={() => handleMove("up")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)] ${columnCount <= 1 ? "rounded-l-md" : ""}`} title="Geser Atas"><ArrowUp size={controlIconSize} /></button>
                     <button onClick={() => handleMove("down")} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Geser Bawah"><ArrowDown size={controlIconSize} /></button>
                     {canOpenWidgetSettings && (
-                        <button onClick={() => { setEditingChild({ parentIndex, childId: child.id }); setActiveEditTab("content"); }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title={builderLocation === "header" ? "Pengaturan" : "Edit Konten"}>
-                            {builderLocation === "header" ? <Settings size={controlIconSize} /> : <Edit size={controlIconSize} />}
+                        <button onClick={() => {
+                            const opensArchiveAuxiliaryContentTab =
+                                builderLocation === "archive" && ["sidebar_widget", "tag_cloud", "ad_banner", "image_widget"].includes(child.type);
+                            setEditingChild({ parentIndex, childId: child.id });
+                            setActiveEditTab(opensArchiveAuxiliaryContentTab ? "content" : builderLocation === "archive" ? "visual" : "content");
+                        }} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Pengaturan Widget">
+                            <Settings size={controlIconSize} />
                         </button>
                     )}
                     <button onClick={handleDuplicate} className={`${controlPad} text-[var(--fg-muted)] hover:text-[var(--accent)] hover:bg-[var(--bg-elevated)] transition-all border-r border-[var(--border)]`} title="Duplikasi"><Copy size={controlIconSize} /></button>

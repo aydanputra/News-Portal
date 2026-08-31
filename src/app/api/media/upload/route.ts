@@ -36,6 +36,7 @@ export async function POST(request: Request) {
     // 2. Ambil File
     const formData = await request.formData();
     const file = formData.get("file") as File;
+    const uploadAltText = String(formData.get("altText") || "").trim();
 
     if (!file) {
       return NextResponse.json({ error: "File tidak ditemukan" }, { status: 400 });
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
     let finalMimeType: string;
     let width: number | null = null;
     let height: number | null = null;
+    let displayFileName = file.name;
 
     if (isImage) {
         try {
@@ -96,6 +98,7 @@ export async function POST(request: Request) {
             
             finalFileName = `${uuidv4()}.webp`;
             finalMimeType = 'image/webp';
+            displayFileName = `${path.parse(file.name).name || "image"}.webp`;
             width = metadata.width || null;
             height = metadata.height || null;
 
@@ -112,6 +115,7 @@ export async function POST(request: Request) {
             const ext = path.extname(file.name);
             finalFileName = `${uuidv4()}${ext}`;
             finalMimeType = file.type;
+            displayFileName = file.name;
         }
     } else {
         // Document Processing (Direct Save)
@@ -119,6 +123,7 @@ export async function POST(request: Request) {
         const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : "");
         finalFileName = `${uuidv4()}${ext}`;
         finalMimeType = file.type;
+        displayFileName = file.name;
     }
 
     const key = `${keyDir}/${finalFileName}`;
@@ -128,9 +133,10 @@ export async function POST(request: Request) {
     try {
       const media = await prisma.media.create({
         data: {
-          fileName: file.name, // Original name for display
+          fileName: displayFileName,
           fileUrl: fileUrl,
           fileType: finalMimeType,
+          altText: uploadAltText || null,
           size: finalBuffer.length,
           width: width,   // Optional
           height: height, // Optional
@@ -138,7 +144,10 @@ export async function POST(request: Request) {
         },
       });
 
-      return NextResponse.json(media);
+      return NextResponse.json({
+        ...media,
+        altText: uploadAltText,
+      });
     } catch (dbError: any) {
         console.error("Database save failed:", dbError);
         try {

@@ -1,7 +1,7 @@
 // src/themes/pranala/blocks/registry.ts
 
 import type { LucideIcon } from "lucide-react";
-import { Layout, Maximize, List, PanelRight, Tag, Megaphone, Newspaper, Grid2x2 } from "lucide-react";
+import { Layout, Maximize, List, PanelRight, Tag, Megaphone, Newspaper, Grid2x2, Image as ImageIcon } from "lucide-react";
 import Hero from "./Hero";
 import Section from "./Section";
 import NewsList from "./NewsList";
@@ -14,6 +14,7 @@ import AdBanner from "./AdBanner";
 import HeroSplit4 from "./HeroSplit4";
 import HeroSlider from "./HeroSlider";
 import NewsGridSlider from "./NewsGridSlider";
+import ImageUrlWidget from "@/components/shared/ImageUrlWidget";
 
 // Block Definition Interface
 export interface BlockDefinition {
@@ -41,7 +42,7 @@ export const PRANALA_BLOCKS: Record<string, BlockDefinition> = {
   },
   "section": {
     id: "section",
-    label: "Section",
+    label: "Inner Section",
     description: "Layout section untuk menampung blok lain.",
     icon: Maximize,
     component: Section,
@@ -106,7 +107,7 @@ export const PRANALA_BLOCKS: Record<string, BlockDefinition> = {
       miniCount: 4,
       miniColumns: 4,
       tabletMiniColumns: 2,
-      mobileMiniColumns: 1,
+      mobileMiniColumns: 4,
       showMiniImage: true,
       showMetaInfo: true,
       showHeroMetaInfo: true,
@@ -121,7 +122,7 @@ export const PRANALA_BLOCKS: Record<string, BlockDefinition> = {
       heroExcerptLength: 120,
       heroExcerptFontSize: 14,
       heroExcerptLineHeight: 1.6,
-      miniExcerptLength: 70,
+      miniExcerptLength: 120,
       miniExcerptFontSize: 12,
       miniExcerptLineHeight: 1.5,
       showCategory: true,
@@ -196,7 +197,7 @@ export const PRANALA_BLOCKS: Record<string, BlockDefinition> = {
       showAuthor: true,
       slideTransitionMs: 500,
       showExcerpt: true,
-      excerptLength: 90
+      excerptLength: 120
     }
   },
   "news_bullet_list": {
@@ -244,6 +245,26 @@ export const PRANALA_BLOCKS: Record<string, BlockDefinition> = {
     defaultConfig: {
       position: "HOMEPAGE_1",
       showTitle: false
+    }
+  },
+  "image_widget": {
+    id: "image_widget",
+    label: "Widget Gambar",
+    description: "Menampilkan gambar dari URL dengan link opsional.",
+    icon: ImageIcon,
+    component: ImageUrlWidget,
+    category: "widget",
+    defaultConfig: {
+      imageUrl: "",
+      altText: "",
+      linkUrl: "",
+      openInNewTab: false,
+      objectFit: "contain",
+      imageWidth: "",
+      imageHeight: "",
+      borderRadius: "",
+      showShadow: false,
+      useBox: false,
     }
   }
 };

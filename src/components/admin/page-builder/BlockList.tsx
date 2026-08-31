@@ -14,7 +14,7 @@ interface BlockListProps {
     setActiveSectionTab: (tab: 'layout' | 'style') => void;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
     setEditingChild: (child: { parentIndex: number, childId: string } | null) => void;
-    setActiveEditTab: (tab: 'content' | 'visual') => void;
+    setActiveEditTab: (tab: 'content' | 'visual' | 'advanced') => void;
     deleteChildBlock: (parentIndex: number, childId: string) => void;
     addChildBlock: (parentIndex: number, type: string, title: string, columnIndex: number) => void;
     tags: Tag[];
@@ -86,13 +86,35 @@ function BlockList({
     // Close menus on click outside
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (activeAddMenu && !(e.target as Element).closest('.add-widget-menu-container')) {
+            const target = e.target as Element | null;
+            const clickedInsideTrigger = !!target?.closest(".add-widget-menu-container");
+            const clickedInsidePickerModal = !!target?.closest(".widget-picker-modal-root");
+
+            if (activeAddMenu && !clickedInsideTrigger && !clickedInsidePickerModal) {
                 setActiveAddMenu(null);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [activeAddMenu]);
+
+    useEffect(() => {
+        const scrollContainer = document.getElementById("admin-main-scroll-container");
+        if (!scrollContainer) return;
+
+        const updateScrollbarWidth = () => {
+            const scrollbarWidth = Math.max(0, scrollContainer.offsetWidth - scrollContainer.clientWidth);
+            document.documentElement.style.setProperty("--admin-scrollbar-width", `${scrollbarWidth}px`);
+        };
+
+        updateScrollbarWidth();
+        window.addEventListener("resize", updateScrollbarWidth);
+
+        return () => {
+            window.removeEventListener("resize", updateScrollbarWidth);
+            document.documentElement.style.removeProperty("--admin-scrollbar-width");
+        };
+    }, []);
 
     return (
         <div className={builderLocation === "archive" ? "space-y-0" : "space-y-6"}>
@@ -103,6 +125,7 @@ function BlockList({
                             key={block.id}
                             block={block}
                             index={index}
+                            activeTheme={activeTheme}
                             deleteBlock={deleteBlock}
                         />
                     );

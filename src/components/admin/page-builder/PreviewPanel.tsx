@@ -15,7 +15,7 @@ interface PreviewPanelProps {
     setActiveSectionTab: (tab: 'layout' | 'style') => void;
     moveChildBlock: (parentIndex: number, childId: string, direction: "up" | "down") => void;
     setEditingChild: (child: { parentIndex: number, childId: string } | null) => void;
-    setActiveEditTab: (tab: 'content' | 'visual') => void;
+    setActiveEditTab: (tab: 'content' | 'visual' | 'advanced') => void;
     deleteChildBlock: (parentIndex: number, childId: string) => void;
     addChildBlock: (parentIndex: number, type: string, title: string, columnIndex: number) => void;
     tags: Tag[];
@@ -108,7 +108,7 @@ export default function PreviewPanel({
                 </div>
             ) : (
                 <div className="flex justify-center">
-                    <div className={`${canvasClass} transition-all duration-300 bg-[var(--bg-surface)] rounded-xl overflow-hidden shadow-sm border border-[var(--border)]`}>
+                    <div className={`${canvasClass} page-builder-preview-shell relative transition-all duration-300 bg-[var(--bg-surface)] rounded-xl overflow-hidden shadow-sm border border-[var(--border)]`}>
                         <BlockList
                             builderLocation={builderLocation}
                             blocks={blocks}

@@ -3,8 +3,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
-import { unlink } from "fs/promises";
-import path from "path";
+import { getStorageKeyFromUrl, storage } from "@/lib/storage";
 
 // GET: List Media
 export async function GET(request: Request) {
@@ -40,6 +39,7 @@ export async function GET(request: Request) {
     if (q) {
       where.OR = [
         { fileName: { contains: q, mode: "insensitive" } },
+        { altText: { contains: q, mode: "insensitive" } },
         { fileUrl: { contains: q, mode: "insensitive" } },
       ];
     }
@@ -116,12 +116,13 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "Gagal: Gambar ini sedang digunakan oleh berita." }, { status: 400 });
     }
 
-    // Hapus File Fisik
-    try {
-      const filePath = path.join(process.cwd(), "public", media.fileUrl);
-      await unlink(filePath);
-    } catch (error) {
-      console.warn("File fisik tidak ditemukan atau gagal dihapus, lanjut hapus DB:", error);
+    const storageKey = getStorageKeyFromUrl(media.fileUrl);
+    if (storageKey) {
+      try {
+        await storage.delete(storageKey);
+      } catch (error) {
+        console.warn("Gagal menghapus file dari storage, lanjut hapus DB:", error);
+      }
     }
 
     // Hapus dari DB

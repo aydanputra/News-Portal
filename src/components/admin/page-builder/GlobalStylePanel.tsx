@@ -275,7 +275,7 @@ export function GlobalStylePanel({
                             />
 
                             <ColorPickerWithOpacity 
-                                label="3. Hover (Highlight)" 
+                                label="3. Sorot" 
                                 value={accentColor} 
                                 onChange={(val) => setAccentColor(val || "")} 
                                 description="Mengatur Highlight Text Judul."
@@ -490,7 +490,7 @@ export function GlobalStylePanel({
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                              {/* Background Color (Canvas) */}
                              <ColorPickerWithOpacity 
-                                label="Background Canvas" 
+                                label="Latar Canvas" 
                                 value={backgroundColor} 
                                 onChange={(val) => setBackgroundColor(val || "")} 
                                 description="Warna background area konten utama."

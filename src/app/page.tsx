@@ -1,12 +1,22 @@
 import { prisma } from "@/lib/prisma";
-import { getThemeComponent } from "@/lib/theme-registry";
+import { getThemeComponent } from "@/lib/theme-registry.server";
 import { getSettings } from "@/lib/settings";
 import { getCachedCategories } from "@/lib/data";
 import { unstable_cache } from "next/cache";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
+import { toPublicPostPreviewList } from "@/lib/post-preview";
+import TrackPublicPageView from "@/components/TrackPublicPageView";
+import {
+  applyCategoryFiltersToWhere,
+  applyTagFiltersToWhere,
+  getConfigCategoryExcludeSlugs,
+  getConfigCategoryIncludeSlugs,
+  getConfigTagExcludeSlugs,
+  getConfigTagIncludeSlugs,
+} from "@/lib/category-filters";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 function hashString(input: string) {
   let hash = 2166136261;
@@ -89,6 +99,38 @@ const getFallbackPosts = unstable_cache(
   { tags: ['homepage', 'posts'] }
 );
 
+const getHeaderFooterBlocks = unstable_cache(
+  async (activeTheme: string) => {
+    const publicBlockSelect = {
+      id: true,
+      type: true,
+      title: true,
+      order: true,
+      config: true,
+      isActive: true,
+    } as const;
+    const [headerRows, footerRows] = await Promise.all([
+      prisma.homepageBlock.findMany({
+        where: { location: "header", isActive: true, themeId: activeTheme as any },
+        orderBy: { order: "asc" },
+        select: publicBlockSelect,
+      }),
+      prisma.homepageBlock.findMany({
+        where: { location: "footer", themeId: activeTheme as any },
+        orderBy: { order: "asc" },
+        select: publicBlockSelect,
+      }),
+    ]);
+
+    return {
+      headerConfig: headerRows ?? null,
+      footerConfig: footerRows ?? null,
+    };
+  },
+  ["homepage-header-footer"],
+  { tags: ["homepage"], revalidate: 300 },
+);
+
 async function getData() {
   const now = new Date();
   
@@ -100,28 +142,17 @@ async function getData() {
   ]);
 
   const activeTheme = (setting as any)?.activeTheme || "classic";
-
-  const headerRows = await prisma.homepageBlock.findMany({
-    where: { location: "header", isActive: true, themeId: activeTheme as any },
-    orderBy: { order: "asc" },
-  });
-  const headerConfig = headerRows ?? null;
-
-  const footerRows = await prisma.homepageBlock.findMany({
-    where: { location: "footer", themeId: activeTheme as any },
-    orderBy: { order: "asc" },
-  });
-  const footerConfig = footerRows ?? null;
-
-  // 2. Fetch Blocks based on Theme
-  const sourceBlocksByLocation = await getBuilderSourceBlocks(activeTheme as any);
+  const [{ headerConfig, footerConfig }, sourceBlocksByLocation] = await Promise.all([
+    getHeaderFooterBlocks(activeTheme),
+    getBuilderSourceBlocks(activeTheme as any),
+  ]);
   const blocks = sourceBlocksByLocation.home || [];
 
   // 3. Fallback: Jika tidak ada blocks, ambil default posts
   let posts: any[] = [];
   if (blocks.length === 0) {
       // @ts-ignore
-      posts = await getFallbackPosts();
+      posts = toPublicPostPreviewList(await getFallbackPosts());
   }
 
   // Dynamic Data Fetching based on Blocks
@@ -289,9 +320,10 @@ async function getData() {
 
   const buildPostQueryKey = (block: any) => {
     const cfg = (block?.config as any) || {};
-    const filterTagSlug = cfg.filterType === "tag" && cfg.tagSlug ? String(cfg.tagSlug) : "";
-    const filterCategorySlug =
-      cfg.categorySlug && cfg.categorySlug !== "all" ? String(cfg.categorySlug) : "";
+    const includeTagSlugs = cfg.filterType === "tag" ? getConfigTagIncludeSlugs(cfg) : [];
+    const excludeTagSlugs = getConfigTagExcludeSlugs(cfg);
+    const includeCategorySlugs = includeTagSlugs.length > 0 ? [] : getConfigCategoryIncludeSlugs(cfg);
+    const excludeCategorySlugs = getConfigCategoryExcludeSlugs(cfg);
 
     const sortOrderRaw = cfg.sortOrder ? String(cfg.sortOrder) : "";
     const sortOrder =
@@ -300,15 +332,17 @@ async function getData() {
         : sortOrderRaw || "latest";
 
     return JSON.stringify({
-      tag: filterTagSlug,
-      category: filterCategorySlug,
+      tags: includeTagSlugs.slice().sort(),
+      excludeTags: excludeTagSlugs.slice().sort(),
+      includeCategories: includeCategorySlugs.slice().sort(),
+      excludeCategories: excludeCategorySlugs.slice().sort(),
       sortOrder,
     });
   };
 
   const groups = new Map<
     string,
-    { blocks: any[]; maxTakeLimit: number; sortOrder: string; whereClause: any; orderBy: any }
+    { blocks: any[]; maxTakeLimit: number | null; sortOrder: string; whereClause: any; orderBy: any }
   >();
 
   for (const block of postDataBlocks) {
@@ -327,18 +361,16 @@ async function getData() {
       OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
     };
 
-    if (cfg.filterType === "tag" && cfg.tagSlug) {
-      whereClause.tags = { some: { slug: cfg.tagSlug } };
-    } else if (cfg.categorySlug && cfg.categorySlug !== "all") {
-      whereClause.AND = [
-        ...(Array.isArray(whereClause.AND) ? whereClause.AND : []),
-        {
-          OR: [
-            { category: { slug: cfg.categorySlug } },
-            { postCategories: { some: { category: { slug: cfg.categorySlug } } } },
-          ],
-        },
-      ];
+    if (cfg.filterType === "tag") {
+      const includeTagSlugs = getConfigTagIncludeSlugs(cfg);
+      const excludeTagSlugs = getConfigTagExcludeSlugs(cfg);
+      applyTagFiltersToWhere(whereClause, includeTagSlugs, excludeTagSlugs);
+      const excludeCategorySlugs = getConfigCategoryExcludeSlugs(cfg);
+      applyCategoryFiltersToWhere(whereClause, [], excludeCategorySlugs);
+    } else {
+      const includeCategorySlugs = getConfigCategoryIncludeSlugs(cfg);
+      const excludeCategorySlugs = getConfigCategoryExcludeSlugs(cfg);
+      applyCategoryFiltersToWhere(whereClause, includeCategorySlugs, excludeCategorySlugs);
     }
 
     const sortOrderRaw = cfg.sortOrder ? String(cfg.sortOrder) : "";
@@ -347,18 +379,19 @@ async function getData() {
         ? "popular"
         : sortOrderRaw || "latest";
 
-    let orderBy: any = { publishedAt: "desc" };
-    if (sortOrder === "latest") orderBy = { publishedAt: "desc" };
-    else if (sortOrder === "oldest") orderBy = { publishedAt: "asc" };
-    else if (sortOrder === "popular") orderBy = { views: "desc" };
-    else if (sortOrder === "random") orderBy = { publishedAt: "desc" };
+    let orderBy: any = [{ publishedAt: "desc" }, { updatedAt: "desc" }, { id: "desc" }];
+    if (sortOrder === "latest") orderBy = [{ publishedAt: "desc" }, { updatedAt: "desc" }, { id: "desc" }];
+    else if (sortOrder === "oldest") orderBy = [{ publishedAt: "asc" }, { updatedAt: "asc" }, { id: "asc" }];
+    else if (sortOrder === "popular") orderBy = [{ views: "desc" }, { publishedAt: "desc" }, { updatedAt: "desc" }, { id: "desc" }];
+    else if (sortOrder === "random") orderBy = [{ publishedAt: "desc" }, { updatedAt: "desc" }, { id: "desc" }];
 
-    let takeLimit = limit;
+    let takeLimit: number | null = limit;
     if (block.type === "news_list" && cfg.paginationStyle && cfg.paginationStyle !== "none") {
-      takeLimit = Math.max(takeLimit, limit * 4, 20);
+      // Initial render only needs the first window; subsequent pages are fetched on demand.
+      takeLimit = limit;
     }
-    if (blockOffset > 0) takeLimit += blockOffset;
-    if (sortOrder === "random") takeLimit = Math.max(20 + blockOffset, takeLimit);
+    if (blockOffset > 0 && takeLimit !== null) takeLimit += blockOffset;
+    if (sortOrder === "random" && takeLimit !== null) takeLimit = Math.max(20 + blockOffset, takeLimit);
 
     const key = buildPostQueryKey(block);
     const existing = groups.get(key);
@@ -366,7 +399,10 @@ async function getData() {
       groups.set(key, { blocks: [block], maxTakeLimit: takeLimit, sortOrder, whereClause, orderBy });
     } else {
       existing.blocks.push(block);
-      existing.maxTakeLimit = Math.max(existing.maxTakeLimit, takeLimit);
+      existing.maxTakeLimit =
+        existing.maxTakeLimit === null || takeLimit === null
+          ? null
+          : Math.max(existing.maxTakeLimit, takeLimit);
     }
   }
 
@@ -399,20 +435,26 @@ async function getData() {
 
   const groupResults = await Promise.all(
     Array.from(groups.entries()).map(async ([key, group]) => {
+      const runQuery = async () =>
+        prisma.post.findMany({
+          where: group.whereClause,
+          select: postSelect as any,
+          orderBy: group.orderBy,
+          ...(group.maxTakeLimit !== null ? { take: group.maxTakeLimit } : {}),
+        });
+
+      if (group.maxTakeLimit === null) {
+        const posts = await runQuery();
+        return { key, posts, sortOrder: group.sortOrder, blocks: group.blocks };
+      }
+
       const cached = unstable_cache(
-        async () => {
-          return prisma.post.findMany({
-            where: group.whereClause,
-            select: postSelect as any,
-            orderBy: group.orderBy,
-            take: group.maxTakeLimit,
-          });
-        },
-        [`homepage:blockData:${activeTheme}:${key}:${group.maxTakeLimit}`],
+        runQuery,
+        [`homepage:blockData:${activeTheme}:${key}:${group.maxTakeLimit ?? "all"}`],
         { tags: ["homepage", "posts"], revalidate: 120 },
       );
 
-      const posts = await cached();
+      const posts = toPublicPostPreviewList(await cached());
       return { key, posts, sortOrder: group.sortOrder, blocks: group.blocks };
     }),
   );
@@ -456,17 +498,17 @@ async function getData() {
           ? "popular"
           : sortOrderRaw || "latest";
 
-      let takeLimit = limit;
+      let takeLimit: number | null = limit;
       if (block.type === "news_list" && cfg.paginationStyle && cfg.paginationStyle !== "none") {
-        takeLimit = Math.max(takeLimit, limit * 4, 20);
+        takeLimit = null;
       }
-      if (blockOffset > 0) takeLimit += blockOffset;
-      if (sortOrder === "random") takeLimit = Math.max(20 + blockOffset, takeLimit);
+      if (blockOffset > 0 && takeLimit !== null) takeLimit += blockOffset;
+      if (sortOrder === "random" && takeLimit !== null) takeLimit = Math.max(20 + blockOffset, takeLimit);
 
-      let data = group.posts.slice(0, takeLimit);
+      let data = takeLimit === null ? group.posts : group.posts.slice(0, takeLimit);
       if (sortOrder === "random") {
         const shuffled = shuffleSeeded(data, `block:${block.id}`);
-        const randomSliceLimit = blockOffset > 0 ? Math.max(limit + blockOffset, limit) : limit;
+        const randomSliceLimit = takeLimit === null ? shuffled.length : (blockOffset > 0 ? Math.max(limit + blockOffset, limit) : limit);
         data = shuffled.slice(0, randomSliceLimit);
       }
 
@@ -482,8 +524,13 @@ async function getData() {
 export default async function HomePage() {
   const data = await getData();
   const activeTheme = data.setting?.activeTheme || "classic";
-  const ThemeComponent = getThemeComponent(activeTheme);
+  const ThemeComponent = await getThemeComponent(activeTheme);
 
   // @ts-ignore
-  return <ThemeComponent data={data} />;
+  return (
+    <>
+      <TrackPublicPageView pageKey="home:/" path="/" title="Beranda" pageType="home" />
+      <ThemeComponent data={data} />
+    </>
+  );
 }

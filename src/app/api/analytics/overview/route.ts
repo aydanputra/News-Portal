@@ -1,39 +1,45 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
 import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-function startOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(0, 0, 0, 0);
-  return x;
+const DEFAULT_RANGE_DAYS = 7;
+const MAX_RANGE_DAYS = 365;
+
+function startOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(0, 0, 0, 0);
+  return date;
 }
 
-function endOfDay(d: Date) {
-  const x = new Date(d);
-  x.setHours(23, 59, 59, 999);
-  return x;
+function endOfDay(value: Date) {
+  const date = new Date(value);
+  date.setHours(23, 59, 59, 999);
+  return date;
 }
 
-function addDays(d: Date, days: number) {
-  const x = new Date(d);
-  x.setDate(x.getDate() + days);
-  return x;
+function addDays(value: Date, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
 }
 
-function toIsoDate(d: Date) {
-  return d.toISOString().slice(0, 10);
+function toIsoDay(value: Date) {
+  return startOfDay(value).toISOString().slice(0, 10);
 }
 
 function parseDateOnly(value: string | null) {
-  const v = String(value || "").trim();
-  if (!v) return null;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
-  const d = new Date(`${v}T00:00:00.000`);
-  if (Number.isNaN(d.getTime())) return null;
-  return d;
+  const raw = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const parsed = new Date(`${raw}T00:00:00.000`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function safeInt(value: unknown) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
 }
 
 export async function GET(request: Request) {
@@ -42,436 +48,445 @@ export async function GET(request: Request) {
     const token = cookieStore.get("auth_token")?.value;
     const user = verifyToken(token || "");
 
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     if (!["EDITOR", "ADMIN", "SUPER_ADMIN"].includes(String((user as any)?.role || ""))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { searchParams } = new URL(request.url);
+    const today = startOfDay(new Date());
     const startParam = parseDateOnly(searchParams.get("start"));
     const endParam = parseDateOnly(searchParams.get("end"));
 
-    const todayDay = startOfDay(new Date());
-
-    let rangeStart = startOfDay(addDays(todayDay, -29));
-    let rangeEnd = endOfDay(new Date());
+    let rangeStart = startOfDay(addDays(today, -(DEFAULT_RANGE_DAYS - 1)));
+    let rangeEnd = endOfDay(today);
 
     if (startParam && endParam) {
-      const startDay = startOfDay(startParam);
-      const endDay = startOfDay(endParam);
-      const cappedEnd = endDay > todayDay ? todayDay : endDay;
-      if (startDay > cappedEnd) {
+      const normalizedStart = startOfDay(startParam);
+      const normalizedEndDay = startOfDay(endParam) > today ? today : startOfDay(endParam);
+      if (normalizedStart > normalizedEndDay) {
         return NextResponse.json({ error: "Rentang tanggal tidak valid" }, { status: 400 });
       }
-      rangeStart = startDay;
-      rangeEnd = endOfDay(cappedEnd);
+      const diffDays = Math.floor((normalizedEndDay.getTime() - normalizedStart.getTime()) / 86400000) + 1;
+      if (diffDays > MAX_RANGE_DAYS) {
+        return NextResponse.json({ error: `Rentang maksimal ${MAX_RANGE_DAYS} hari.` }, { status: 400 });
+      }
+      rangeStart = normalizedStart;
+      rangeEnd = endOfDay(normalizedEndDay);
     } else {
-      const daysRaw = Number(searchParams.get("days") || "30");
-      const days = Number.isFinite(daysRaw) ? Math.min(90, Math.max(1, Math.floor(daysRaw))) : 30;
-      rangeStart = startOfDay(addDays(todayDay, -(days - 1)));
-      rangeEnd = endOfDay(todayDay);
+      const daysRaw = Number(searchParams.get("days") || DEFAULT_RANGE_DAYS);
+      const days = Number.isFinite(daysRaw)
+        ? Math.min(MAX_RANGE_DAYS, Math.max(1, Math.floor(daysRaw)))
+        : DEFAULT_RANGE_DAYS;
+      rangeStart = startOfDay(addDays(today, -(days - 1)));
+      rangeEnd = endOfDay(today);
     }
 
-    const rangeEndDay = startOfDay(new Date(rangeEnd));
-    const rangeDays = Math.floor((rangeEndDay.getTime() - rangeStart.getTime()) / (24 * 60 * 60 * 1000)) + 1;
-    const days = Math.min(90, Math.max(1, rangeDays));
+    const rangeDays = Math.floor((startOfDay(rangeEnd).getTime() - rangeStart.getTime()) / 86400000) + 1;
+    const todayStart = today;
+    const last7Start = startOfDay(addDays(today, -6));
+    const last30Start = startOfDay(addDays(today, -29));
 
-    if (rangeDays > 90) {
-      rangeStart = startOfDay(addDays(rangeEndDay, -(days - 1)));
-    }
-
-    const snapshotEndDay = rangeEndDay;
-    const snapshotStartDay = addDays(rangeStart, -1);
-
-    const snapshotDayRows = await prisma.postMetricSnapshot.groupBy({
-      by: ["day"],
-      where: { day: { gte: snapshotStartDay, lte: snapshotEndDay } },
-      _count: { _all: true },
-      orderBy: { day: "asc" },
-    });
-    const snapshotDaysPresent = new Set<string>(
-      (snapshotDayRows || []).map((r: any) => toIsoDate(r.day as any)),
-    );
-    const expectedSnapshotDays: string[] = [];
-    for (let i = 0; i <= days; i++) expectedSnapshotDays.push(toIsoDate(addDays(snapshotStartDay, i)));
-    const missingSnapshotDays = expectedSnapshotDays.filter((d) => !snapshotDaysPresent.has(d));
-
-    const [backlogDraft, backlogInReview, backlogRejected, backlogScheduled] = await Promise.all([
-      prisma.post.count({ where: { status: "DRAFT" } }),
-      prisma.post.count({ where: { status: "IN_REVIEW" } }),
-      prisma.post.count({ where: { status: "REJECTED" } }),
-      prisma.post.count({ where: { status: "SCHEDULED" } }),
-    ]);
-
-    const [publishedCount, commentsCount, dailyRows] = await Promise.all([
+    const [
+      publishedPosts,
+      publishedCount,
+      periodDailyRows,
+      periodPublicDailyRows,
+      periodPostRows,
+      todayPostRows,
+      sumToday,
+      sumLast7,
+      sumLast30,
+      periodPublicPageRows,
+      todayPublicPageRows,
+      totalPublicPageRows,
+      sumTodayPublic,
+      sumLast7Public,
+      sumLast30Public,
+    ] = await Promise.all([
+      prisma.post.findMany({
+        where: {
+          status: "PUBLISHED",
+          published: true,
+        },
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          views: true,
+          publishedAt: true,
+          author: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          approvedBy: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+          tags: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          },
+        },
+      }),
       prisma.post.count({
         where: {
           status: "PUBLISHED",
           published: true,
-          publishedAt: { gte: rangeStart, lte: rangeEnd },
         },
       }),
-      prisma.comment.count({
-        where: {
-          createdAt: { gte: rangeStart, lte: rangeEnd },
-          post: { status: "PUBLISHED", published: true },
-        },
-      }),
-      prisma.postMetricSnapshot.groupBy({
+      prisma.postViewDaily.groupBy({
         by: ["day"],
-        where: { day: { gte: snapshotStartDay, lte: snapshotEndDay } },
-        _sum: { views: true, viewsBase: true },
+        where: {
+          day: {
+            gte: rangeStart,
+            lte: startOfDay(rangeEnd),
+          },
+        },
+        _sum: { views: true },
         orderBy: { day: "asc" },
       }),
+      prisma.publicPageViewDaily.groupBy({
+        by: ["day"],
+        where: {
+          day: {
+            gte: rangeStart,
+            lte: startOfDay(rangeEnd),
+          },
+        },
+        _sum: { views: true },
+        orderBy: { day: "asc" },
+      }),
+      prisma.postViewDaily.groupBy({
+        by: ["postId"],
+        where: {
+          day: {
+            gte: rangeStart,
+            lte: startOfDay(rangeEnd),
+          },
+        },
+        _sum: { views: true },
+      }),
+      prisma.postViewDaily.groupBy({
+        by: ["postId"],
+        where: {
+          day: todayStart,
+        },
+        _sum: { views: true },
+      }),
+      prisma.postViewDaily.aggregate({
+        where: { day: todayStart },
+        _sum: { views: true },
+      }),
+      prisma.postViewDaily.aggregate({
+        where: {
+          day: {
+            gte: last7Start,
+            lte: todayStart,
+          },
+        },
+        _sum: { views: true },
+      }),
+      prisma.postViewDaily.aggregate({
+        where: {
+          day: {
+            gte: last30Start,
+            lte: todayStart,
+          },
+        },
+        _sum: { views: true },
+      }),
+      prisma.publicPageViewDaily.groupBy({
+        by: ["pageKey", "pageType", "path", "title"],
+        where: {
+          day: {
+            gte: rangeStart,
+            lte: startOfDay(rangeEnd),
+          },
+        },
+        _sum: { views: true },
+      }),
+      prisma.publicPageViewDaily.groupBy({
+        by: ["pageKey", "pageType", "path", "title"],
+        where: {
+          day: todayStart,
+        },
+        _sum: { views: true },
+      }),
+      prisma.publicPageViewDaily.groupBy({
+        by: ["pageKey", "pageType", "path", "title"],
+        _sum: { views: true },
+      }),
+      prisma.publicPageViewDaily.aggregate({
+        where: { day: todayStart },
+        _sum: { views: true },
+      }),
+      prisma.publicPageViewDaily.aggregate({
+        where: {
+          day: {
+            gte: last7Start,
+            lte: todayStart,
+          },
+        },
+        _sum: { views: true },
+      }),
+      prisma.publicPageViewDaily.aggregate({
+        where: {
+          day: {
+            gte: last30Start,
+            lte: todayStart,
+          },
+        },
+        _sum: { views: true },
+      }),
     ]);
 
-    const totalsByDay = new Map<string, number>();
-    for (const row of dailyRows) {
-      const dayKey = toIsoDate(row.day as any);
-      const total = Number((row as any)?._sum?.views || 0) + Number((row as any)?._sum?.viewsBase || 0);
-      totalsByDay.set(dayKey, Number.isFinite(total) ? total : 0);
+    const trendMap = new Map<string, number>();
+    for (let i = 0; i < rangeDays; i += 1) {
+      trendMap.set(toIsoDay(addDays(rangeStart, i)), 0);
+    }
+    for (const row of periodDailyRows) {
+      trendMap.set(toIsoDay(row.day), safeInt(row._sum.views));
+    }
+    for (const row of periodPublicDailyRows) {
+      const dayKey = toIsoDay(row.day);
+      trendMap.set(dayKey, (trendMap.get(dayKey) || 0) + safeInt(row._sum.views));
     }
 
-    const dailyViews: { day: string; views: number }[] = [];
-    let totalViews = 0;
-    for (let i = 1; i <= days; i++) {
-      const day = addDays(snapshotStartDay, i);
-      const prevDay = addDays(snapshotStartDay, i - 1);
-      const dayKey = toIsoDate(day);
-      const prevKey = toIsoDate(prevDay);
-      const dayTotal = totalsByDay.get(dayKey);
-      const prevTotal = totalsByDay.get(prevKey);
-      const delta =
-        typeof dayTotal === "number" && typeof prevTotal === "number"
-          ? Math.max(0, dayTotal - prevTotal)
-          : 0;
-      dailyViews.push({ day: dayKey, views: delta });
-      totalViews += delta;
+    const periodViewsByPost = new Map<string, number>();
+    for (const row of periodPostRows) {
+      periodViewsByPost.set(row.postId, safeInt(row._sum.views));
     }
 
-    const avgViewsPerPost = publishedCount > 0 ? Math.round(totalViews / publishedCount) : 0;
-
-    const topPosts = await prisma.$queryRaw<any[]>`
-      WITH start_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotStartDay}
-      ),
-      end_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotEndDay}
-      )
-      SELECT
-        p.id,
-        p.title,
-        p."publishedAt",
-        GREATEST(
-          0,
-          COALESCE(es.total, (p.views + p."viewsBase")::int) - COALESCE(ss.total, 0)
-        )::int AS "viewsTotal",
-        a.name AS "authorName",
-        c.name AS "categoryName",
-        e.name AS "editorName"
-      FROM "Post" p
-      JOIN "User" a ON a.id = p."authorId"
-      JOIN "Category" c ON c.id = p."categoryId"
-      LEFT JOIN "User" e ON e.id = p."approvedById"
-      LEFT JOIN start_snap ss ON ss."postId" = p.id
-      LEFT JOIN end_snap es ON es."postId" = p.id
-      WHERE p.status = 'PUBLISHED'
-        AND p.published = true
-        AND p."publishedAt" >= ${rangeStart}
-        AND p."publishedAt" <= ${rangeEnd}
-      ORDER BY "viewsTotal" DESC
-      LIMIT 10
-    `;
-
-    const topAuthors = await prisma.$queryRaw<any[]>`
-      WITH start_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotStartDay}
-      ),
-      end_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotEndDay}
-      )
-      SELECT
-        a.id,
-        a.name,
-        COUNT(*)::int AS "posts",
-        SUM(
-          GREATEST(
-            0,
-            COALESCE(es.total, (p.views + p."viewsBase")::int) - COALESCE(ss.total, 0)
-          )
-        )::int AS "viewsTotal"
-      FROM "Post" p
-      JOIN "User" a ON a.id = p."authorId"
-      LEFT JOIN start_snap ss ON ss."postId" = p.id
-      LEFT JOIN end_snap es ON es."postId" = p.id
-      WHERE p.status = 'PUBLISHED'
-        AND p.published = true
-        AND p."publishedAt" >= ${rangeStart}
-        AND p."publishedAt" <= ${rangeEnd}
-      GROUP BY a.id, a.name
-      ORDER BY "viewsTotal" DESC
-      LIMIT 10
-    `;
-
-    const topEditors = await prisma.$queryRaw<any[]>`
-      WITH start_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotStartDay}
-      ),
-      end_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotEndDay}
-      )
-      SELECT
-        e.id,
-        e.name,
-        COUNT(*)::int AS "posts",
-        SUM(
-          GREATEST(
-            0,
-            COALESCE(es.total, (p.views + p."viewsBase")::int) - COALESCE(ss.total, 0)
-          )
-        )::int AS "viewsTotal",
-        (AVG(EXTRACT(EPOCH FROM (p."publishedAt" - p."createdAt"))) / 3600.0)::float AS "avgHoursToPublish",
-        (AVG(EXTRACT(EPOCH FROM (p."publishedAt" - p."submittedForReviewAt"))) / 3600.0)::float AS "avgReviewHours"
-      FROM "Post" p
-      JOIN "User" e ON e.id = p."approvedById"
-      LEFT JOIN start_snap ss ON ss."postId" = p.id
-      LEFT JOIN end_snap es ON es."postId" = p.id
-      WHERE p.status = 'PUBLISHED'
-        AND p.published = true
-        AND p."approvedById" IS NOT NULL
-        AND p."publishedAt" >= ${rangeStart}
-        AND p."publishedAt" <= ${rangeEnd}
-      GROUP BY e.id, e.name
-      ORDER BY "viewsTotal" DESC
-      LIMIT 10
-    `;
-
-    const topCategories = await prisma.$queryRaw<any[]>`
-      WITH start_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotStartDay}
-      ),
-      end_snap AS (
-        SELECT "postId", ("views" + "viewsBase")::int AS total
-        FROM "PostMetricSnapshot"
-        WHERE day = ${snapshotEndDay}
-      )
-      SELECT
-        c.id,
-        c.name,
-        COUNT(*)::int AS "posts",
-        SUM(
-          GREATEST(
-            0,
-            COALESCE(es.total, (p.views + p."viewsBase")::int) - COALESCE(ss.total, 0)
-          )
-        )::int AS "viewsTotal"
-      FROM "Post" p
-      JOIN "Category" c ON c.id = p."categoryId"
-      LEFT JOIN start_snap ss ON ss."postId" = p.id
-      LEFT JOIN end_snap es ON es."postId" = p.id
-      WHERE p.status = 'PUBLISHED'
-        AND p.published = true
-        AND p."publishedAt" >= ${rangeStart}
-        AND p."publishedAt" <= ${rangeEnd}
-      GROUP BY c.id, c.name
-      ORDER BY "viewsTotal" DESC
-      LIMIT 10
-    `;
-
-    const topCategory = Array.isArray(topCategories) && topCategories.length > 0 ? topCategories[0] : null;
-    const topAuthor = Array.isArray(topAuthors) && topAuthors.length > 0 ? topAuthors[0] : null;
-    const topEditor = Array.isArray(topEditors) && topEditors.length > 0 ? topEditors[0] : null;
-
-    const [writerPerf, editorPerf, editorAssigned, editorAssignedStale] = await Promise.all([
-      prisma.$queryRaw<any[]>`
-        WITH start_snap AS (
-          SELECT "postId", ("views" + "viewsBase")::int AS total
-          FROM "PostMetricSnapshot"
-          WHERE day = ${snapshotStartDay}
-        ),
-        end_snap AS (
-          SELECT "postId", ("views" + "viewsBase")::int AS total
-          FROM "PostMetricSnapshot"
-          WHERE day = ${snapshotEndDay}
-        )
-        SELECT
-          a.id,
-          a.name,
-          COUNT(*)::int AS "posts",
-          SUM(
-            GREATEST(
-              0,
-              COALESCE(es.total, (p.views + p."viewsBase")::int) - COALESCE(ss.total, 0)
-            )
-          )::int AS "viewsTotal",
-          (AVG(EXTRACT(EPOCH FROM (p."publishedAt" - p."createdAt"))) / 3600.0)::float AS "avgHoursToPublish"
-        FROM "Post" p
-        JOIN "User" a ON a.id = p."authorId"
-        LEFT JOIN start_snap ss ON ss."postId" = p.id
-        LEFT JOIN end_snap es ON es."postId" = p.id
-        WHERE p.status = 'PUBLISHED'
-          AND p.published = true
-          AND p."publishedAt" >= ${rangeStart}
-          AND p."publishedAt" <= ${rangeEnd}
-        GROUP BY a.id, a.name
-        ORDER BY "viewsTotal" DESC
-        LIMIT 20
-      `,
-      prisma.$queryRaw<any[]>`
-        WITH start_snap AS (
-          SELECT "postId", ("views" + "viewsBase")::int AS total
-          FROM "PostMetricSnapshot"
-          WHERE day = ${snapshotStartDay}
-        ),
-        end_snap AS (
-          SELECT "postId", ("views" + "viewsBase")::int AS total
-          FROM "PostMetricSnapshot"
-          WHERE day = ${snapshotEndDay}
-        )
-        SELECT
-          e.id,
-          e.name,
-          COUNT(*)::int AS "posts",
-          SUM(
-            GREATEST(
-              0,
-              COALESCE(es.total, (p.views + p."viewsBase")::int) - COALESCE(ss.total, 0)
-            )
-          )::int AS "viewsTotal",
-          (AVG(EXTRACT(EPOCH FROM (p."publishedAt" - p."createdAt"))) / 3600.0)::float AS "avgHoursToPublish",
-          (AVG(EXTRACT(EPOCH FROM (p."publishedAt" - p."submittedForReviewAt"))) / 3600.0)::float AS "avgReviewHours"
-        FROM "Post" p
-        JOIN "User" e ON e.id = p."approvedById"
-        LEFT JOIN start_snap ss ON ss."postId" = p.id
-        LEFT JOIN end_snap es ON es."postId" = p.id
-        WHERE p.status = 'PUBLISHED'
-          AND p.published = true
-          AND p."approvedById" IS NOT NULL
-          AND p."publishedAt" >= ${rangeStart}
-          AND p."publishedAt" <= ${rangeEnd}
-        GROUP BY e.id, e.name
-        ORDER BY "viewsTotal" DESC
-        LIMIT 20
-      `,
-      prisma.$queryRaw<any[]>`
-        SELECT
-          prt."editorId" as id,
-          COUNT(*)::int AS "assignedInReview"
-        FROM "PostReviewTarget" prt
-        JOIN "Post" p ON p.id = prt."postId"
-        WHERE p.status = 'IN_REVIEW'
-        GROUP BY prt."editorId"
-      `,
-      prisma.$queryRaw<any[]>`
-        SELECT
-          prt."editorId" as id,
-          COUNT(*)::int AS "assignedInReviewStale"
-        FROM "PostReviewTarget" prt
-        JOIN "Post" p ON p.id = prt."postId"
-        WHERE p.status = 'IN_REVIEW'
-          AND COALESCE(p."submittedForReviewAt", p."updatedAt") < NOW() - interval '24 hours'
-        GROUP BY prt."editorId"
-      `,
-    ]);
-
-    const assignedMap = new Map<string, number>();
-    for (const r of Array.isArray(editorAssigned) ? editorAssigned : []) {
-      const id = String((r as any)?.id || "").trim();
-      const n = Number((r as any)?.assignedInReview || 0);
-      if (id) assignedMap.set(id, Number.isFinite(n) ? n : 0);
+    const todayViewsByPost = new Map<string, number>();
+    for (const row of todayPostRows) {
+      todayViewsByPost.set(row.postId, safeInt(row._sum.views));
     }
 
-    const assignedStaleMap = new Map<string, number>();
-    for (const r of Array.isArray(editorAssignedStale) ? editorAssignedStale : []) {
-      const id = String((r as any)?.id || "").trim();
-      const n = Number((r as any)?.assignedInReviewStale || 0);
-      if (id) assignedStaleMap.set(id, Number.isFinite(n) ? n : 0);
+    const topPosts = publishedPosts
+      .map((post) => {
+        const totalViews = safeInt(post.views);
+        const periodViews = periodViewsByPost.get(post.id) || 0;
+        const todayViews = todayViewsByPost.get(post.id) || 0;
+        return {
+          id: post.id,
+          title: post.title,
+          slug: post.slug,
+          publishedAt: post.publishedAt ? post.publishedAt.toISOString() : null,
+          categoryName: post.category?.name || null,
+          categorySlug: post.category?.slug || null,
+          totalViews,
+          periodViews,
+          todayViews,
+        };
+      })
+      .sort((a, b) => {
+        if (b.periodViews !== a.periodViews) return b.periodViews - a.periodViews;
+        if (b.todayViews !== a.todayViews) return b.todayViews - a.todayViews;
+        return b.totalViews - a.totalViews;
+      })
+      .slice(0, 15);
+
+    const authorMap = new Map<string, { id: string; name: string; views: number; totalViews: number; posts: number }>();
+    const editorMap = new Map<string, { id: string; name: string; views: number; totalViews: number; posts: number }>();
+    const categoryMap = new Map<string, { id: string; name: string; views: number; totalViews: number; posts: number }>();
+    const topicMap = new Map<string, { id: string; name: string; slug: string; views: number; totalViews: number; posts: number }>();
+
+    for (const post of publishedPosts) {
+      const totalViews = safeInt(post.views);
+      const periodViews = periodViewsByPost.get(post.id) || 0;
+
+      if (post.author?.id) {
+        const current = authorMap.get(post.author.id) || {
+          id: post.author.id,
+          name: post.author.name || "Tanpa Nama",
+          views: 0,
+          totalViews: 0,
+          posts: 0,
+        };
+        current.views += periodViews;
+        current.totalViews += totalViews;
+        current.posts += 1;
+        authorMap.set(post.author.id, current);
+      }
+
+      if (post.approvedBy?.id) {
+        const current = editorMap.get(post.approvedBy.id) || {
+          id: post.approvedBy.id,
+          name: post.approvedBy.name || "Tanpa Nama",
+          views: 0,
+          totalViews: 0,
+          posts: 0,
+        };
+        current.views += periodViews;
+        current.totalViews += totalViews;
+        current.posts += 1;
+        editorMap.set(post.approvedBy.id, current);
+      }
+
+      if (post.category?.id) {
+        const current = categoryMap.get(post.category.id) || {
+          id: post.category.id,
+          name: post.category.name || "Tanpa Kategori",
+          views: 0,
+          totalViews: 0,
+          posts: 0,
+        };
+        current.views += periodViews;
+        current.totalViews += totalViews;
+        current.posts += 1;
+        categoryMap.set(post.category.id, current);
+      }
+
+      for (const tag of post.tags || []) {
+        const current = topicMap.get(tag.id) || {
+          id: tag.id,
+          name: tag.name || "Tanpa Topik",
+          slug: tag.slug || "",
+          views: 0,
+          totalViews: 0,
+          posts: 0,
+        };
+        current.views += periodViews;
+        current.totalViews += totalViews;
+        current.posts += 1;
+        topicMap.set(tag.id, current);
+      }
     }
 
-    const writers = (Array.isArray(writerPerf) ? writerPerf : []).map((w) => {
-      const posts = Number((w as any)?.posts || 0);
-      const viewsTotal = Number((w as any)?.viewsTotal || 0);
-      const avgViews = posts > 0 ? Math.round(viewsTotal / posts) : 0;
-      return {
-        id: String((w as any)?.id || ""),
-        name: String((w as any)?.name || ""),
-        posts,
-        viewsTotal,
-        avgViewsPerPost: avgViews,
-        avgHoursToPublish: typeof (w as any)?.avgHoursToPublish === "number" ? (w as any).avgHoursToPublish : null,
-      };
-    });
+    const sortLeaderboard = <T extends { views: number; totalViews: number; posts: number; name: string }>(items: T[]) =>
+      items.sort((a, b) => {
+        if (b.views !== a.views) return b.views - a.views;
+        if (b.totalViews !== a.totalViews) return b.totalViews - a.totalViews;
+        if (b.posts !== a.posts) return b.posts - a.posts;
+        return a.name.localeCompare(b.name, "id");
+      });
 
-    const editors = (Array.isArray(editorPerf) ? editorPerf : []).map((e) => {
-      const id = String((e as any)?.id || "");
-      const posts = Number((e as any)?.posts || 0);
-      const viewsTotal = Number((e as any)?.viewsTotal || 0);
-      const avgViews = posts > 0 ? Math.round(viewsTotal / posts) : 0;
-      return {
-        id,
-        name: String((e as any)?.name || ""),
-        posts,
-        viewsTotal,
-        avgViewsPerPost: avgViews,
-        avgHoursToPublish: typeof (e as any)?.avgHoursToPublish === "number" ? (e as any).avgHoursToPublish : null,
-        avgReviewHours: typeof (e as any)?.avgReviewHours === "number" ? (e as any).avgReviewHours : null,
-        assignedInReview: assignedMap.get(id) || 0,
-        assignedInReviewStale: assignedStaleMap.get(id) || 0,
-      };
-    });
+    const topAuthors = sortLeaderboard([...authorMap.values()]).slice(0, 10);
+    const topEditors = sortLeaderboard([...editorMap.values()]).slice(0, 10);
+    const topCategories = sortLeaderboard([...categoryMap.values()]).slice(0, 10);
+    const topTopics = sortLeaderboard([...topicMap.values()]).slice(0, 10);
 
-    return NextResponse.json({
+    const publicPeriodViewsByKey = new Map<string, number>();
+    const publicTodayViewsByKey = new Map<string, number>();
+    const publicTotalViewsByKey = new Map<string, number>();
+    const publicPageMetaByKey = new Map<string, { pageKey: string; pageType: string; path: string; title: string }>();
+
+    for (const row of periodPublicPageRows) {
+      publicPeriodViewsByKey.set(row.pageKey, safeInt(row._sum.views));
+      publicPageMetaByKey.set(row.pageKey, {
+        pageKey: row.pageKey,
+        pageType: row.pageType,
+        path: row.path,
+        title: row.title,
+      });
+    }
+
+    for (const row of todayPublicPageRows) {
+      publicTodayViewsByKey.set(row.pageKey, safeInt(row._sum.views));
+      if (!publicPageMetaByKey.has(row.pageKey)) {
+        publicPageMetaByKey.set(row.pageKey, {
+          pageKey: row.pageKey,
+          pageType: row.pageType,
+          path: row.path,
+          title: row.title,
+        });
+      }
+    }
+
+    for (const row of totalPublicPageRows) {
+      publicTotalViewsByKey.set(row.pageKey, safeInt(row._sum.views));
+      if (!publicPageMetaByKey.has(row.pageKey)) {
+        publicPageMetaByKey.set(row.pageKey, {
+          pageKey: row.pageKey,
+          pageType: row.pageType,
+          path: row.path,
+          title: row.title,
+        });
+      }
+    }
+
+    const topPages = [...publicPageMetaByKey.values()]
+      .map((item) => ({
+        id: item.pageKey,
+        pageType: item.pageType,
+        path: item.path,
+        title: item.title,
+        totalViews: publicTotalViewsByKey.get(item.pageKey) || 0,
+        periodViews: publicPeriodViewsByKey.get(item.pageKey) || 0,
+        todayViews: publicTodayViewsByKey.get(item.pageKey) || 0,
+      }))
+      .sort((a, b) => {
+        if (b.periodViews !== a.periodViews) return b.periodViews - a.periodViews;
+        if (b.todayViews !== a.todayViews) return b.todayViews - a.todayViews;
+        return b.totalViews - a.totalViews;
+      })
+      .slice(0, 15);
+
+    const totalArticleViewsAllTime = publishedPosts.reduce((sum, post) => {
+      return sum + safeInt(post.views);
+    }, 0);
+
+    const totalPublicViewsAllTime = [...publicTotalViewsByKey.values()].reduce((sum, value) => {
+      return sum + safeInt(value);
+    }, 0);
+
+    const totalViewsAllTime = totalArticleViewsAllTime + totalPublicViewsAllTime;
+    const avgViewsPerPost = publishedCount > 0 ? Math.round(totalArticleViewsAllTime / publishedCount) : 0;
+    const viewsToday = safeInt(sumToday._sum.views) + safeInt(sumTodayPublic._sum.views);
+    const viewsLast7Days = safeInt(sumLast7._sum.views) + safeInt(sumLast7Public._sum.views);
+    const viewsLast30Days = safeInt(sumLast30._sum.views) + safeInt(sumLast30Public._sum.views);
+    const viewsInRange = [...trendMap.values()].reduce((sum, value) => sum + value, 0);
+
+    const payload = {
+      viewerRole: String((user as any)?.role || ""),
+      generatedAt: new Date().toISOString(),
+      trackingMode: "realtime",
       range: {
-        days,
+        days: rangeDays,
         start: rangeStart.toISOString(),
         end: rangeEnd.toISOString(),
       },
-      snapshot: {
-        startDay: snapshotStartDay.toISOString(),
-        endDay: snapshotEndDay.toISOString(),
-        expectedDays: expectedSnapshotDays.length,
-        availableDays: snapshotDaysPresent.size,
-        missingDays: missingSnapshotDays,
-      },
-      kpis: {
-        totalViews,
-        totalPublished: publishedCount,
+      summary: {
+        totalViewsAllTime,
+        viewsToday,
+        viewsLast7Days,
+        viewsLast30Days,
+        viewsInRange,
+        publishedPosts: publishedCount,
         avgViewsPerPost,
-        totalComments: commentsCount,
-        backlog: {
-          draft: backlogDraft,
-          inReview: backlogInReview,
-          rejected: backlogRejected,
-          scheduled: backlogScheduled,
-        },
-        topCategory: topCategory ? { id: topCategory.id, name: topCategory.name, viewsTotal: topCategory.viewsTotal } : null,
-        topAuthor: topAuthor ? { id: topAuthor.id, name: topAuthor.name, viewsTotal: topAuthor.viewsTotal } : null,
-        topEditor: topEditor ? { id: topEditor.id, name: topEditor.name, viewsTotal: topEditor.viewsTotal } : null,
       },
-      trends: { dailyViews },
+      trend: [...trendMap.entries()].map(([day, views]) => ({ day, views })),
       top: {
-        posts: topPosts || [],
-        authors: topAuthors || [],
-        editors: topEditors || [],
-        categories: topCategories || [],
+        authors: topAuthors,
+        editors: topEditors,
+        categories: topCategories,
+        topics: topTopics,
       },
-      people: {
-        writers,
-        editors,
+      topPosts,
+      topPages,
+    };
+
+    return NextResponse.json(payload, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
       },
     });
   } catch (error: any) {

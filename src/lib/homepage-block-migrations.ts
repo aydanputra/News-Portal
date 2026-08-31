@@ -1,3 +1,5 @@
+import { resolveBlockTypeAlias } from "@/lib/block-registry";
+
 type GenericRecord = Record<string, unknown>;
 
 const CATEGORY_KEY_MAPPINGS = [
@@ -8,6 +10,17 @@ const CATEGORY_KEY_MAPPINGS = [
 ] as const;
 
 const RESPONSIVE_PREFIXES = ["", "tablet", "mobile"] as const;
+const LEGACY_AUTO_TITLES_BY_TYPE: Record<string, string[]> = {
+  headline_2: ["Headline 2"],
+  news_list_highlight: ["News List Highlight"],
+  news_slider: ["News Slider"],
+};
+const ALIASED_DEFAULT_TITLES: Record<string, string> = {
+  classic_hero: "Hero",
+  news_grid_slider: "Grid Slider",
+  news_headline_big: "Headline Big",
+  news_list: "Simple List",
+};
 
 const isNonEmptyValue = (value: unknown) => {
   if (value === undefined || value === null) return false;
@@ -47,6 +60,18 @@ export const normalizeBlockTree = <T>(block: T): T => {
   if (!block || typeof block !== "object" || Array.isArray(block)) return block;
 
   const normalizedBlock = { ...(block as GenericRecord) };
+  const originalType = typeof normalizedBlock.type === "string" ? normalizedBlock.type : "";
+  const effectiveType = originalType ? resolveBlockTypeAlias(originalType) : originalType;
+  if (typeof normalizedBlock.type === "string") {
+    normalizedBlock.type = effectiveType;
+  }
+  if (typeof normalizedBlock.title === "string") {
+    const normalizedTitle = normalizedBlock.title.trim();
+    const legacyAutoTitles = LEGACY_AUTO_TITLES_BY_TYPE[originalType] || [];
+    if (normalizedTitle !== "" && legacyAutoTitles.includes(normalizedTitle)) {
+      normalizedBlock.title = ALIASED_DEFAULT_TITLES[effectiveType] || normalizedBlock.title;
+    }
+  }
   if ("config" in normalizedBlock) {
     normalizedBlock.config = normalizeConfigObject(normalizedBlock.config);
   }

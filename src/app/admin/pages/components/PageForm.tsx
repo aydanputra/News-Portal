@@ -6,9 +6,9 @@ import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import MediaLibraryModal from "../../components/MediaLibraryModal";
+import { sanitizePageContent } from "@/lib/sanitizer";
 
-// Dynamic import for CKEditor to avoid SSR issues
-const CKEditorComponent = dynamic(() => import("@/components/admin/CKEditorComponent"), { 
+const TiptapArticleEditor = dynamic(() => import("@/components/admin/TiptapArticleEditor"), {
     ssr: false,
     loading: () => <div className="h-96 bg-gray-100 animate-pulse rounded-lg"></div>
 });
@@ -100,11 +100,25 @@ export default function PageForm({ initialData, onSubmit, isEditing = false }: P
   };
 
   const handlePreview = () => {
-    if (slug) {
-        window.open(`/${slug}`, '_blank');
-    } else {
-        alert("Harap isi judul/slug terlebih dahulu untuk melihat preview.");
+    if (!title.trim() && !content.trim()) {
+      alert("Harap isi judul atau konten terlebih dahulu untuk melihat preview.");
+      return;
     }
+
+    const previewData = {
+      pageId: initialData?.id || "",
+      title,
+      slug,
+      content: sanitizePageContent(content || ""),
+      published: status === "PUBLISHED",
+      metaTitle,
+      metaDesc,
+      featuredImage,
+      template,
+    };
+
+    localStorage.setItem("pagePreviewData", JSON.stringify(previewData));
+    window.open("/preview/page", "_blank");
   };
 
   const handleRequestImage = useCallback(() => {
@@ -180,7 +194,7 @@ export default function PageForm({ initialData, onSubmit, isEditing = false }: P
 
               {/* Content */}
               <div className="flex flex-col relative min-h-[500px]">
-                <CKEditorComponent
+                <TiptapArticleEditor
                   value={content}
                   onChange={setContent}
                   placeholder="Tulis konten halaman di sini..."
@@ -225,18 +239,14 @@ export default function PageForm({ initialData, onSubmit, isEditing = false }: P
           <div className="space-y-6">
               
               {/* Publish Widget (Similar to Post) */}
-              <div className="card bg-[var(--bg-elevated)] rounded-xl border border-[var(--border)] shadow-sm overflow-hidden">
-                  <div className="bg-[var(--bg-surface)] px-4 py-3 border-b border-[var(--border)] flex justify-between items-center">
-                      <h3 className="font-semibold text-[var(--fg-primary)] text-sm">Publikasi</h3>
-                  </div>
-                  <div className="p-4 space-y-4">
-                      {/* Status Badge */}
+              <div className="card p-4 sm:p-5">
+                  <h3 className="font-semibold text-[var(--fg-primary)] mb-4 flex items-center gap-2">Publikasi</h3>
+                  <div className="space-y-4">
                       <div className={`p-3 rounded-lg flex items-center justify-between ${STATUS_COLORS[status] || "bg-gray-100"}`}>
                         <span className="font-semibold text-sm">Status Saat Ini</span>
                         <span className="font-bold text-sm uppercase tracking-wider">{STATUS_LABELS[status] || status}</span>
                       </div>
 
-                      {/* Status Selector */}
                       <div>
                         <label className="block text-sm font-medium text-[var(--fg-secondary)] mb-2">Ubah Status</label>
                         <div className="relative">
@@ -252,24 +262,28 @@ export default function PageForm({ initialData, onSubmit, isEditing = false }: P
                           <ChevronDown size={16} className="absolute right-3 top-3 text-[var(--fg-muted)] pointer-events-none" />
                         </div>
                       </div>
-                      
-                      <div className="pt-4 border-t border-[var(--border)]">
-                          <button
-                              type="submit"
-                              onClick={handleSubmit}
-                              disabled={loading}
-                              className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex justify-center items-center"
-                          >
-                              {loading ? <Loader2 className="animate-spin mr-2" size={16} /> : <Save size={16} className="mr-2" />}
-                              Simpan Perubahan
-                          </button>
-                      </div>
                   </div>
               </div>
 
-              {/* Featured Image Widget */}
+              <div
+                className="card p-3 sm:p-4 sticky z-10"
+                style={{ top: "calc(var(--admin-header-height, 64px) + 12px)" }}
+              >
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="submit"
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="w-full py-3 btn btn-primary flex justify-center items-center gap-2"
+                  >
+                    {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                    {loading ? "Menyimpan..." : "Simpan Halaman"}
+                  </button>
+                </div>
+              </div>
+
               <div className="card bg-[var(--bg-elevated)] rounded-xl border border-[var(--border)] shadow-sm overflow-hidden">
-                  <div className="bg-[var(--bg-surface)] px-4 py-3 border-b border-[var(--border)]">
+                  <div className="bg-[var(--bg-surface)] px-4 py-3 border-b border-[var(--border)] flex justify-between items-center">
                       <h3 className="font-semibold text-[var(--fg-primary)] text-sm">Gambar Unggulan</h3>
                   </div>
                   <div className="p-4">

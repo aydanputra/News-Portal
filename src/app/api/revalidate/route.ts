@@ -1,7 +1,8 @@
 
 import { revalidatePath, revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
-import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
+import { assertRateLimit } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
 
 export async function POST(request: NextRequest) {
   try {

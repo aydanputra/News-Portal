@@ -36,13 +36,23 @@ export default function GlobalStylesPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
+      const {
+        insertCodeHead,
+        insertCodeBody,
+        insertCodeFooter,
+        ...safeSettings
+      } = settings;
+      void insertCodeHead;
+      void insertCodeBody;
+      void insertCodeFooter;
       const res = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify(safeSettings),
       });
       
       if (res.ok) {
+        await fetchSettings();
         alert("Pengaturan berhasil disimpan!");
       } else {
         alert("Gagal menyimpan pengaturan.");

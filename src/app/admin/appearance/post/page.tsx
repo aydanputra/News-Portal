@@ -213,7 +213,8 @@ export default function PostBuilderPage() {
           {/* Edit Child Modal */}
           <EditChildModal
         builderLocation="post"
-        child={state.editingChild ? (state.blocks[state.editingChild.parentIndex]?.config?.children?.find((c: any) => c.id === state.editingChild?.childId) || null) : null}
+        activeTheme={state.activeTheme}
+        child={actions.getEditingChildBlock()}
         isOpen={!!state.editingChild}
             onClose={() => actions.setEditingChild(null)}
             categories={state.categories}
@@ -227,23 +228,36 @@ export default function PostBuilderPage() {
         getConfigValue={(child, key) => actions.getConfigValue(child, key)}
         onUpdateTitle={(newTitle) => actions.updateChildTitle(newTitle)}
             globalSettings={{
+                accentColor: state.accentColor,
                 primaryColor: state.primaryColor,
+                backgroundColor: state.backgroundColor,
                 headingColor: state.headingColor,
                 metaColor: state.metaColor,
-                excerptColor: state.excerptColor
+                excerptColor: state.excerptColor,
+                homeWidgetTitleColor: state.homeWidgetTitleColor,
+                homeNewsTitleColor: state.homeNewsTitleColor,
+                homeHoverColor: state.homeHoverColor,
+                homeExcerptColor: state.homeExcerptColor,
+                homeMetaColor: state.homeMetaColor,
+                postWidgetTitleColor: state.postWidgetTitleColor,
+                postContentColor: state.postContentColor,
+                postMetaColor: state.postMetaColor,
+                postLinkColor: state.postLinkColor,
+                postLinkHoverColor: state.postLinkHoverColor,
+                globalBorderRadius: state.globalBorderRadius,
             }}
           />
 
           {/* Edit Section Modal */}
           <EditSectionModal 
             builderLocation="post"
-            section={state.editingSectionId ? (state.blocks.find(b => b.id === state.editingSectionId) || state.blocks.flatMap(b => b.config?.children || []).find(b => b.id === state.editingSectionId)) : null}
+            section={actions.getEditingSectionBlock() || undefined}
             isOpen={!!state.editingSectionId}
             onClose={() => actions.setEditingSectionId(null)}
             activeSectionTab={state.activeSectionTab}
             setActiveSectionTab={actions.setActiveSectionTab}
-            activeSectionDeviceTab={state.activeDeviceTab}
-            setActiveSectionDeviceTab={actions.setActiveDeviceTab}
+            activeSectionDeviceTab={state.activeSectionDeviceTab}
+            setActiveSectionDeviceTab={actions.setActiveSectionDeviceTab}
             updateSectionConfig={(key, value) => actions.updateSectionConfig(key, value)}
         updateSectionResponsiveConfig={(key, value) => actions.updateSectionResponsiveConfig(key, value)}
         getSectionConfigValue={(key) => actions.getSectionConfigValue(key)}

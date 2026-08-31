@@ -6,19 +6,22 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Zap, Newspaper, Tags, Settings, Image as ImageIcon, Megaphone, Palette, ChevronDown, ChevronRight, Users, LogOut, User, HelpCircle, Wrench, FileText, BarChart3 } from "lucide-react";
 
 import Image from "next/image";
+import { useAdminSession } from "@/components/admin/AdminSessionContext";
+import { ALL_TOOL_IDS } from "@/lib/tools";
 
-export default function Sidebar() {
+export default function Sidebar({ roleOverride }: { roleOverride?: string | null }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { user } = useAdminSession();
   const [isAppearanceOpen, setIsAppearanceOpen] = useState(true);
   const [isToolsOpen, setIsToolsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [userName, setUserName] = useState<string | null>(null);
-  const [userRole, setUserRole] = useState<string | null>(null);
-  const [userAvatar, setUserAvatar] = useState<string | null>(null);
-  const [toolsFlags, setToolsFlags] = useState<{ allowlistActive: boolean; enabledTools: string[] } | null>(null);
+  const [toolsFlags, setToolsFlags] = useState<{ enabledTools: string[] } | null>(null);
+  const userName = user?.name || null;
+  const userAvatar = user?.avatar || null;
+  const userRole = roleOverride || user?.role || null;
   const initials = useMemo(() => {
     const name = userName || "Admin User";
     const parts = name.trim().split(/\s+/);
@@ -46,43 +49,14 @@ export default function Sidebar() {
           : "Penulis";
 
   useEffect(() => {
-    let active = true;
-    fetch("/api/auth/me")
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (!active || !data) return;
-        setUserName(data.name || null);
-        setUserRole(data.role || null);
-        
-        // Also fetch profile detail to get avatar if not in auth/me
-        // Assuming auth/me might just return session info
-        fetch("/api/profile")
-            .then(r => (r.ok ? r.json() : null))
-            .then(profile => {
-                if (active && profile?.avatar) {
-                    setUserAvatar(profile.avatar);
-                }
-            })
-            .catch(() => {});
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
     if (!canSeeTools) return;
     let active = true;
     fetch("/api/admin/tools/enabled", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!active || !data) return;
-        const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : [];
-        setToolsFlags({
-          allowlistActive: Boolean(data.allowlistActive),
-          enabledTools,
-        });
+        const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : ALL_TOOL_IDS;
+        setToolsFlags({ enabledTools });
       })
       .catch(() => {});
     return () => {
@@ -108,14 +82,16 @@ export default function Sidebar() {
     : "general";
 
   const toolsEnabledSet = useMemo(() => new Set(toolsFlags?.enabledTools || []), [toolsFlags]);
-  const allowlistActive = toolsFlags?.allowlistActive ?? false;
   const canUseImportTools =
-    !allowlistActive ||
+    toolsFlags == null ||
     toolsEnabledSet.has("wp_import") ||
     toolsEnabledSet.has("media_migration") ||
     toolsEnabledSet.has("backfill_excerpts");
-  const canUsePrintTools = !allowlistActive || toolsEnabledSet.has("print_tools");
-  const showToolsSection = canSeeTools && (canUseImportTools || canUsePrintTools);
+  const canUsePrintTools = toolsFlags == null || toolsEnabledSet.has("print_tools");
+  const canUseBuktiTayang = toolsFlags == null || toolsEnabledSet.has("bukti_tayang");
+  const canUseRedirectManager = toolsFlags == null || toolsEnabledSet.has("redirect_manager");
+  const canUseAutoShare = toolsFlags == null || toolsEnabledSet.has("auto_share");
+  const showToolsSection = canSeeTools && (canUseImportTools || canUsePrintTools || canUseBuktiTayang || canUseRedirectManager || canUseAutoShare);
 
   const handleLogout = async () => {
     try {
@@ -206,6 +182,15 @@ export default function Sidebar() {
                     )}
                     {canUsePrintTools && (
                       <NavItem href="/admin/tools/print" label="Print Artikel" active={pathname === "/admin/tools/print"} size="sm" />
+                    )}
+                    {canUseBuktiTayang && (
+                      <NavItem href="/admin/tools/bukti-tayang" label="Bukti Tayang" active={pathname === "/admin/tools/bukti-tayang"} size="sm" />
+                    )}
+                    {canUseRedirectManager && (
+                      <NavItem href="/admin/tools/redirects" label="Redirect Manager" active={pathname === "/admin/tools/redirects"} size="sm" />
+                    )}
+                    {canUseAutoShare && (
+                      <NavItem href="/admin/tools/auto-share" label="Auto Share" active={pathname === "/admin/tools/auto-share"} size="sm" />
                     )}
                 </div>
             )}

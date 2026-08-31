@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Upload, FileText, Check, AlertCircle, Loader2, Image as ImageIcon, Download, Wrench, RefreshCw } from "lucide-react";
+import { ALL_TOOL_IDS } from "@/lib/tools";
 
 export default function ImportPage() {
     const [activeTab, setActiveTab] = useState<'xml' | 'media' | 'tools'>('xml');
-    const [toolsFlags, setToolsFlags] = useState<{ allowlistActive: boolean; enabledTools: string[] } | null>(null);
+    const [toolsFlags, setToolsFlags] = useState<{ enabledTools: string[] } | null>(null);
     const enabledSet = useMemo(() => new Set(toolsFlags?.enabledTools || []), [toolsFlags]);
-    const allowlistActive = toolsFlags?.allowlistActive ?? false;
-    const canXml = !allowlistActive || enabledSet.has("wp_import");
-    const canMedia = !allowlistActive || enabledSet.has("media_migration");
-    const canBackfill = !allowlistActive || enabledSet.has("backfill_excerpts");
+    const canXml = toolsFlags == null || enabledSet.has("wp_import");
+    const canMedia = toolsFlags == null || enabledSet.has("media_migration");
+    const canBackfill = toolsFlags == null || enabledSet.has("backfill_excerpts");
     const hasAnyTool = canXml || canMedia || canBackfill;
     
     // XML State
@@ -37,8 +37,8 @@ export default function ImportPage() {
             .then((r) => (r.ok ? r.json() : null))
             .then((data) => {
                 if (!active || !data) return;
-                const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : [];
-                setToolsFlags({ allowlistActive: Boolean(data.allowlistActive), enabledTools });
+                const enabledTools = Array.isArray(data.enabledTools) ? data.enabledTools.map((x: any) => String(x)) : ALL_TOOL_IDS;
+                setToolsFlags({ enabledTools });
             })
             .catch(() => {});
         return () => {
@@ -47,7 +47,6 @@ export default function ImportPage() {
     }, []);
 
     useEffect(() => {
-        if (!allowlistActive) return;
         if (activeTab === "xml" && !canXml) {
             if (canMedia) setActiveTab("media");
             else if (canBackfill) setActiveTab("tools");
@@ -58,7 +57,7 @@ export default function ImportPage() {
             if (canXml) setActiveTab("xml");
             else if (canMedia) setActiveTab("media");
         }
-    }, [activeTab, allowlistActive, canBackfill, canMedia, canXml]);
+    }, [activeTab, canBackfill, canMedia, canXml]);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
@@ -133,6 +132,18 @@ export default function ImportPage() {
             const data = await res.json();
             
             addLog(`Import Berhasil! ${data.importedCount} artikel telah ditambahkan.`);
+            if (typeof data.skippedDuplicateCount === "number" && data.skippedDuplicateCount > 0) {
+                addLog(`Import dilewati untuk ${data.skippedDuplicateCount} artikel duplikat.`);
+            }
+            if (Array.isArray(data.skippedDuplicates) && data.skippedDuplicates.length > 0) {
+                data.skippedDuplicates.forEach((item: string) => addLog(`Duplikat: ${item}`));
+            }
+            if (typeof data.redirectCreatedCount === "number") {
+                addLog(`Redirect otomatis dibuat: ${data.redirectCreatedCount} rule.`);
+            }
+            if (typeof data.redirectSkippedCount === "number" && data.redirectSkippedCount > 0) {
+                addLog(`Redirect dilewati karena sudah ada: ${data.redirectSkippedCount} rule.`);
+            }
             setStatus('completed');
             setProgress(100);
         } catch (err: any) {
@@ -220,7 +231,7 @@ export default function ImportPage() {
         }
     };
 
-    if (allowlistActive && !hasAnyTool) {
+    if (!hasAnyTool) {
         return (
             <div className="p-6 md:p-8 bg-[var(--bg-base)] min-h-screen">
                 <div className="card p-6">

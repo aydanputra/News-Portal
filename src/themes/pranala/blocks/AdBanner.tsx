@@ -6,7 +6,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getResponsiveBoolValues, getResponsiveValue, pickResponsiveValue, type ResponsiveDevice } from "./responsive";
 import { resolveWidgetRadius } from "./radius";
-import { safeStyleTagCss } from "@/lib/sanitizer";
 
 type AdMedia = {
   fileUrl: string;
@@ -24,6 +23,37 @@ type Advertisement = {
   media?: AdMedia | null;
 };
 
+const normalizeColorToken = (value: unknown) =>
+  typeof value === "string" ? value.trim().toLowerCase().replace(/\s+/g, "") : "";
+
+const isTransparentLikeToken = (value: unknown) => {
+  const normalized = normalizeColorToken(value);
+  return normalized === "" || normalized === "transparent" || normalized === "none" || normalized === "inherit" || normalized === "initial";
+};
+
+const isLegacyNeutralSurface = (value: unknown) => {
+  const normalized = normalizeColorToken(value);
+  return [
+    "#fff",
+    "#ffffff",
+    "#f9fafb",
+    "#f8fafc",
+    "#f3f4f6",
+    "#f5f5f5",
+    "white",
+    "rgb(255,255,255)",
+    "rgba(255,255,255,1)",
+    "rgba(255,255,255,0.95)",
+    "rgba(255,255,255,0.9)",
+    "var(--bg-elevated)",
+    "var(--bg-elevated,#ffffff)",
+    "var(--bg-surface)",
+    "var(--bg-surface,#f9fafb)",
+    "var(--card,white)",
+    "var(--card,#ffffff)",
+  ].includes(normalized);
+};
+
 const adResponseCache = new Map<string, Advertisement[]>();
 const adRequestCache = new Map<string, Promise<Advertisement[]>>();
 
@@ -36,9 +66,20 @@ interface AdBannerProps {
   hideWhenEmpty?: boolean;
   previewDevice?: ResponsiveDevice;
   ignorePadding?: boolean;
+  customTitle?: string;
 }
 
-export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, previewDevice, ignorePadding = false }: AdBannerProps) {
+const toCssSize = (value: unknown, fallback: string) => {
+  if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+  if (typeof value === "string" && value.trim() !== "") {
+    const trimmed = value.trim();
+    if (/^\d+(\.\d+)?$/.test(trimmed)) return `${trimmed}px`;
+    return trimmed;
+  }
+  return fallback;
+};
+
+export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, previewDevice, ignorePadding = false, customTitle }: AdBannerProps) {
   const pathname = usePathname() || "/";
   const config = block.config || {};
   const configRecord = config as Record<string, unknown>;
@@ -86,7 +127,6 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
   const mLeftDesktop = typeof config.marginLeft === "number" ? `${config.marginLeft}px` : mLeftTablet;
 
   const useBoxValues = getResponsiveBoolValues(configRecord, "useBox", false);
-  const useBox = pickResponsiveValue(useBoxValues, device);
   const paddingFallbackMobile = '0px';
   const paddingFallbackTablet = '0px';
   const paddingFallbackDesktop = '0px';
@@ -122,46 +162,123 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
   const padBottomDesktop = ignorePadding ? "0px" : pBottomDesktop;
   const padLeftDesktop = ignorePadding ? "0px" : pLeftDesktop;
 
-  const boxColor = getResponsiveValue<string>(configRecord, "boxColor", device) || '#ffffff';
-  const blockTitleColorMobile = (config as any).mobileBlockTitleColor || config.blockTitleColor || 'var(--home-widget-title-color, inherit)';
-  const blockTitleColorTablet = (config as any).tabletBlockTitleColor || blockTitleColorMobile;
-  const blockTitleColorDesktop = config.blockTitleColor || blockTitleColorTablet;
-  const blockTitleBorderColorMobile = (config as any).mobileBlockTitleBorderColor || config.blockTitleBorderColor || 'var(--accent)';
-  const blockTitleBorderColorTablet = (config as any).tabletBlockTitleBorderColor || blockTitleBorderColorMobile;
-  const blockTitleBorderColorDesktop = config.blockTitleBorderColor || blockTitleBorderColorTablet;
-  const blockTitleFsMobile = typeof (config as any).mobileBlockTitleFontSize === "number" ? `${(config as any).mobileBlockTitleFontSize}px` : (typeof config.blockTitleFontSize === "number" ? `${config.blockTitleFontSize}px` : 'var(--home-widget-title-size, 1.25rem)');
-  const blockTitleFsTablet = typeof (config as any).tabletBlockTitleFontSize === "number" ? `${(config as any).tabletBlockTitleFontSize}px` : blockTitleFsMobile;
-  const blockTitleFsDesktop = typeof config.blockTitleFontSize === "number" ? `${config.blockTitleFontSize}px` : blockTitleFsTablet;
-  const emptyStateBgMobile = (config as any).mobileEmptyStateBgColor || config.emptyStateBgColor || '#f9fafb';
+  const boxColorDesktop = getResponsiveValue<string>(configRecord, "boxColor", "desktop") || 'transparent';
+  const boxColorTablet = getResponsiveValue<string>(configRecord, "boxColor", "tablet") || boxColorDesktop;
+  const boxColorMobile = getResponsiveValue<string>(configRecord, "boxColor", "mobile") || boxColorTablet;
+  const effectiveUseBoxDesktop = useBoxValues.desktop && !isTransparentLikeToken(boxColorDesktop) && !isLegacyNeutralSurface(boxColorDesktop);
+  const effectiveUseBoxTablet = useBoxValues.tablet && !isTransparentLikeToken(boxColorTablet) && !isLegacyNeutralSurface(boxColorTablet);
+  const effectiveUseBoxMobile = useBoxValues.mobile && !isTransparentLikeToken(boxColorMobile) && !isLegacyNeutralSurface(boxColorMobile);
+  const useBox = pickResponsiveValue({ desktop: effectiveUseBoxDesktop, tablet: effectiveUseBoxTablet, mobile: effectiveUseBoxMobile }, device);
+  const boxColor = device === "mobile" ? boxColorMobile : device === "tablet" ? boxColorTablet : boxColorDesktop;
+  const emptyStateBgMobile = (config as any).mobileEmptyStateBgColor || config.emptyStateBgColor || 'transparent';
   const emptyStateBgTablet = (config as any).tabletEmptyStateBgColor || emptyStateBgMobile;
   const emptyStateBgDesktop = config.emptyStateBgColor || emptyStateBgTablet;
-  const emptyStateBorderMobile = (config as any).mobileEmptyStateBorderColor || config.emptyStateBorderColor || '#e5e7eb';
+  const emptyStateBorderMobile = (config as any).mobileEmptyStateBorderColor || config.emptyStateBorderColor || 'var(--border, #e5e7eb)';
   const emptyStateBorderTablet = (config as any).tabletEmptyStateBorderColor || emptyStateBorderMobile;
   const emptyStateBorderDesktop = config.emptyStateBorderColor || emptyStateBorderTablet;
-  const emptyStateTextMobile = (config as any).mobileEmptyStateTextColor || config.emptyStateTextColor || '#9ca3af';
+  const emptyStateTextMobile = (config as any).mobileEmptyStateTextColor || config.emptyStateTextColor || 'var(--muted-text, var(--home-meta-color, #9ca3af))';
   const emptyStateTextTablet = (config as any).tabletEmptyStateTextColor || emptyStateTextMobile;
   const emptyStateTextDesktop = config.emptyStateTextColor || emptyStateTextTablet;
   const emptyStateSubtextMobile = (config as any).mobileEmptyStateSubtextColor || config.emptyStateSubtextColor || '#6b7280';
   const emptyStateSubtextTablet = (config as any).tabletEmptyStateSubtextColor || emptyStateSubtextMobile;
   const emptyStateSubtextDesktop = config.emptyStateSubtextColor || emptyStateSubtextTablet;
+  const widgetTitle = (typeof customTitle === "string" && customTitle.trim() !== "")
+    ? customTitle.trim()
+    : (typeof (block as any).title === "string" && (block as any).title.trim() !== "")
+      ? (block as any).title.trim()
+      : (typeof config.title === "string" && config.title.trim() !== "")
+        ? config.title.trim()
+        : "Iklan Banner";
+  const blockTitleColorDesktop = typeof config.blockTitleColor === "string" && config.blockTitleColor.trim() !== "" ? config.blockTitleColor : "var(--home-widget-title-color, var(--heading-color, #1e293b))";
+  const blockTitleColorTablet = typeof (config as any).tabletBlockTitleColor === "string" && (config as any).tabletBlockTitleColor.trim() !== "" ? (config as any).tabletBlockTitleColor : blockTitleColorDesktop;
+  const blockTitleColorMobile = typeof (config as any).mobileBlockTitleColor === "string" && (config as any).mobileBlockTitleColor.trim() !== "" ? (config as any).mobileBlockTitleColor : blockTitleColorDesktop;
+  const blockTitleBorderDesktop = typeof config.blockTitleBorderColor === "string" && config.blockTitleBorderColor.trim() !== "" ? config.blockTitleBorderColor : "var(--accent)";
+  const blockTitleBorderTablet = typeof (config as any).tabletBlockTitleBorderColor === "string" && (config as any).tabletBlockTitleBorderColor.trim() !== "" ? (config as any).tabletBlockTitleBorderColor : blockTitleBorderDesktop;
+  const blockTitleBorderMobile = typeof (config as any).mobileBlockTitleBorderColor === "string" && (config as any).mobileBlockTitleBorderColor.trim() !== "" ? (config as any).mobileBlockTitleBorderColor : blockTitleBorderDesktop;
+  const blockTitleFsDesktop = toCssSize(config.blockTitleFontSize, "var(--home-widget-title-size, 20px)");
+  const blockTitleFsTablet = toCssSize((config as any).tabletBlockTitleFontSize ?? config.blockTitleFontSize, blockTitleFsDesktop);
+  const blockTitleFsMobile = toCssSize((config as any).mobileBlockTitleFontSize ?? config.blockTitleFontSize, "var(--home-widget-title-size, 20px)");
+  const blockTitleLhDesktop = String(config.blockTitleLineHeight ?? "1.2");
+  const blockTitleLhTablet = String((config as any).tabletBlockTitleLineHeight ?? config.blockTitleLineHeight ?? blockTitleLhDesktop);
+  const blockTitleLhMobile = String((config as any).mobileBlockTitleLineHeight ?? config.blockTitleLineHeight ?? "1.2");
+  const blockTitleMbDesktop = toCssSize(config.blockTitleMarginBottom, "12px");
+  const blockTitleMbTablet = toCssSize((config as any).tabletBlockTitleMarginBottom ?? config.blockTitleMarginBottom, blockTitleMbDesktop);
+  const blockTitleMbMobile = toCssSize((config as any).mobileBlockTitleMarginBottom ?? config.blockTitleMarginBottom, "12px");
+  const blockTitlePbDesktop = toCssSize(config.blockTitlePaddingBottom, "12px");
+  const blockTitlePbTablet = toCssSize((config as any).tabletBlockTitlePaddingBottom ?? config.blockTitlePaddingBottom, blockTitlePbDesktop);
+  const blockTitlePbMobile = toCssSize((config as any).mobileBlockTitlePaddingBottom ?? config.blockTitlePaddingBottom, "12px");
   
   const responsiveBoxBorderRadius = getResponsiveValue<string>(configRecord, "boxBorderRadius", device);
   const globalRadius = borderRadius || 'var(--home-main-box-radius, 0.75rem)';
   const boxBorderRadius = responsiveBoxBorderRadius !== undefined
     ? resolveWidgetRadius(responsiveBoxBorderRadius, globalRadius)
     : (useBox ? globalRadius : '0');
+  const boxPtMobile = typeof (config as any).mobileBoxPaddingTop === "number" ? `${(config as any).mobileBoxPaddingTop}px` : (typeof config.boxPaddingTop === "number" ? `${config.boxPaddingTop}px` : '0px');
+  const boxPrMobile = typeof (config as any).mobileBoxPaddingRight === "number" ? `${(config as any).mobileBoxPaddingRight}px` : (typeof config.boxPaddingRight === "number" ? `${config.boxPaddingRight}px` : '0px');
+  const boxPbMobile = typeof (config as any).mobileBoxPaddingBottom === "number" ? `${(config as any).mobileBoxPaddingBottom}px` : (typeof config.boxPaddingBottom === "number" ? `${config.boxPaddingBottom}px` : '0px');
+  const boxPlMobile = typeof (config as any).mobileBoxPaddingLeft === "number" ? `${(config as any).mobileBoxPaddingLeft}px` : (typeof config.boxPaddingLeft === "number" ? `${config.boxPaddingLeft}px` : '0px');
+  const boxPtTablet = typeof (config as any).tabletBoxPaddingTop === "number" ? `${(config as any).tabletBoxPaddingTop}px` : (typeof config.boxPaddingTop === "number" ? `${config.boxPaddingTop}px` : boxPtMobile);
+  const boxPrTablet = typeof (config as any).tabletBoxPaddingRight === "number" ? `${(config as any).tabletBoxPaddingRight}px` : (typeof config.boxPaddingRight === "number" ? `${config.boxPaddingRight}px` : boxPrMobile);
+  const boxPbTablet = typeof (config as any).tabletBoxPaddingBottom === "number" ? `${(config as any).tabletBoxPaddingBottom}px` : (typeof config.boxPaddingBottom === "number" ? `${config.boxPaddingBottom}px` : boxPbMobile);
+  const boxPlTablet = typeof (config as any).tabletBoxPaddingLeft === "number" ? `${(config as any).tabletBoxPaddingLeft}px` : (typeof config.boxPaddingLeft === "number" ? `${config.boxPaddingLeft}px` : boxPlMobile);
+  const boxPtDesktop = typeof config.boxPaddingTop === "number" ? `${config.boxPaddingTop}px` : boxPtTablet;
+  const boxPrDesktop = typeof config.boxPaddingRight === "number" ? `${config.boxPaddingRight}px` : boxPrTablet;
+  const boxPbDesktop = typeof config.boxPaddingBottom === "number" ? `${config.boxPaddingBottom}px` : boxPbTablet;
+  const boxPlDesktop = typeof config.boxPaddingLeft === "number" ? `${config.boxPaddingLeft}px` : boxPlTablet;
+  const currentBoxPt = device === "mobile" ? boxPtMobile : device === "tablet" ? boxPtTablet : boxPtDesktop;
+  const currentBoxPr = device === "mobile" ? boxPrMobile : device === "tablet" ? boxPrTablet : boxPrDesktop;
+  const currentBoxPb = device === "mobile" ? boxPbMobile : device === "tablet" ? boxPbTablet : boxPbDesktop;
+  const currentBoxPl = device === "mobile" ? boxPlMobile : device === "tablet" ? boxPlTablet : boxPlDesktop;
 
   const containerStyle = {
-      backgroundColor: useBox ? boxColor : 'transparent',
-      borderRadius: useBox ? boxBorderRadius : '0',
-      boxShadow: useBox ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none',
-      border: useBox ? 'var(--box-border, 1px solid #f3f4f6)' : 'none',
       display: 'block',
       width: '100%',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      '--rb-mt-mobile': mTopMobile,
+      '--rb-mr-mobile': mRightMobile,
+      '--rb-mb-mobile': mBottomMobile,
+      '--rb-ml-mobile': mLeftMobile,
+      '--rb-pt-mobile': padTopMobile,
+      '--rb-pr-mobile': padRightMobile,
+      '--rb-pb-mobile': padBottomMobile,
+      '--rb-pl-mobile': padLeftMobile,
+      '--rb-mt-tablet': mTopTablet,
+      '--rb-mr-tablet': mRightTablet,
+      '--rb-mb-tablet': mBottomTablet,
+      '--rb-ml-tablet': mLeftTablet,
+      '--rb-pt-tablet': padTopTablet,
+      '--rb-pr-tablet': padRightTablet,
+      '--rb-pb-tablet': padBottomTablet,
+      '--rb-pl-tablet': padLeftTablet,
+      '--rb-mt-desktop': mTopDesktop,
+      '--rb-mr-desktop': mRightDesktop,
+      '--rb-mb-desktop': mBottomDesktop,
+      '--rb-ml-desktop': mLeftDesktop,
+      '--rb-pt-desktop': padTopDesktop,
+      '--rb-pr-desktop': padRightDesktop,
+      '--rb-pb-desktop': padBottomDesktop,
+      '--rb-pl-desktop': padLeftDesktop,
+      '--ad-empty-bg-mobile': emptyStateBgMobile,
+      '--ad-empty-bg-tablet': emptyStateBgTablet,
+      '--ad-empty-bg-desktop': emptyStateBgDesktop,
+      '--ad-empty-border-mobile': emptyStateBorderMobile,
+      '--ad-empty-border-tablet': emptyStateBorderTablet,
+      '--ad-empty-border-desktop': emptyStateBorderDesktop,
+      '--ad-empty-title-mobile': emptyStateTextMobile,
+      '--ad-empty-title-tablet': emptyStateTextTablet,
+      '--ad-empty-title-desktop': emptyStateTextDesktop,
+      '--ad-empty-subtext-mobile': emptyStateSubtextMobile,
+      '--ad-empty-subtext-tablet': emptyStateSubtextTablet,
+      '--ad-empty-subtext-desktop': emptyStateSubtextDesktop,
   } as React.CSSProperties;
 
   const adRadius = resolveWidgetRadius(borderRadius, globalRadius);
+  const currentBlockTitleColor = device === "mobile" ? blockTitleColorMobile : device === "tablet" ? blockTitleColorTablet : blockTitleColorDesktop;
+  const currentBlockTitleBorder = device === "mobile" ? blockTitleBorderMobile : device === "tablet" ? blockTitleBorderTablet : blockTitleBorderDesktop;
+  const currentBlockTitleFs = device === "mobile" ? blockTitleFsMobile : device === "tablet" ? blockTitleFsTablet : blockTitleFsDesktop;
+  const currentBlockTitleLh = device === "mobile" ? blockTitleLhMobile : device === "tablet" ? blockTitleLhTablet : blockTitleLhDesktop;
+  const currentBlockTitleMb = device === "mobile" ? blockTitleMbMobile : device === "tablet" ? blockTitleMbTablet : blockTitleMbDesktop;
+  const currentBlockTitlePb = device === "mobile" ? blockTitlePbMobile : device === "tablet" ? blockTitlePbTablet : blockTitlePbDesktop;
 
   const responsivePosition = getResponsiveValue<string>(configRecord, "position", device);
   const selectedAdId = typeof config.selectedAdId === "string" ? config.selectedAdId.trim() : "";
@@ -346,14 +463,14 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
   const renderAd = () => {
     if (loading) {
       return (
-        <div className="w-full flex justify-center items-center min-h-[100px] text-gray-400 text-xs font-medium uppercase tracking-widest" style={{ borderRadius: adRadius }}>
+        <div className="w-full flex justify-center items-center min-h-[100px] [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-xs font-medium uppercase tracking-widest" style={{ borderRadius: adRadius }}>
           Memuat iklan...
         </div>
       );
     }
     if (error) {
       return (
-        <div className="w-full flex justify-center items-center min-h-[100px] text-gray-400 text-xs font-medium uppercase tracking-widest" style={{ borderRadius: adRadius }}>
+        <div className="w-full flex justify-center items-center min-h-[100px] [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-xs font-medium uppercase tracking-widest" style={{ borderRadius: adRadius }}>
           {error}
         </div>
       );
@@ -405,25 +522,36 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
   if (hideWhenEmptyEnabled && !loading && !error && !hasAd) return null;
   const innerBoxStyle = (hasAd
     ? { backgroundColor: 'transparent', border: 'none' }
-    : { minHeight: '100px', backgroundColor: emptyStateBgMobile, border: `1px dashed ${emptyStateBorderMobile}` }
+    : { minHeight: '100px' }
   ) as React.CSSProperties;
   innerBoxStyle.borderRadius = adRadius;
   innerBoxStyle.overflow = "hidden";
+  innerBoxStyle.backgroundColor = useBox ? boxColor : 'transparent';
+  innerBoxStyle.borderRadius = useBox ? boxBorderRadius : adRadius;
+  innerBoxStyle.boxShadow = useBox ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none';
+  innerBoxStyle.border = useBox ? 'var(--box-border, 1px solid #f3f4f6)' : innerBoxStyle.border;
+  innerBoxStyle.paddingTop = useBox ? currentBoxPt : '0px';
+  innerBoxStyle.paddingRight = useBox ? currentBoxPr : '0px';
+  innerBoxStyle.paddingBottom = useBox ? currentBoxPb : '0px';
+  innerBoxStyle.paddingLeft = useBox ? currentBoxPl : '0px';
 
   return (
-    <div id={`ad-banner-${block.id}`} className={`ad-banner-wrapper ${visibilityClass}`} style={containerStyle}>
-        <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-          #ad-banner-${block.id} { margin-top: ${mTopMobile} !important; margin-right: ${mRightMobile} !important; margin-bottom: ${mBottomMobile} !important; margin-left: ${mLeftMobile} !important; padding-top: ${padTopMobile} !important; padding-right: ${padRightMobile} !important; padding-bottom: ${padBottomMobile} !important; padding-left: ${padLeftMobile} !important; }
-          #ad-banner-${block.id} .theme-widget-title { font-size: ${blockTitleFsMobile}; color: ${blockTitleColorMobile}; }
-          #ad-banner-${block.id} .widget-title-bar { background-color: ${blockTitleBorderColorMobile}; }
-          #ad-banner-${block.id} .ad-empty-title { color: ${emptyStateTextMobile}; }
-          #ad-banner-${block.id} .ad-empty-subtext { color: ${emptyStateSubtextMobile}; }
-          @media (min-width: 768px) { #ad-banner-${block.id} { margin-top: ${mTopTablet} !important; margin-right: ${mRightTablet} !important; margin-bottom: ${mBottomTablet} !important; margin-left: ${mLeftTablet} !important; padding-top: ${padTopTablet} !important; padding-right: ${padRightTablet} !important; padding-bottom: ${padBottomTablet} !important; padding-left: ${padLeftTablet} !important; } #ad-banner-${block.id} .theme-widget-title { font-size: ${blockTitleFsTablet}; color: ${blockTitleColorTablet}; } #ad-banner-${block.id} .widget-title-bar { background-color: ${blockTitleBorderColorTablet}; } #ad-banner-${block.id} .ad-banner-empty { background-color: ${emptyStateBgTablet}; border-color: ${emptyStateBorderTablet}; } #ad-banner-${block.id} .ad-empty-title { color: ${emptyStateTextTablet}; } #ad-banner-${block.id} .ad-empty-subtext { color: ${emptyStateSubtextTablet}; } }
-          @media (min-width: 1025px) { #ad-banner-${block.id} { margin-top: ${mTopDesktop} !important; margin-right: ${mRightDesktop} !important; margin-bottom: ${mBottomDesktop} !important; margin-left: ${mLeftDesktop} !important; padding-top: ${padTopDesktop} !important; padding-right: ${padRightDesktop} !important; padding-bottom: ${padBottomDesktop} !important; padding-left: ${padLeftDesktop} !important; } #ad-banner-${block.id} .theme-widget-title { font-size: ${blockTitleFsDesktop}; color: ${blockTitleColorDesktop}; } #ad-banner-${block.id} .widget-title-bar { background-color: ${blockTitleBorderColorDesktop}; } #ad-banner-${block.id} .ad-banner-empty { background-color: ${emptyStateBgDesktop}; border-color: ${emptyStateBorderDesktop}; } #ad-banner-${block.id} .ad-empty-title { color: ${emptyStateTextDesktop}; } #ad-banner-${block.id} .ad-empty-subtext { color: ${emptyStateSubtextDesktop}; } }
-        `) }} />
-
+    <div
+      id={`ad-banner-${block.id}`}
+      className={`ad-banner-wrapper ad-banner-block responsive-block-frame ${visibilityClass}`.trim()}
+      style={containerStyle}
+    >
+        {(config.showTitle !== false) && (
+          <h3
+            className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title"
+            style={{ lineHeight: currentBlockTitleLh, marginBottom: currentBlockTitleMb, paddingBottom: currentBlockTitlePb }}
+          >
+            <div className="widget-title-bar" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)", backgroundColor: currentBlockTitleBorder }}></div>
+            <span style={{ color: currentBlockTitleColor, fontSize: currentBlockTitleFs, lineHeight: currentBlockTitleLh }}>{widgetTitle}</span>
+          </h3>
+        )}
         <div
-          className={hasAd ? "w-full" : "w-full flex justify-center items-center relative ad-banner-empty"}
+          className={hasAd ? "w-full" : "w-full flex justify-center items-center relative ad-banner-empty border border-dashed"}
           style={innerBoxStyle}
         >
           {hasAd ? renderAd() : (

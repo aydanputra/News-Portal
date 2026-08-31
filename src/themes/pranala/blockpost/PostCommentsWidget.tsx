@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, MessageCircleMore, Reply, Send, X } from "lucide-react";
 import { WidgetRenderContext } from "./types";
 import { toPx } from "./helpers";
@@ -15,7 +15,7 @@ type CommentItem = {
 };
 
 const COMMENT_AUTHOR_CACHE_KEY = "pranala-comment-author-cache";
-const COMMENT_AUTHOR_CACHE_TTL = 12 * 60 * 60 * 1000;
+const COMMENT_AUTHOR_CACHE_TTL = 30 * 24 * 60 * 60 * 1000;
 
 const MOCK_COMMENTS: CommentItem[] = [
   {
@@ -88,8 +88,6 @@ export default function PostCommentsWidget({
   getConfigBool,
   isPublicDarkMode
 }: WidgetRenderContext) {
-  const titleText = widget?.title || "Komentar";
-  const showTitle = getConfigBool("showTitle", true);
   const showCommentCount = getConfigBool("showCommentCount", true);
   const showCommentForm = getConfigBool("showCommentForm", true);
   const showCommentDate = getConfigBool("showCommentDate", true);
@@ -111,10 +109,6 @@ export default function PostCommentsWidget({
   const emptyCommentsText = typeof emptyCommentsTextRaw === "string" && emptyCommentsTextRaw.trim() !== "" ? emptyCommentsTextRaw.trim() : "Belum ada komentar. Jadilah yang pertama mengirim komentar.";
   const commentPlaceholder = typeof commentPlaceholderRaw === "string" && commentPlaceholderRaw.trim() !== "" ? commentPlaceholderRaw.trim() : "Tulis komentar Anda di sini...";
   const loadMoreButtonText = typeof loadMoreButtonTextRaw === "string" && loadMoreButtonTextRaw.trim() !== "" ? loadMoreButtonTextRaw.trim() : "Muat lebih banyak";
-  const blockTitleColor = (getResponsiveConfig("blockTitleColor") as string) || "var(--home-widget-title-color, inherit)";
-  const blockTitleBorderColor = (getResponsiveConfig("blockTitleBorderColor") as string) || accentColor;
-  const blockTitleFontSize = toPx(getResponsiveConfig("blockTitleFontSize")) || "var(--home-widget-title-size, 1.25rem)";
-  const blockTitleLineHeight = typeof getResponsiveConfig("blockTitleLineHeight") === "number" ? getResponsiveConfig("blockTitleLineHeight") as number : undefined;
   const authorColor = (getResponsiveConfig("commentAuthorColor") as string) || (isPublicDarkMode ? "var(--fg-primary)" : headingColor);
   const commentMetaTextColor = (getResponsiveConfig("commentMetaColor") as string) || (isPublicDarkMode ? "var(--fg-secondary)" : metaColor);
   const commentBodyColor = (getResponsiveConfig("commentTextColor") as string) || (isPublicDarkMode ? "var(--fg-primary)" : contentColor);
@@ -134,19 +128,22 @@ export default function PostCommentsWidget({
   const [message, setMessage] = useState("");
   const [replyTo, setReplyTo] = useState<CommentItem | null>(null);
   const [visibleCount, setVisibleCount] = useState(initialCommentsLimit);
+  const [showIdentityFields, setShowIdentityFields] = useState(false);
   const [form, setForm] = useState({
     name: "",
     email: "",
     website: "",
     content: ""
   });
+  const nameInputRef = useRef<HTMLInputElement | null>(null);
+  const commentTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   useEffect(() => {
     if (preview || typeof window === "undefined") return;
     try {
       const raw = window.localStorage.getItem(COMMENT_AUTHOR_CACHE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { name?: string; email?: string; savedAt?: number };
+      const parsed = JSON.parse(raw) as { name?: string; email?: string; website?: string; savedAt?: number };
       if (!parsed?.savedAt || Date.now() - parsed.savedAt > COMMENT_AUTHOR_CACHE_TTL) {
         window.localStorage.removeItem(COMMENT_AUTHOR_CACHE_KEY);
         return;
@@ -154,7 +151,8 @@ export default function PostCommentsWidget({
       setForm((prev) => ({
         ...prev,
         name: typeof parsed.name === "string" ? parsed.name : prev.name,
-        email: typeof parsed.email === "string" ? parsed.email : prev.email
+        email: typeof parsed.email === "string" ? parsed.email : prev.email,
+        website: typeof parsed.website === "string" ? parsed.website : prev.website
       }));
     } catch {
       window.localStorage.removeItem(COMMENT_AUTHOR_CACHE_KEY);
@@ -202,13 +200,39 @@ export default function PostCommentsWidget({
     if (preview || typeof window === "undefined") return;
     const name = form.name.trim();
     const email = form.email.trim();
+    const website = form.website.trim();
     if (!name || !email) return;
     window.localStorage.setItem(COMMENT_AUTHOR_CACHE_KEY, JSON.stringify({
       name,
       email,
+      website,
       savedAt: Date.now()
     }));
-  }, [form.name, form.email, preview]);
+  }, [form.name, form.email, form.website, preview]);
+
+  useEffect(() => {
+    if (!showIdentityFields) return;
+    nameInputRef.current?.focus();
+  }, [showIdentityFields]);
+
+  useEffect(() => {
+    if (!showIdentityFields || typeof window === "undefined") return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && submitState !== "submitting") {
+        setShowIdentityFields(false);
+      }
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [showIdentityFields, submitState]);
+
+  useEffect(() => {
+    if (!replyTo || showIdentityFields || typeof window === "undefined") return;
+    window.setTimeout(() => {
+      commentTextareaRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      commentTextareaRef.current?.focus();
+    }, 180);
+  }, [replyTo, showIdentityFields]);
 
   const threadedComments = useMemo(() => {
     const compare = (a: CommentItem, b: CommentItem) => {
@@ -228,10 +252,155 @@ export default function PostCommentsWidget({
   const totalComments = comments.length;
   const visibleComments = threadedComments.slice(0, visibleCount);
   const canLoadMore = threadedComments.length > visibleCount;
+  const hasSavedIdentity = form.name.trim() !== "" && form.email.trim() !== "";
+
+  const renderCommentEditor = (options?: { inline?: boolean }) => {
+    const isInline = options?.inline === true;
+    const containerRadius = isInline ? "calc(var(--home-main-box-radius, 0.75rem) - 0.1rem)" : "var(--home-main-box-radius, 0.75rem)";
+
+    return (
+      <div
+        className={isInline ? "pt-1" : "rounded-2xl border p-4 md:p-5"}
+        style={{
+          backgroundColor: isInline
+            ? "transparent"
+            : commentCardColor,
+          borderColor: isInline ? "transparent" : commentBorderColor,
+          borderRadius: containerRadius,
+        }}
+      >
+        <div className={isInline ? "mb-2" : "mb-4"}>
+          <div className="flex items-start justify-between gap-3">
+            <div className={isInline ? "text-xs font-medium" : "text-base font-semibold"} style={{ color: isInline ? helperTextColor : (isPublicDarkMode ? "var(--fg-primary)" : headingColor) }}>
+              {replyTo ? `Membalas ${replyTo.name}` : formTitleText}
+            </div>
+            {!isInline && hasSavedIdentity && !showIdentityFields && (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowIdentityFields(true);
+                  setSubmitState("idle");
+                  setMessage("");
+                }}
+                className={isInline
+                  ? "shrink-0 inline-flex items-center justify-center rounded-lg border px-2.5 py-1 text-[11px] font-medium transition-opacity hover:opacity-85"
+                  : "shrink-0 inline-flex items-center justify-center rounded-xl border px-3 py-1.5 text-xs font-medium transition-opacity hover:opacity-85"}
+                style={{
+                  color: helperTextColor,
+                  borderColor: commentBorderColor,
+                  backgroundColor: isPublicDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                  borderRadius: containerRadius
+                }}
+              >
+                Ubah info
+              </button>
+            )}
+          </div>
+        </div>
+
+        {replyTo && !isInline && (
+          <div
+            className={isInline
+              ? "mb-2.5 flex items-start justify-between gap-2 rounded-lg border px-2.5 py-1.5 text-xs"
+              : "mb-4 flex items-start justify-between gap-3 rounded-xl border px-3 py-2 text-sm"}
+            style={{
+              backgroundColor: isPublicDarkMode ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
+              borderColor: commentBorderColor,
+              color: helperTextColor,
+              borderRadius: containerRadius
+            }}
+          >
+            <div>
+              Membalas <span style={{ color: authorColor }} className="font-semibold">{replyTo.name}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setReplyTo(null)}
+              className="inline-flex items-center gap-1 text-xs font-medium"
+              style={{ color: replyLinkColor }}
+            >
+              <X size={12} />
+              Batal
+            </button>
+          </div>
+        )}
+
+        <form className={isInline ? "space-y-2" : "space-y-3"} onSubmit={handleSubmit}>
+          <textarea
+            ref={commentTextareaRef}
+            required
+            disabled={preview || submitState === "submitting"}
+            value={form.content}
+            onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
+            placeholder={commentPlaceholder}
+            rows={isInline ? 2 : 5}
+            className={isInline
+              ? "w-full rounded-lg border px-2.5 py-2 text-xs outline-none transition-colors"
+              : "w-full rounded-2xl border px-3 py-3 text-sm outline-none transition-colors"}
+            style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: containerRadius }}
+          />
+
+          {message && (
+            <div className="text-sm" style={{ color: submitState === "error" ? "#dc2626" : helperTextColor, display: showIdentityFields ? "none" : undefined }}>
+              {message}
+            </div>
+          )}
+
+          <div className={isInline ? "flex items-center gap-1.5" : "flex items-center gap-2"}>
+            <button
+              type="submit"
+              disabled={preview || submitState === "submitting"}
+              className={isInline
+                ? "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60 hover:opacity-90"
+                : "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60 hover:opacity-90"}
+              style={{ backgroundColor: buttonBgColor, color: buttonTextColor, borderRadius: containerRadius }}
+            >
+              {submitState === "submitting" ? <Loader2 size={isInline ? 14 : 16} className="animate-spin" /> : <Send size={isInline ? 13 : 15} />}
+              {isInline ? "Kirim" : submitButtonText}
+            </button>
+            {replyTo && (
+              <button
+                type="button"
+                disabled={submitState === "submitting"}
+                onClick={() => setReplyTo(null)}
+                className={isInline
+                  ? "inline-flex items-center justify-center rounded-md border px-2.5 py-1.5 text-[11px] font-medium transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-60"
+                  : "inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm font-medium transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-60"}
+                style={{
+                  color: helperTextColor,
+                  borderColor: commentBorderColor,
+                  backgroundColor: isInline ? "transparent" : (isPublicDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)"),
+                  borderRadius: containerRadius
+                }}
+              >
+                Batal
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    );
+  };
 
   const handleSubmit = async (event: React.SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (preview) return;
+    if (!showIdentityFields && !hasSavedIdentity) {
+      setShowIdentityFields(true);
+      setSubmitState("idle");
+      setMessage("");
+      return;
+    }
+
+    const trimmedName = form.name.trim();
+    const trimmedEmail = form.email.trim();
+    const trimmedContent = form.content.trim();
+    if (!trimmedName || !trimmedEmail || !trimmedContent) {
+      setSubmitState("error");
+      setMessage("Nama, email, dan isi komentar wajib diisi.");
+      return;
+    }
+
     setSubmitState("submitting");
     setMessage("");
 
@@ -241,6 +410,9 @@ export default function PostCommentsWidget({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          name: trimmedName,
+          email: trimmedEmail,
+          content: trimmedContent,
           parentId: replyTo?.id || null
         })
       });
@@ -255,11 +427,13 @@ export default function PostCommentsWidget({
         window.localStorage.setItem(COMMENT_AUTHOR_CACHE_KEY, JSON.stringify({
           name: form.name.trim(),
           email: form.email.trim(),
+          website: form.website.trim(),
           savedAt: Date.now()
         }));
       }
-      setForm((prev) => ({ ...prev, website: "", content: "" }));
+      setForm((prev) => ({ ...prev, content: "" }));
       setReplyTo(null);
+      setShowIdentityFields(false);
       setSubmitState("success");
       setMessage("Komentar berhasil dikirim.");
       setVisibleCount((prev) => Math.max(prev, initialCommentsLimit));
@@ -329,7 +503,11 @@ export default function PostCommentsWidget({
               {allowReplies && showCommentForm && (
                 <button
                   type="button"
-                  onClick={() => setReplyTo(comment)}
+                  onClick={() => {
+                    setReplyTo(comment);
+                    setSubmitState("idle");
+                    setMessage("");
+                  }}
                   className="mt-3 inline-flex items-center gap-1 text-xs font-medium transition-opacity hover:opacity-80"
                   style={{ color: replyLinkColor }}
                 >
@@ -340,6 +518,16 @@ export default function PostCommentsWidget({
             </div>
           </div>
         </article>
+
+        {showCommentForm && replyTo?.id === comment.id && (
+          <div
+            style={{
+              marginLeft: depth > 0 ? `${Math.min(depth * 18, 36)}px` : undefined,
+            }}
+          >
+            {renderCommentEditor({ inline: true })}
+          </div>
+        )}
 
         {hasReplies && (
           <div className="space-y-3">
@@ -354,54 +542,10 @@ export default function PostCommentsWidget({
     <div
       className="space-y-5"
       style={{
-        ...widgetContainerStyle,
-        ["--widget-title-size-mobile" as string]: blockTitleFontSize,
-        ["--widget-title-size-tablet" as string]: blockTitleFontSize,
-        ["--widget-title-size-desktop" as string]: blockTitleFontSize,
-        ["--widget-title-color-mobile" as string]: blockTitleColor,
-        ["--widget-title-color-tablet" as string]: blockTitleColor,
-        ["--widget-title-color-desktop" as string]: blockTitleColor,
-        ["--widget-title-border-color-mobile" as string]: blockTitleBorderColor,
-        ["--widget-title-border-color-tablet" as string]: blockTitleBorderColor,
-        ["--widget-title-border-color-desktop" as string]: blockTitleBorderColor
+        ...widgetContainerStyle
       }}
     >
-      {showTitle && titleText && (
-        <div
-          className="mb-3 flex flex-col gap-3 pb-3 md:flex-row md:items-center md:justify-between"
-          style={{ borderBottom: isPublicDarkMode ? "1px solid rgba(148, 163, 184, 0.16)" : "1px solid rgb(243 244 246)" }}
-        >
-          <h3
-            className="font-bold flex items-center theme-widget-title min-w-0"
-            style={{
-              lineHeight: blockTitleLineHeight
-            }}
-          >
-            <div
-              className="widget-title-bar w-1 h-5 mr-3 shrink-0"
-              style={{
-                borderRadius: "var(--home-main-box-radius, 0.25rem)"
-              }}
-            />
-            <span className="truncate">{titleText}</span>
-          </h3>
-          {showCommentCount && (
-            <span
-              className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium md:ml-auto"
-              style={{
-                color: commentMetaTextColor,
-                borderColor: commentBorderColor,
-                borderRadius: "999px"
-              }}
-            >
-              <MessageCircleMore size={14} />
-              {totalComments} komentar
-            </span>
-          )}
-        </div>
-      )}
-
-      {!showTitle && showCommentCount && (
+      {showCommentCount && (
         <span
           className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium"
           style={{
@@ -415,111 +559,120 @@ export default function PostCommentsWidget({
         </span>
       )}
 
-      {showCommentForm && (
-        <div
-          className="rounded-2xl border p-4 md:p-5"
-          style={{
-            backgroundColor: commentCardColor,
-            borderColor: commentBorderColor,
-            borderRadius: "var(--home-main-box-radius, 0.75rem)"
-          }}
-        >
-          <div className="mb-4">
-            <div className="text-base font-semibold" style={{ color: isPublicDarkMode ? "var(--fg-primary)" : headingColor }}>
-              {replyTo ? `Balas Komentar ${replyTo.name}` : formTitleText}
-            </div>
-            <div className="mt-1 text-sm" style={{ color: helperTextColor }}>
-              Email tidak akan dipublikasikan. Kolom wajib ditandai.
-            </div>
-          </div>
+      {showCommentForm && !replyTo && renderCommentEditor()}
 
-          {replyTo && (
-            <div
-              className="mb-4 flex items-start justify-between gap-3 rounded-xl border px-3 py-2 text-sm"
-              style={{
-                backgroundColor: isPublicDarkMode ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-                borderColor: commentBorderColor,
-                color: helperTextColor
-              }}
-            >
+      {showIdentityFields && (
+        <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Tutup form identitas komentar"
+            className="absolute inset-0 cursor-default"
+            style={{ backgroundColor: "rgba(15, 23, 42, 0.44)" }}
+            onClick={() => {
+              if (submitState !== "submitting") {
+                setShowIdentityFields(false);
+              }
+            }}
+          />
+          <div
+            className="relative z-[1] w-full max-w-md rounded-2xl border p-4 shadow-2xl md:p-5"
+            style={{
+              backgroundColor: commentCardColor,
+              borderColor: commentBorderColor,
+              borderRadius: "var(--home-main-box-radius, 0.75rem)"
+            }}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                Membalas <span style={{ color: authorColor }} className="font-semibold">{replyTo.name}</span>
+                <div className="text-base font-semibold" style={{ color: isPublicDarkMode ? "var(--fg-primary)" : headingColor }}>
+                  Lengkapi Informasi
+                </div>
+                <div className="mt-1 text-sm" style={{ color: helperTextColor }}>
+                  Email tidak akan dipublikasikan. Kolom wajib ditandai.
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => setReplyTo(null)}
-                className="inline-flex items-center gap-1 text-xs font-medium"
-                style={{ color: replyLinkColor }}
+                aria-label="Tutup pop up identitas komentar"
+                disabled={submitState === "submitting"}
+                onClick={() => setShowIdentityFields(false)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-60"
+                style={{ color: helperTextColor, borderColor: commentBorderColor }}
               >
-                <X size={12} />
-                Batal
+                <X size={14} />
               </button>
             </div>
-          )}
 
-          <form className="space-y-3" onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <input
-                type="text"
-                required
-                disabled={preview || submitState === "submitting"}
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Nama *"
-                className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
-                style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
-              />
-              <input
-                type="email"
-                required
-                disabled={preview || submitState === "submitting"}
-                value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="Email *"
-                className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
-                style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
-              />
-            </div>
-
-            {showWebsiteField && (
-              <input
-                type="url"
-                disabled={preview || submitState === "submitting"}
-                value={form.website}
-                onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))}
-                placeholder="Website"
-                className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
-                style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
-              />
-            )}
-
-            <textarea
-              required
-              disabled={preview || submitState === "submitting"}
-              value={form.content}
-              onChange={(e) => setForm((prev) => ({ ...prev, content: e.target.value }))}
-              placeholder={commentPlaceholder}
-              rows={5}
-              className="w-full rounded-2xl border px-3 py-3 text-sm outline-none transition-colors"
-              style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
-            />
-
-            {message && (
-              <div className="text-sm" style={{ color: submitState === "error" ? "#dc2626" : helperTextColor }}>
-                {message}
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <input
+                  ref={nameInputRef}
+                  type="text"
+                  required
+                  disabled={preview || submitState === "submitting"}
+                  value={form.name}
+                  onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="Nama *"
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
+                  style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
+                />
+                <input
+                  type="email"
+                  required
+                  disabled={preview || submitState === "submitting"}
+                  value={form.email}
+                  onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="Email *"
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
+                  style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
+                />
               </div>
-            )}
 
-            <button
-              type="submit"
-              disabled={preview || submitState === "submitting"}
-              className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60 hover:opacity-90"
-              style={{ backgroundColor: buttonBgColor, color: buttonTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
-            >
-              {submitState === "submitting" ? <Loader2 size={16} className="animate-spin" /> : <Send size={15} />}
-              {submitButtonText}
-            </button>
-          </form>
+              {showWebsiteField && (
+                <input
+                  type="url"
+                  disabled={preview || submitState === "submitting"}
+                  value={form.website}
+                  onChange={(e) => setForm((prev) => ({ ...prev, website: e.target.value }))}
+                  placeholder="Website"
+                  className="w-full rounded-xl border px-3 py-2.5 text-sm outline-none transition-colors"
+                  style={{ backgroundColor: inputBgColor, borderColor: inputBorderColor, color: formTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
+                />
+              )}
+
+              {message && (
+                <div className="text-sm" style={{ color: submitState === "error" ? "#dc2626" : helperTextColor }}>
+                  {message}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={submitState === "submitting"}
+                  onClick={() => setShowIdentityFields(false)}
+                  className="inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm font-medium transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-60"
+                  style={{
+                    color: helperTextColor,
+                    borderColor: commentBorderColor,
+                    backgroundColor: isPublicDarkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.02)",
+                    borderRadius: "var(--home-main-box-radius, 0.75rem)"
+                  }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={preview || submitState === "submitting"}
+                  onClick={() => setShowIdentityFields(false)}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-60 hover:opacity-90"
+                  style={{ backgroundColor: buttonBgColor, color: buttonTextColor, borderRadius: "var(--home-main-box-radius, 0.75rem)" }}
+                >
+                  Simpan Informasi
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

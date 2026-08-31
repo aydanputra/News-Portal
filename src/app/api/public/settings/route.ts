@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { mergeThemeConfigWithSettings } from "@/lib/settings";
 
 function stripSecrets(setting: any) {
   if (!setting || typeof setting !== "object") return setting;
@@ -36,32 +37,7 @@ export async function GET(request: Request) {
     });
 
     if (themeConfig && (themeConfig as any).config) {
-      const mergedSetting = {
-        ...setting,
-        ...((themeConfig as any).config as object),
-      };
-
-      setting = {
-        ...mergedSetting,
-        primaryColor: setting.primaryColor,
-        secondaryColor: setting.secondaryColor,
-        accentColor: setting.accentColor,
-        backgroundColor: setting.backgroundColor,
-        headingColor: setting.headingColor,
-        excerptColor: setting.excerptColor,
-        metaColor: setting.metaColor,
-        headingFont: setting.headingFont,
-        bodyFont: setting.bodyFont,
-        baseFontSize: setting.baseFontSize,
-        globalBorderRadius: setting.globalBorderRadius,
-
-        globalContainerWidth: setting.globalContainerWidth,
-        globalCustomContainerWidth: setting.globalCustomContainerWidth,
-        homeContainerWidth: setting.homeContainerWidth,
-        homeCustomContainerWidth: setting.homeCustomContainerWidth,
-        postContainerWidth: setting.postContainerWidth,
-        postCustomContainerWidth: setting.postCustomContainerWidth,
-      };
+      setting = mergeThemeConfigWithSettings(setting, (themeConfig as any).config);
     }
 
     return NextResponse.json(stripSecrets(setting));

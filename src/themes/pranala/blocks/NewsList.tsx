@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool } from "./responsive";
-import { resolveWidgetRadius } from "./radius";
-import { safeStyleTagCss, sanitizeCssUrl } from "@/lib/sanitizer";
+import { normalizeLegacyGlobalImageRadius, resolveWidgetRadius } from "./radius";
+import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { getSingleCategoryArchiveSlug, getSingleTagArchiveSlug } from "@/lib/category-filters";
 
 type NewsListCategory = {
   slug: string;
@@ -29,6 +30,7 @@ type NewsListPost = {
   publishedAt?: string | Date | null;
   createdAt?: string | Date | null;
   category?: NewsListCategory | null;
+  archiveDisplayCategory?: NewsListCategory | null;
   author?: NewsListAuthor | null;
   authorName?: string | null;
   authorAvatar?: string | null;
@@ -41,8 +43,12 @@ type NewsListConfig = {
   offset?: number;
   category?: string;
   categorySlug?: string;
+  categorySlugs?: string[] | string;
+  excludeCategorySlugs?: string[] | string;
   filterType?: string;
   tagSlug?: string;
+  tagSlugs?: string[] | string;
+  excludeTagSlugs?: string[] | string;
   sortOrder?: string;
   tabletLimit?: number;
   mobileLimit?: number;
@@ -65,9 +71,22 @@ type NewsListConfig = {
   blockTitleBorderColor?: string;
   mobileBlockTitleBorderColor?: string;
   tabletBlockTitleBorderColor?: string;
+  blockTitleLineHeight?: number | string;
+  mobileBlockTitleLineHeight?: number | string;
+  tabletBlockTitleLineHeight?: number | string;
+  blockTitleMarginBottom?: number;
+  mobileBlockTitleMarginBottom?: number;
+  tabletBlockTitleMarginBottom?: number;
+  blockTitlePaddingBottom?: number;
+  mobileBlockTitlePaddingBottom?: number;
+  tabletBlockTitlePaddingBottom?: number;
   imageWidth?: string;
   imageHeight?: string;
   imageBorderRadius?: number;
+  listContentAlign?: string;
+  mobileListContentAlign?: string;
+  tabletListContentAlign?: string;
+  listRightImageOnly?: boolean;
   contentPaddingTop?: number;
   contentPaddingRight?: number;
   contentPaddingBottom?: number;
@@ -83,10 +102,16 @@ type NewsListConfig = {
   metaColor?: string;
   metaFontSize?: number;
   metaLineHeight?: number;
+  metaFontWeight?: string;
+  mobileMetaFontWeight?: string;
+  tabletMetaFontWeight?: string;
   metaMarginBottom?: number;
   excerptColor?: string;
   excerptFontSize?: number;
   excerptLineHeight?: number;
+  excerptFontWeight?: string;
+  mobileExcerptFontWeight?: string;
+  tabletExcerptFontWeight?: string;
   excerptLength?: number;
   showDivider?: boolean;
   dividerColor?: string;
@@ -165,12 +190,27 @@ const formatLongDateId = (value?: string | Date | null) => {
   }).format(date);
 };
 
+const normalizeSlugList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (typeof item === "string" ? item.trim() : ""))
+      .filter((item) => Boolean(item) && item.toLowerCase() !== "all");
+  }
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter((item) => Boolean(item) && item.toLowerCase() !== "all");
+  }
+  return [];
+};
+
 export default function NewsList({ block, posts, customTitle, accentColor, borderRadius, previewDevice }: NewsListProps) {
   const { config } = block;
-  const cfg: NewsListConfig = config || {};
+  const cfg = useMemo<NewsListConfig>(() => config || {}, [config]);
   const title = customTitle || config?.title || "Berita Terbaru";
   const effectiveAccent = accentColor || 'var(--accent)';
-  const effectiveRadius = borderRadius ? borderRadius : 'var(--home-main-box-radius, 0.75rem)';
+  const effectiveRadius = 'var(--global-image-radius, var(--home-main-box-radius, 0.75rem))';
 
   const normalizeColor = (value: unknown, fallback: string) => {
     if (typeof value !== "string") return fallback;
@@ -197,6 +237,16 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
     if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
     if (trimmed.startsWith('/')) return trimmed;
     return `/${trimmed}`;
+  };
+
+  const normalizeAlign = (value: unknown): "left" | "center" | "right" => {
+    if (value === "center" || value === "right") return value;
+    return "left";
+  };
+
+  const normalizeVerticalAlign = (value: unknown): "top" | "center" | "bottom" => {
+    if (value === "center" || value === "bottom") return value;
+    return "top";
   };
 
   const getRadius = (r: string) => {
@@ -238,21 +288,21 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
 
   const archiveLink = useMemo(() => {
     const filterType = cfg.filterType || "category";
-    const tagSlug = cfg.tagSlug;
-    const categorySlug = cfg.categorySlug || cfg.category;
+    const tagSlug = getSingleTagArchiveSlug(cfg as Record<string, unknown>) || cfg.tagSlug;
     if (filterType === "tag" && tagSlug) return `/tag/${tagSlug}`;
+    const categorySlug = getSingleCategoryArchiveSlug(cfg as Record<string, unknown>) || cfg.categorySlug || cfg.category;
     if (categorySlug && categorySlug !== "all") return `/category/${categorySlug}`;
     return null;
-  }, [cfg.category, cfg.categorySlug, cfg.filterType, cfg.tagSlug]);
+  }, [cfg]);
 
   const isTruthy = (val: unknown) => val === true || val === 'true';
   const useBoxMobile = isTruthy(cfg.mobileUseBox ?? cfg.useBox);
   const useBoxTablet = isTruthy(cfg.tabletUseBox ?? cfg.useBox ?? cfg.mobileUseBox);
   const useBoxDesktop = isTruthy(cfg.useBox ?? cfg.tabletUseBox ?? cfg.mobileUseBox);
 
-  const boxColorMobile = normalizeColor(cfg.mobileBoxColor ?? cfg.boxColor, 'var(--bg-elevated, #ffffff)');
-  const boxColorTablet = normalizeColor(cfg.tabletBoxColor ?? cfg.boxColor ?? cfg.mobileBoxColor, 'var(--bg-elevated, #ffffff)');
-  const boxColorDesktop = normalizeColor(cfg.boxColor ?? cfg.tabletBoxColor ?? cfg.mobileBoxColor, 'var(--bg-elevated, #ffffff)');
+  const boxColorMobile = normalizeColor(cfg.mobileBoxColor ?? cfg.boxColor, 'transparent');
+  const boxColorTablet = normalizeColor(cfg.tabletBoxColor ?? cfg.boxColor ?? cfg.mobileBoxColor, 'transparent');
+  const boxColorDesktop = normalizeColor(cfg.boxColor ?? cfg.tabletBoxColor ?? cfg.mobileBoxColor, 'transparent');
   const boxBgImageDesktop = sanitizeCssUrl(typeof cfg.backgroundImage === "string" ? cfg.backgroundImage : "");
   const boxBgImageTablet = sanitizeCssUrl(
     typeof cfg.tabletBackgroundImage === "string" && cfg.tabletBackgroundImage.trim() !== "" ? cfg.tabletBackgroundImage : boxBgImageDesktop
@@ -260,10 +310,40 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const boxBgImageMobile = sanitizeCssUrl(
     typeof cfg.mobileBackgroundImage === "string" && cfg.mobileBackgroundImage.trim() !== "" ? cfg.mobileBackgroundImage : boxBgImageDesktop
   );
+  const boxBgSizeDesktop = typeof (cfg as any).backgroundSize === 'string' && (cfg as any).backgroundSize.trim() !== '' ? (cfg as any).backgroundSize : 'cover';
+  const boxBgSizeTablet = typeof (cfg as any).tabletBackgroundSize === 'string' && (cfg as any).tabletBackgroundSize.trim() !== '' ? (cfg as any).tabletBackgroundSize : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof (cfg as any).mobileBackgroundSize === 'string' && (cfg as any).mobileBackgroundSize.trim() !== '' ? (cfg as any).mobileBackgroundSize : boxBgSizeDesktop;
+  const boxBgPositionDesktop = typeof (cfg as any).backgroundPosition === 'string' && (cfg as any).backgroundPosition.trim() !== '' ? (cfg as any).backgroundPosition : 'center';
+  const boxBgPositionTablet = typeof (cfg as any).tabletBackgroundPosition === 'string' && (cfg as any).tabletBackgroundPosition.trim() !== '' ? (cfg as any).tabletBackgroundPosition : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof (cfg as any).mobileBackgroundPosition === 'string' && (cfg as any).mobileBackgroundPosition.trim() !== '' ? (cfg as any).mobileBackgroundPosition : boxBgPositionDesktop;
+  const boxBgRepeatDesktop = typeof (cfg as any).backgroundRepeat === 'string' && (cfg as any).backgroundRepeat.trim() !== '' ? (cfg as any).backgroundRepeat : 'no-repeat';
+  const boxBgRepeatTablet = typeof (cfg as any).tabletBackgroundRepeat === 'string' && (cfg as any).tabletBackgroundRepeat.trim() !== '' ? (cfg as any).tabletBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof (cfg as any).mobileBackgroundRepeat === 'string' && (cfg as any).mobileBackgroundRepeat.trim() !== '' ? (cfg as any).mobileBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgAttachmentDesktop = typeof (cfg as any).backgroundAttachment === 'string' && (cfg as any).backgroundAttachment.trim() !== '' ? (cfg as any).backgroundAttachment : 'scroll';
+  const boxBgAttachmentTablet = typeof (cfg as any).tabletBackgroundAttachment === 'string' && (cfg as any).tabletBackgroundAttachment.trim() !== '' ? (cfg as any).tabletBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof (cfg as any).mobileBackgroundAttachment === 'string' && (cfg as any).mobileBackgroundAttachment.trim() !== '' ? (cfg as any).mobileBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxOverlayColorDesktop = typeof (cfg as any).backgroundOverlayColor === 'string' ? (cfg as any).backgroundOverlayColor : 'transparent';
+  const boxOverlayColorTablet = typeof (cfg as any).tabletBackgroundOverlayColor === 'string' && (cfg as any).tabletBackgroundOverlayColor.trim() !== '' ? (cfg as any).tabletBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof (cfg as any).mobileBackgroundOverlayColor === 'string' && (cfg as any).mobileBackgroundOverlayColor.trim() !== '' ? (cfg as any).mobileBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number((cfg as any).backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number((cfg as any).tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number((cfg as any).mobileBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
 
   const boxRadiusKeyMobile = typeof cfg.mobileBoxBorderRadius === 'string' ? cfg.mobileBoxBorderRadius : (typeof cfg.boxBorderRadius === 'string' ? cfg.boxBorderRadius : 'default');
   const boxRadiusKeyTablet = typeof cfg.tabletBoxBorderRadius === 'string' ? cfg.tabletBoxBorderRadius : boxRadiusKeyMobile;
   const boxRadiusKeyDesktop = typeof cfg.boxBorderRadius === 'string' ? cfg.boxBorderRadius : boxRadiusKeyTablet;
+  const boxPtMobile = cfg.mobileBoxPaddingTop !== undefined ? `${cfg.mobileBoxPaddingTop}px` : (cfg.boxPaddingTop !== undefined ? `${cfg.boxPaddingTop}px` : '0px');
+  const boxPrMobile = cfg.mobileBoxPaddingRight !== undefined ? `${cfg.mobileBoxPaddingRight}px` : (cfg.boxPaddingRight !== undefined ? `${cfg.boxPaddingRight}px` : '0px');
+  const boxPbMobile = cfg.mobileBoxPaddingBottom !== undefined ? `${cfg.mobileBoxPaddingBottom}px` : (cfg.boxPaddingBottom !== undefined ? `${cfg.boxPaddingBottom}px` : '0px');
+  const boxPlMobile = cfg.mobileBoxPaddingLeft !== undefined ? `${cfg.mobileBoxPaddingLeft}px` : (cfg.boxPaddingLeft !== undefined ? `${cfg.boxPaddingLeft}px` : '0px');
+  const boxPtTablet = cfg.tabletBoxPaddingTop !== undefined ? `${cfg.tabletBoxPaddingTop}px` : (cfg.boxPaddingTop !== undefined ? `${cfg.boxPaddingTop}px` : boxPtMobile);
+  const boxPrTablet = cfg.tabletBoxPaddingRight !== undefined ? `${cfg.tabletBoxPaddingRight}px` : (cfg.boxPaddingRight !== undefined ? `${cfg.boxPaddingRight}px` : boxPrMobile);
+  const boxPbTablet = cfg.tabletBoxPaddingBottom !== undefined ? `${cfg.tabletBoxPaddingBottom}px` : (cfg.boxPaddingBottom !== undefined ? `${cfg.boxPaddingBottom}px` : boxPbMobile);
+  const boxPlTablet = cfg.tabletBoxPaddingLeft !== undefined ? `${cfg.tabletBoxPaddingLeft}px` : (cfg.boxPaddingLeft !== undefined ? `${cfg.boxPaddingLeft}px` : boxPlMobile);
+  const boxPtDesktop = cfg.boxPaddingTop !== undefined ? `${cfg.boxPaddingTop}px` : boxPtTablet;
+  const boxPrDesktop = cfg.boxPaddingRight !== undefined ? `${cfg.boxPaddingRight}px` : boxPrTablet;
+  const boxPbDesktop = cfg.boxPaddingBottom !== undefined ? `${cfg.boxPaddingBottom}px` : boxPbTablet;
+  const boxPlDesktop = cfg.boxPaddingLeft !== undefined ? `${cfg.boxPaddingLeft}px` : boxPlTablet;
 
   const containerStyle = {
     '--accent': effectiveAccent,
@@ -298,6 +378,15 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const blockTitleFsDesktop = cfg.blockTitleFontSize
     ? formatFontSize(cfg.blockTitleFontSize, blockTitleFsTablet)
     : blockTitleFsTablet;
+  const blockTitleLhMobile = cfg.mobileBlockTitleLineHeight !== undefined ? String(cfg.mobileBlockTitleLineHeight) : (cfg.blockTitleLineHeight !== undefined ? String(cfg.blockTitleLineHeight) : '1.2');
+  const blockTitleLhTablet = cfg.tabletBlockTitleLineHeight !== undefined ? String(cfg.tabletBlockTitleLineHeight) : (cfg.blockTitleLineHeight !== undefined ? String(cfg.blockTitleLineHeight) : blockTitleLhMobile);
+  const blockTitleLhDesktop = cfg.blockTitleLineHeight !== undefined ? String(cfg.blockTitleLineHeight) : blockTitleLhTablet;
+  const blockTitleMbMobile = cfg.mobileBlockTitleMarginBottom !== undefined ? `${cfg.mobileBlockTitleMarginBottom}px` : (cfg.blockTitleMarginBottom !== undefined ? `${cfg.blockTitleMarginBottom}px` : '12px');
+  const blockTitleMbTablet = cfg.tabletBlockTitleMarginBottom !== undefined ? `${cfg.tabletBlockTitleMarginBottom}px` : (cfg.blockTitleMarginBottom !== undefined ? `${cfg.blockTitleMarginBottom}px` : blockTitleMbMobile);
+  const blockTitleMbDesktop = cfg.blockTitleMarginBottom !== undefined ? `${cfg.blockTitleMarginBottom}px` : blockTitleMbTablet;
+  const blockTitlePbMobile = cfg.mobileBlockTitlePaddingBottom !== undefined ? `${cfg.mobileBlockTitlePaddingBottom}px` : (cfg.blockTitlePaddingBottom !== undefined ? `${cfg.blockTitlePaddingBottom}px` : '12px');
+  const blockTitlePbTablet = cfg.tabletBlockTitlePaddingBottom !== undefined ? `${cfg.tabletBlockTitlePaddingBottom}px` : (cfg.blockTitlePaddingBottom !== undefined ? `${cfg.blockTitlePaddingBottom}px` : blockTitlePbMobile);
+  const blockTitlePbDesktop = cfg.blockTitlePaddingBottom !== undefined ? `${cfg.blockTitlePaddingBottom}px` : blockTitlePbTablet;
 
   Object.assign(containerStyle, {
     '--widget-title-size-mobile': blockTitleFsMobile,
@@ -328,7 +417,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
     };
     return map[v] || fallback;
   };
-  const titleFontWeightDesktop = normalizeFontWeight(cfg.titleFontWeight, '600');
+  const titleFontWeightDesktop = normalizeFontWeight(cfg.titleFontWeight, 'var(--home-news-title-weight, 600)');
   const titleFontWeightTablet = normalizeFontWeight(cfg.tabletTitleFontWeight, titleFontWeightDesktop);
   const titleFontWeightMobile = normalizeFontWeight(cfg.mobileTitleFontWeight, titleFontWeightDesktop);
 
@@ -358,13 +447,19 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const metaColorMobile = cfg.mobileMetaColor || cfg.metaColor || 'var(--home-meta-color, #9ca3af)';
   const metaColorTablet = cfg.tabletMetaColor || metaColorMobile;
   const metaColorDesktop = cfg.metaColor || metaColorTablet;
+  const metaFontWeightMobile = normalizeFontWeight(cfg.mobileMetaFontWeight, normalizeFontWeight(cfg.metaFontWeight, 'var(--home-meta-weight, 500)'));
+  const metaFontWeightTablet = normalizeFontWeight(cfg.tabletMetaFontWeight, metaFontWeightMobile);
+  const metaFontWeightDesktop = normalizeFontWeight(cfg.metaFontWeight, metaFontWeightTablet);
 
-  const excerptFsMobile = cfg.mobileExcerptFontSize ? `${cfg.mobileExcerptFontSize}px` : (cfg.excerptFontSize ? `${cfg.excerptFontSize}px` : '0.875rem');
+  const excerptFsMobile = cfg.mobileExcerptFontSize ? `${cfg.mobileExcerptFontSize}px` : (cfg.excerptFontSize ? `${cfg.excerptFontSize}px` : 'var(--home-excerpt-size, 0.875rem)');
   const excerptFsTablet = cfg.tabletExcerptFontSize ? `${cfg.tabletExcerptFontSize}px` : excerptFsMobile;
   const excerptFsDesktop = cfg.excerptFontSize ? `${cfg.excerptFontSize}px` : excerptFsTablet;
   const excerptLhMobile = toNumberOrUndefined(cfg.mobileExcerptLineHeight) ?? toNumberOrUndefined(cfg.excerptLineHeight) ?? 1.625;
   const excerptLhTablet = toNumberOrUndefined(cfg.tabletExcerptLineHeight) ?? excerptLhMobile;
   const excerptLhDesktop = toNumberOrUndefined(cfg.excerptLineHeight) ?? excerptLhTablet;
+  const excerptFontWeightMobile = normalizeFontWeight(cfg.mobileExcerptFontWeight, normalizeFontWeight(cfg.excerptFontWeight, 'var(--home-excerpt-weight, 400)'));
+  const excerptFontWeightTablet = normalizeFontWeight(cfg.tabletExcerptFontWeight, excerptFontWeightMobile);
+  const excerptFontWeightDesktop = normalizeFontWeight(cfg.excerptFontWeight, excerptFontWeightTablet);
 
   const excerptColorMobile = cfg.mobileExcerptColor || cfg.excerptColor || 'var(--home-excerpt-color, #4b5563)';
   const excerptColorTablet = cfg.tabletExcerptColor || excerptColorMobile;
@@ -373,16 +468,8 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const asNonEmptyString = (val: unknown, fallback: string) =>
     (typeof val === 'string' && val.trim() !== '') ? val : fallback;
 
-  const categoryLabelColorMobile = asNonEmptyString(
-    cfg.mobileCategoryLabelColor,
-    asNonEmptyString(cfg.mobileCategoryTextColor, asNonEmptyString(cfg.categoryLabelColor, asNonEmptyString(cfg.categoryTextColor, 'var(--accent)')))
-  );
-  const categoryLabelColorTablet = asNonEmptyString(
-    cfg.tabletCategoryLabelColor,
-    asNonEmptyString(cfg.tabletCategoryTextColor, categoryLabelColorMobile)
-  );
-  const categoryLabelColorDesktop = asNonEmptyString(cfg.categoryLabelColor, asNonEmptyString(cfg.categoryTextColor, categoryLabelColorTablet));
-  const dividerColorMobile = asNonEmptyString(cfg.mobileDividerColor, asNonEmptyString(cfg.dividerColor, 'rgba(249,250,251,1)'));
+  const dividerFallback = 'color-mix(in srgb, var(--border-strong, rgba(148, 163, 184, 0.35)) 72%, transparent)';
+  const dividerColorMobile = asNonEmptyString(cfg.mobileDividerColor, asNonEmptyString(cfg.dividerColor, dividerFallback));
   const dividerColorTablet = asNonEmptyString(cfg.tabletDividerColor, dividerColorMobile);
   const dividerColorDesktop = asNonEmptyString(cfg.dividerColor, dividerColorTablet);
   const dividerThicknessMobile = toNumberOrUndefined(cfg.mobileDividerThickness ?? cfg.dividerThickness) ?? 1;
@@ -407,9 +494,12 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const thumbWidthDesktop = formatSize(parseAspectRatio(rawWDesktop) ? undefined : rawWDesktop, thumbWidthTablet);
   const thumbHeightDesktop = formatSize(parseAspectRatio(rawHDesktop) ? undefined : rawHDesktop, thumbHeightTablet);
 
-  const thumbRadiusDesktop = resolveWidgetRadius(cfg.imageBorderRadius, effectiveRadius);
-  const thumbRadiusTablet = resolveWidgetRadius(cfg.tabletImageBorderRadius ?? cfg.imageBorderRadius, thumbRadiusDesktop);
-  const thumbRadiusMobile = resolveWidgetRadius(cfg.mobileImageBorderRadius ?? cfg.imageBorderRadius, thumbRadiusDesktop);
+  const normalizedImageRadiusDesktop = normalizeLegacyGlobalImageRadius(cfg.imageBorderRadius);
+  const normalizedImageRadiusTablet = normalizeLegacyGlobalImageRadius(cfg.tabletImageBorderRadius ?? cfg.imageBorderRadius);
+  const normalizedImageRadiusMobile = normalizeLegacyGlobalImageRadius(cfg.mobileImageBorderRadius ?? cfg.imageBorderRadius);
+  const thumbRadiusDesktop = resolveWidgetRadius(normalizedImageRadiusDesktop, effectiveRadius);
+  const thumbRadiusTablet = resolveWidgetRadius(normalizedImageRadiusTablet, thumbRadiusDesktop);
+  const thumbRadiusMobile = resolveWidgetRadius(normalizedImageRadiusMobile, thumbRadiusDesktop);
 
   const cpTopMobile = cfg.mobileContentPaddingTop !== undefined ? `${cfg.mobileContentPaddingTop}px` : (cfg.contentPaddingTop !== undefined ? `${cfg.contentPaddingTop}px` : '0px');
   const cpRightMobile = cfg.mobileContentPaddingRight !== undefined ? `${cfg.mobileContentPaddingRight}px` : (cfg.contentPaddingRight !== undefined ? `${cfg.contentPaddingRight}px` : '0px');
@@ -483,11 +573,16 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const lmpBottomDesktop = cfg.loadMorePaddingBottom !== undefined ? `${cfg.loadMorePaddingBottom}px` : lmpBottomTablet;
   const lmpLeftDesktop = cfg.loadMorePaddingLeft !== undefined ? `${cfg.loadMorePaddingLeft}px` : lmpLeftTablet;
 
-  const allPosts = (posts || []).slice(offset);
-
+  const initialPosts = useMemo(() => (posts || []).slice(offset), [posts, offset]);
+  const initialBatchSize = Math.max(1, baseLimit, tabletLimit, mobileLimit);
+  const [loadedPosts, setLoadedPosts] = useState<NewsListPost[]>(initialPosts);
   const [page, setPage] = useState(1);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [device, setDevice] = useState<'mobile' | 'tablet' | 'desktop'>(previewDevice || 'desktop');
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const [hasMoreRemote, setHasMoreRemote] = useState(
+    paginationStyle !== "none" && initialPosts.length >= initialBatchSize
+  );
 
   useEffect(() => {
     if (previewDevice) {
@@ -505,6 +600,12 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
     window.addEventListener('resize', update);
     return () => window.removeEventListener('resize', update);
   }, [previewDevice]);
+
+  useEffect(() => {
+    setLoadedPosts(initialPosts);
+    setHasMoreRemote(paginationStyle !== "none" && initialPosts.length >= initialBatchSize);
+    setIsFetchingMore(false);
+  }, [initialPosts, initialBatchSize, paginationStyle]);
 
   const getResponsive = (baseKey: string) => {
     if (device === 'mobile') return cfg[`mobile${baseKey.charAt(0).toUpperCase()}${baseKey.slice(1)}`];
@@ -526,14 +627,22 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
     return fallback;
   };
 
-  const getResponsiveCategoryString = (labelKey: string, legacyKey: string, fallback: string) => {
+  const getResponsiveCategoryString = (labelKey: string, legacyKey: string, fallback: string, aliasKey?: string) => {
     const labelVal = getResponsive(labelKey);
     if (typeof labelVal === 'string' && labelVal.trim() !== '') return labelVal;
+    if (aliasKey) {
+      const aliasVal = getResponsive(aliasKey);
+      if (typeof aliasVal === 'string' && aliasVal.trim() !== '') return aliasVal;
+    }
     const legacyVal = getResponsive(legacyKey);
     if (typeof legacyVal === 'string' && legacyVal.trim() !== '') return legacyVal;
 
     const labelBase = cfg[labelKey];
     if (typeof labelBase === 'string' && labelBase.trim() !== '') return labelBase;
+    if (aliasKey) {
+      const aliasBase = (cfg as any)[aliasKey];
+      if (typeof aliasBase === 'string' && aliasBase.trim() !== '') return aliasBase;
+    }
     const legacyBase = cfg[legacyKey];
     if (typeof legacyBase === 'string' && legacyBase.trim() !== '') return legacyBase;
 
@@ -562,10 +671,108 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
 
   useEffect(() => {
     setPage(1);
-  }, [paginationStyle, device, baseLimit, tabletLimit, mobileLimit, offset, cfg.categorySlug, cfg.tagSlug, cfg.sortOrder]);
+  }, [paginationStyle, device, baseLimit, tabletLimit, mobileLimit, offset, cfg.categorySlug, cfg.categorySlugs, cfg.excludeCategorySlugs, cfg.tagSlug, cfg.tagSlugs, cfg.excludeTagSlugs, cfg.sortOrder]);
 
   const pageSize = device === 'mobile' ? mobileLimit : (device === 'tablet' ? tabletLimit : baseLimit);
+  const allPosts = loadedPosts;
   const totalPages = Math.max(1, Math.ceil(allPosts.length / pageSize));
+  const categorySlugs = useMemo(
+    () => normalizeSlugList(cfg.categorySlugs ?? cfg.categorySlug ?? cfg.category),
+    [cfg.category, cfg.categorySlug, cfg.categorySlugs]
+  );
+  const excludeCategorySlugs = useMemo(
+    () => normalizeSlugList(cfg.excludeCategorySlugs),
+    [cfg.excludeCategorySlugs]
+  );
+  const tagSlugs = useMemo(
+    () => normalizeSlugList(cfg.tagSlugs ?? cfg.tagSlug),
+    [cfg.tagSlug, cfg.tagSlugs]
+  );
+  const excludeTagSlugs = useMemo(
+    () => normalizeSlugList(cfg.excludeTagSlugs),
+    [cfg.excludeTagSlugs]
+  );
+  const fetchMorePosts = useCallback(
+    async (requestedCount?: number) => {
+      if (paginationStyle === "none" || isFetchingMore || !hasMoreRemote) return false;
+
+      const requestLimit = Math.max(1, Math.min(30, requestedCount || pageSize));
+      const params = new URLSearchParams();
+      params.set("limit", String(requestLimit));
+      params.set("offset", String(offset + loadedPosts.length));
+      params.set("sort", typeof cfg.sortOrder === "string" ? cfg.sortOrder : "latest");
+
+      if (categorySlugs.length > 0) params.set("categories", categorySlugs.join(","));
+      if (excludeCategorySlugs.length > 0) params.set("excludeCategories", excludeCategorySlugs.join(","));
+      if (tagSlugs.length > 0) params.set("tags", tagSlugs.join(","));
+      if (excludeTagSlugs.length > 0) params.set("excludeTags", excludeTagSlugs.join(","));
+
+      setIsFetchingMore(true);
+      try {
+        const response = await fetch(`/api/public/posts?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return false;
+        }
+
+        const payload = await response.json();
+        const nextPosts = Array.isArray(payload?.data) ? (payload.data as NewsListPost[]) : [];
+        const total = typeof payload?.meta?.total === "number" ? payload.meta.total : null;
+
+        if (nextPosts.length === 0) {
+          setHasMoreRemote(false);
+          return false;
+        }
+
+        const merged = [...loadedPosts];
+        const seen = new Set(loadedPosts.map((item) => item.id || item.slug));
+        for (const item of nextPosts) {
+          const key = item.id || item.slug;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          merged.push(item);
+        }
+
+        const combinedLength = merged.length;
+        setLoadedPosts(merged);
+
+        if (total !== null) {
+          setHasMoreRemote(offset + combinedLength < total);
+        } else {
+          setHasMoreRemote(nextPosts.length >= requestLimit);
+        }
+
+        return combinedLength > loadedPosts.length;
+      } finally {
+        setIsFetchingMore(false);
+      }
+    },
+    [
+      paginationStyle,
+      isFetchingMore,
+      hasMoreRemote,
+      pageSize,
+      offset,
+      loadedPosts.length,
+      cfg.sortOrder,
+      categorySlugs,
+      excludeCategorySlugs,
+      tagSlugs,
+      excludeTagSlugs,
+    ]
+  );
+
+  const ensurePageLoaded = useCallback(
+    async (targetPage: number) => {
+      const requiredCount = targetPage * pageSize;
+      if (requiredCount <= loadedPosts.length) return true;
+      return fetchMorePosts(requiredCount - loadedPosts.length);
+    },
+    [fetchMorePosts, loadedPosts.length, pageSize]
+  );
 
   const visiblePosts = useMemo(() => {
     if (paginationStyle === 'next_prev') {
@@ -585,19 +792,21 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
     const el = sentinelRef.current;
     const observer = new IntersectionObserver((entries) => {
       const entry = entries[0];
-      if (!entry?.isIntersecting) return;
-      setPage((prev) => {
-        if (prev >= totalPages) return prev;
-        return prev + 1;
-      });
+      if (!entry?.isIntersecting || isFetchingMore) return;
+      void (async () => {
+        const nextPage = page + 1;
+        const ready = await ensurePageLoaded(nextPage);
+        if (!ready) return;
+        setPage((prev) => Math.max(prev, nextPage));
+      })();
     }, { rootMargin: '200px 0px' });
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [paginationStyle, totalPages]);
+  }, [paginationStyle, page, ensurePageLoaded, isFetchingMore]);
 
   const configRecord = cfg as Record<string, unknown>;
-  const excerptLengthMobile = getNumberFromValue(cfg.mobileExcerptLength ?? cfg.excerptLength, 100);
+  const excerptLengthMobile = getNumberFromValue(cfg.mobileExcerptLength ?? cfg.excerptLength, 120);
   const excerptLengthTablet = getNumberFromValue(cfg.tabletExcerptLength ?? cfg.excerptLength, excerptLengthMobile);
   const excerptLengthDesktop = getNumberFromValue(cfg.excerptLength, excerptLengthTablet);
   const showExcerptFallback = typeof cfg.showExcerpt === 'boolean' ? cfg.showExcerpt : false;
@@ -608,9 +817,9 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const showExcerptMobile = getResponsiveBool(configRecord, "showExcerpt", "mobile", showExcerptFallback);
   const showExcerptTablet = getResponsiveBool(configRecord, "showExcerpt", "tablet", showExcerptFallback);
   const showExcerptDesktop = getResponsiveBool(configRecord, "showExcerpt", "desktop", showExcerptFallback);
-  const showMetaMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", true);
-  const showMetaTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", true);
-  const showMetaDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", true);
+  const showMetaMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", getResponsiveBool(configRecord, "showMeta", "mobile", true));
+  const showMetaTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", getResponsiveBool(configRecord, "showMeta", "tablet", true));
+  const showMetaDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", getResponsiveBool(configRecord, "showMeta", "desktop", true));
   const showCategoryDesktop = getResponsiveBool(configRecord, "showCategory", "desktop", true);
   const showCategoryTablet = getResponsiveBool(configRecord, "showCategory", "tablet", true);
   const showCategoryMobile = getResponsiveBool(configRecord, "showCategory", "mobile", true);
@@ -668,29 +877,108 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
     backgroundColor: device === 'mobile' ? paginationHoverBgColorMobile : (device === 'tablet' ? paginationHoverBgColorTablet : paginationHoverBgColorDesktop),
     borderColor: device === 'mobile' ? paginationHoverBorderColorMobile : (device === 'tablet' ? paginationHoverBorderColorTablet : paginationHoverBorderColorDesktop),
   } as React.CSSProperties;
-  const currentBlockTitleFs = device === 'mobile' ? blockTitleFsMobile : (device === 'tablet' ? blockTitleFsTablet : blockTitleFsDesktop);
-  const currentBlockTitleColor = device === 'mobile' ? blockTitleColorMobile : (device === 'tablet' ? blockTitleColorTablet : blockTitleColorDesktop);
-  const currentBlockTitleBorderColor = device === 'mobile' ? blockTitleBorderColorMobile : (device === 'tablet' ? blockTitleBorderColorTablet : blockTitleBorderColorDesktop);
+
+  const supportsHoverInteraction = () => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+    return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  };
+
+  const applyPaginationHoverStyle = (button: HTMLButtonElement) => {
+    if (button.disabled || !supportsHoverInteraction()) return;
+    Object.assign(button.style, buttonHoverStyle);
+  };
+
+  const resetPaginationButtonStyle = (
+    button: HTMLButtonElement,
+    padding: { top: string; right: string; bottom: string; left: string }
+  ) => {
+    if (!supportsHoverInteraction()) return;
+    Object.assign(button.style, {
+      ...buttonStyle,
+      paddingTop: padding.top,
+      paddingRight: padding.right,
+      paddingBottom: padding.bottom,
+      paddingLeft: padding.left,
+    });
+  };
+  const currentUseBox = device === 'mobile' ? useBoxMobile : (device === 'tablet' ? useBoxTablet : useBoxDesktop);
+  const currentBoxColor = device === 'mobile' ? boxColorMobile : (device === 'tablet' ? boxColorTablet : boxColorDesktop);
+  const currentBoxRadius = device === 'mobile' ? getRadius(boxRadiusKeyMobile) : (device === 'tablet' ? getRadius(boxRadiusKeyTablet) : getRadius(boxRadiusKeyDesktop));
+  const currentBoxBgImage = device === 'mobile' ? boxBgImageMobile : (device === 'tablet' ? boxBgImageTablet : boxBgImageDesktop);
+  const currentBoxBgSize = device === 'mobile' ? boxBgSizeMobile : (device === 'tablet' ? boxBgSizeTablet : boxBgSizeDesktop);
+  const currentBoxBgPosition = device === 'mobile' ? boxBgPositionMobile : (device === 'tablet' ? boxBgPositionTablet : boxBgPositionDesktop);
+  const currentBoxBgRepeat = device === 'mobile' ? boxBgRepeatMobile : (device === 'tablet' ? boxBgRepeatTablet : boxBgRepeatDesktop);
+  const currentBoxBgAttachment = device === 'mobile' ? boxBgAttachmentMobile : (device === 'tablet' ? boxBgAttachmentTablet : boxBgAttachmentDesktop);
+  const currentBoxOverlayColor = device === 'mobile' ? boxOverlayColorMobile : (device === 'tablet' ? boxOverlayColorTablet : boxOverlayColorDesktop);
+  const currentBoxOverlayOpacity = device === 'mobile' ? boxOverlayOpacityMobile : (device === 'tablet' ? boxOverlayOpacityTablet : boxOverlayOpacityDesktop);
+  const hasCurrentBoxOverlay = currentBoxOverlayOpacity > 0 && typeof currentBoxOverlayColor === 'string' && currentBoxOverlayColor.trim() !== '' && currentBoxOverlayColor !== 'transparent';
+  const currentBoxOverlayFill = hasCurrentBoxOverlay ? `color-mix(in srgb, ${currentBoxOverlayColor} ${currentBoxOverlayOpacity}%, transparent)` : 'transparent';
+  const currentBoxBackgroundImage = currentUseBox && currentBoxBgImage
+    ? (hasCurrentBoxOverlay
+      ? `linear-gradient(${currentBoxOverlayFill}, ${currentBoxOverlayFill}), url("${currentBoxBgImage}")`
+      : `url("${currentBoxBgImage}")`)
+    : 'none';
+  const currentBoxPt = device === 'mobile' ? boxPtMobile : (device === 'tablet' ? boxPtTablet : boxPtDesktop);
+  const currentBoxPr = device === 'mobile' ? boxPrMobile : (device === 'tablet' ? boxPrTablet : boxPrDesktop);
+  const currentBoxPb = device === 'mobile' ? boxPbMobile : (device === 'tablet' ? boxPbTablet : boxPbDesktop);
+  const currentBoxPl = device === 'mobile' ? boxPlMobile : (device === 'tablet' ? boxPlTablet : boxPlDesktop);
   const currentTitleFs = device === 'mobile' ? titleFsMobile : (device === 'tablet' ? titleFsTablet : titleFsDesktop);
   const currentTitleLh = device === 'mobile' ? titleLhMobile : (device === 'tablet' ? titleLhTablet : titleLhDesktop);
   const currentTitleFontWeight = device === 'mobile' ? titleFontWeightMobile : (device === 'tablet' ? titleFontWeightTablet : titleFontWeightDesktop);
   const currentTitleMb = device === 'mobile' ? titleMbMobile : (device === 'tablet' ? titleMbTablet : titleMbDesktop);
   const currentTitleColor = device === 'mobile' ? titleColorMobile : (device === 'tablet' ? titleColorTablet : titleColorDesktop);
   const currentTitleHoverColor = device === 'mobile' ? titleHoverColorMobile : (device === 'tablet' ? titleHoverColorTablet : titleHoverColorDesktop);
+  const listAlignMobile = normalizeAlign(cfg.mobileListContentAlign ?? cfg.listContentAlign);
+  const listAlignTablet = normalizeAlign(cfg.tabletListContentAlign ?? cfg.listContentAlign);
+  const listAlignDesktop = normalizeAlign(cfg.listContentAlign);
+  const currentListAlign = device === 'mobile' ? listAlignMobile : (device === 'tablet' ? listAlignTablet : listAlignDesktop);
+  const listRightImageOnly = cfg.listRightImageOnly === true;
+  const isCenterAligned = currentListAlign === 'center';
+  const isRightAligned = currentListAlign === 'right';
+  const shouldReverseImageOnly = listRightImageOnly && isRightAligned && !isCenterAligned;
+  const verticalAlignMobile = normalizeVerticalAlign(cfg.mobileVerticalAlign ?? cfg.verticalAlign);
+  const verticalAlignTablet = normalizeVerticalAlign(cfg.tabletVerticalAlign ?? cfg.verticalAlign);
+  const verticalAlignDesktop = normalizeVerticalAlign(cfg.verticalAlign);
+  const currentVerticalAlign = device === 'mobile' ? verticalAlignMobile : (device === 'tablet' ? verticalAlignTablet : verticalAlignDesktop);
+  const currentCrossAlign = isCenterAligned ? 'center' : (isRightAligned && !shouldReverseImageOnly) ? 'flex-end' : 'flex-start';
+  const currentVerticalCrossAlign = currentVerticalAlign === 'center' ? 'center' : currentVerticalAlign === 'bottom' ? 'flex-end' : 'flex-start';
+  const currentTextAlign = isCenterAligned ? 'center' : (isRightAligned && !shouldReverseImageOnly) ? 'right' : 'left';
+  const currentJustifyAlign = isCenterAligned ? 'center' : (isRightAligned && !shouldReverseImageOnly) ? 'flex-end' : 'flex-start';
   const currentMetaFs = device === 'mobile' ? metaFsMobile : (device === 'tablet' ? metaFsTablet : metaFsDesktop);
   const currentMetaColor = device === 'mobile' ? metaColorMobile : (device === 'tablet' ? metaColorTablet : metaColorDesktop);
   const currentMetaLineHeight = device === 'mobile' ? metaLineHeightMobile : (device === 'tablet' ? metaLineHeightTablet : metaLineHeightDesktop);
+  const currentMetaFontWeight = device === 'mobile' ? metaFontWeightMobile : (device === 'tablet' ? metaFontWeightTablet : metaFontWeightDesktop);
   const currentMetaMarginBottom = device === 'mobile' ? metaMarginBottomMobile : (device === 'tablet' ? metaMarginBottomTablet : metaMarginBottomDesktop);
   const currentExcerptFs = device === 'mobile' ? excerptFsMobile : (device === 'tablet' ? excerptFsTablet : excerptFsDesktop);
   const currentExcerptColor = device === 'mobile' ? excerptColorMobile : (device === 'tablet' ? excerptColorTablet : excerptColorDesktop);
   const currentExcerptLh = device === 'mobile' ? excerptLhMobile : (device === 'tablet' ? excerptLhTablet : excerptLhDesktop);
+  const currentExcerptFontWeight = device === 'mobile' ? excerptFontWeightMobile : (device === 'tablet' ? excerptFontWeightTablet : excerptFontWeightDesktop);
   const currentExcerptLength = device === 'mobile' ? excerptLengthMobile : (device === 'tablet' ? excerptLengthTablet : excerptLengthDesktop);
   const currentShowImage = device === 'mobile' ? showImageMobile : (device === 'tablet' ? showImageTablet : showImageDesktop);
   const currentShowExcerpt = device === 'mobile' ? showExcerptMobile : (device === 'tablet' ? showExcerptTablet : showExcerptDesktop);
   const currentShowMeta = device === 'mobile' ? showMetaMobile : (device === 'tablet' ? showMetaTablet : showMetaDesktop);
+  const currentShowCategory = device === 'mobile' ? showCategoryMobile : (device === 'tablet' ? showCategoryTablet : showCategoryDesktop);
+  const currentShowAuthor = device === 'mobile' ? showAuthorMobile : (device === 'tablet' ? showAuthorTablet : showAuthorDesktop);
+  const currentShowDate = device === 'mobile' ? showDateMobile : (device === 'tablet' ? showDateTablet : showDateDesktop);
   const currentShowDivider = device === 'mobile' ? showDividerMobile : (device === 'tablet' ? showDividerTablet : showDividerDesktop);
   const currentDividerColor = device === 'mobile' ? dividerColorMobile : (device === 'tablet' ? dividerColorTablet : dividerColorDesktop);
   const currentDividerThickness = device === 'mobile' ? dividerThicknessMobile : (device === 'tablet' ? dividerThicknessTablet : dividerThicknessDesktop);
+  const currentThumbWidth = device === 'mobile' ? thumbWidthMobile : (device === 'tablet' ? thumbWidthTablet : thumbWidthDesktop);
+  const currentThumbHeight = device === 'mobile' ? thumbHeightMobile : (device === 'tablet' ? thumbHeightTablet : thumbHeightDesktop);
+  const currentThumbRatio = device === 'mobile' ? ratioMobile : (device === 'tablet' ? ratioTablet : ratioDesktop);
+  const currentThumbRadius = device === 'mobile' ? thumbRadiusMobile : (device === 'tablet' ? thumbRadiusTablet : thumbRadiusDesktop);
+  const currentCpTop = device === 'mobile' ? cpTopMobile : (device === 'tablet' ? cpTopTablet : cpTopDesktop);
+  const currentCpRight = device === 'mobile' ? cpRightMobile : (device === 'tablet' ? cpRightTablet : cpRightDesktop);
+  const currentCpBottom = device === 'mobile' ? cpBottomMobile : (device === 'tablet' ? cpBottomTablet : cpBottomDesktop);
+  const currentCpLeft = device === 'mobile' ? cpLeftMobile : (device === 'tablet' ? cpLeftTablet : cpLeftDesktop);
+  const currentLoadMoreText = device === 'mobile' ? loadMoreTextMobile : (device === 'tablet' ? loadMoreTextTablet : loadMoreTextDesktop);
+  const currentLmpTop = device === 'mobile' ? lmpTopMobile : (device === 'tablet' ? lmpTopTablet : lmpTopDesktop);
+  const currentLmpRight = device === 'mobile' ? lmpRightMobile : (device === 'tablet' ? lmpRightTablet : lmpRightDesktop);
+  const currentLmpBottom = device === 'mobile' ? lmpBottomMobile : (device === 'tablet' ? lmpBottomTablet : lmpBottomDesktop);
+  const currentLmpLeft = device === 'mobile' ? lmpLeftMobile : (device === 'tablet' ? lmpLeftTablet : lmpLeftDesktop);
+  const currentBlockTitleLh = device === 'mobile' ? blockTitleLhMobile : (device === 'tablet' ? blockTitleLhTablet : blockTitleLhDesktop);
+  const currentBlockTitleMb = device === 'mobile' ? blockTitleMbMobile : (device === 'tablet' ? blockTitleMbTablet : blockTitleMbDesktop);
+  const currentBlockTitlePb = device === 'mobile' ? blockTitlePbMobile : (device === 'tablet' ? blockTitlePbTablet : blockTitlePbDesktop);
   const decodeHtmlEntities = (input: string) => {
     return input
       .replace(/&nbsp;/g, ' ')
@@ -755,9 +1043,19 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   // Jika posts kosong, tampilkan placeholder
   if (!allPosts || allPosts.length === 0) {
       return (
-          <div id={`news-list-${block.id}`} className="news-list-container" style={{ ...containerStyle, padding: '1.25rem' }}>
-              <h3 className="text-lg font-bold mb-4 border-b pb-2" style={{ borderColor: 'rgba(229,231,235,0.7)' }}>{title}</h3>
-              <p className="text-gray-500 text-sm">Belum ada berita di kategori ini.</p>
+          <div
+            id={`news-list-${block.id}`}
+            className="news-list-container"
+            style={{
+              ...containerStyle,
+              paddingTop: currentUseBox ? currentBoxPt : '1.25rem',
+              paddingRight: currentUseBox ? currentBoxPr : '1.25rem',
+              paddingBottom: currentUseBox ? currentBoxPb : '1.25rem',
+              paddingLeft: currentUseBox ? currentBoxPl : '1.25rem',
+            }}
+          >
+              <h3 className="text-lg font-bold mb-4 border-b pb-2 [color:var(--home-widget-title-color,var(--heading-color,#1e293b))]" style={{ borderColor: 'var(--border, rgba(229,231,235,0.7))' }}>{title}</h3>
+              <p className="text-sm [color:var(--muted-text,var(--home-meta-color,#9ca3af))]">Belum ada berita di kategori ini.</p>
           </div>
       );
   }
@@ -766,211 +1064,62 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
     <div
       id={`news-list-${block.id}`}
       className="news-list-container"
-      style={containerStyle}
+      style={{
+        ...containerStyle,
+        '--nl-title-hover': currentTitleHoverColor,
+        '--rb-mt-mobile': mTopMobile,
+        '--rb-mr-mobile': mRightMobile,
+        '--rb-mb-mobile': mBottomMobile,
+        '--rb-ml-mobile': mLeftMobile,
+        '--rb-pt-mobile': pTopMobile,
+        '--rb-pr-mobile': pRightMobile,
+        '--rb-pb-mobile': pBottomMobile,
+        '--rb-pl-mobile': pLeftMobile,
+        '--rb-mt-tablet': mTopTablet,
+        '--rb-mr-tablet': mRightTablet,
+        '--rb-mb-tablet': mBottomTablet,
+        '--rb-ml-tablet': mLeftTablet,
+        '--rb-pt-tablet': pTopTablet,
+        '--rb-pr-tablet': pRightTablet,
+        '--rb-pb-tablet': pBottomTablet,
+        '--rb-pl-tablet': pLeftTablet,
+        '--rb-mt-desktop': mTopDesktop,
+        '--rb-mr-desktop': mRightDesktop,
+        '--rb-mb-desktop': mBottomDesktop,
+        '--rb-ml-desktop': mLeftDesktop,
+        '--rb-pt-desktop': pTopDesktop,
+        '--rb-pr-desktop': pRightDesktop,
+        '--rb-pb-desktop': pBottomDesktop,
+        '--rb-pl-desktop': pLeftDesktop,
+        backgroundColor: currentUseBox ? currentBoxColor : 'transparent',
+        borderRadius: currentUseBox ? currentBoxRadius : '0',
+        border: currentUseBox ? 'var(--box-border, 1px solid var(--border, #e5e7eb))' : 'none',
+        boxShadow: currentUseBox ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none',
+        backgroundImage: currentBoxBackgroundImage,
+        backgroundSize: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+        backgroundPosition: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+        backgroundRepeat: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+        backgroundAttachment: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+        paddingTop: currentUseBox ? currentBoxPt : '0px',
+        paddingRight: currentUseBox ? currentBoxPr : '0px',
+        paddingBottom: currentUseBox ? currentBoxPb : '0px',
+        paddingLeft: currentUseBox ? currentBoxPl : '0px',
+      } as React.CSSProperties}
     >
-      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-        #news-list-${block.id} {
-          --nl-title-hover: ${titleHoverColorMobile};
-          background-color: ${useBoxMobile ? boxColorMobile : 'transparent'};
-          border-radius: ${useBoxMobile ? getRadius(boxRadiusKeyMobile) : '0'};
-          border: ${useBoxMobile ? 'var(--box-border, 1px solid #f3f4f6)' : 'none'};
-          box-shadow: ${useBoxMobile ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'};
-          background-image: ${useBoxMobile && boxBgImageMobile ? `url("${boxBgImageMobile}")` : 'none'};
-          background-size: ${useBoxMobile && boxBgImageMobile ? 'cover' : 'initial'};
-          background-position: ${useBoxMobile && boxBgImageMobile ? 'center' : 'initial'};
-          background-repeat: ${useBoxMobile && boxBgImageMobile ? 'no-repeat' : 'repeat'};
-        }
-        #news-list-${block.id} .news-list-inner {
-          margin-top: ${mTopMobile};
-          margin-right: ${mRightMobile};
-          margin-bottom: ${mBottomMobile};
-          margin-left: ${mLeftMobile};
-          padding-top: ${pTopMobile};
-          padding-right: ${pRightMobile};
-          padding-bottom: ${pBottomMobile};
-          padding-left: ${pLeftMobile};
-        }
-        #news-list-${block.id} .news-list-thumb {
-          width: ${ratioMobile ? thumbWidthMobile : thumbWidthMobile};
-          height: ${ratioMobile ? 'auto' : thumbHeightMobile};
-          aspect-ratio: ${ratioMobile ? ratioMobile : 'auto'};
-          border-radius: ${thumbRadiusMobile};
-        }
-        #news-list-${block.id} .news-list-content {
-          padding-top: ${cpTopMobile};
-          padding-right: ${cpRightMobile};
-          padding-bottom: ${cpBottomMobile};
-          padding-left: ${cpLeftMobile};
-        }
-        #news-list-${block.id} .news-list-item {
-          border-bottom-style: solid;
-          border-bottom-width: ${currentShowDivider ? `${currentDividerThickness}px` : '0'};
-          border-bottom-color: ${currentDividerColor};
-        }
-        #news-list-${block.id} .news-list-item:last-child {
-          border-bottom-width: 0;
-        }
-        #news-list-${block.id} .theme-widget-title {
-          color: ${currentBlockTitleColor};
-          font-size: ${currentBlockTitleFs};
-        }
-        #news-list-${block.id} .theme-widget-title span {
-          color: ${currentBlockTitleColor};
-          font-size: ${currentBlockTitleFs};
-        }
-        #news-list-${block.id} .theme-widget-title .widget-title-bar {
-          background-color: ${currentBlockTitleBorderColor};
-        }
-        #news-list-${block.id} .news-list-meta-info {
-          font-size: ${currentMetaFs};
-          color: ${currentMetaColor};
-          line-height: ${currentMetaLineHeight};
-          margin-bottom: ${currentMetaMarginBottom}px;
-        }
-        #news-list-${block.id} .news-list-meta-info,
-        #news-list-${block.id} .news-list-meta-info a {
-          font-size: ${currentMetaFs};
-          color: ${currentMetaColor};
-        }
-        #news-list-${block.id} .news-list-category { color: ${categoryLabelColorMobile}; }
-        #news-list-${block.id} .news-list-title-wrap { font-size: ${currentTitleFs}; line-height: ${currentTitleLh}; font-weight: ${currentTitleFontWeight}; margin-bottom: ${currentTitleMb}; }
-        #news-list-${block.id} .news-list-title { color: ${currentTitleColor}; font-size: ${currentTitleFs}; line-height: ${currentTitleLh}; font-weight: ${currentTitleFontWeight}; }
-        #news-list-${block.id} .news-list-title:hover { color: ${currentTitleHoverColor}; }
-        #news-list-${block.id} .news-list-excerpt {
-          display: ${currentShowExcerpt ? 'block' : 'none'};
-          font-size: ${currentExcerptFs};
-          color: ${currentExcerptColor};
-          line-height: ${currentExcerptLh};
-        }
-        #news-list-${block.id} .news-list-excerpt {
-          font-size: ${currentExcerptFs};
-          color: ${currentExcerptColor};
-          line-height: ${currentExcerptLh};
-        }
-        #news-list-${block.id} .news-list-meta-info {
-          display: ${currentShowMeta ? 'flex' : 'none'};
-        }
-        ${paginationStyle === 'none' ? `
-          #news-list-${block.id} .news-list-item:nth-child(n+${mobileLimit + 1}) { display: none; }
-        ` : ''}
-        #news-list-${block.id} .news-list-loadmore-label--mobile { display: inline; }
-        #news-list-${block.id} .news-list-loadmore-label--tablet { display: none; }
-        #news-list-${block.id} .news-list-loadmore-label--desktop { display: none; }
-        #news-list-${block.id} .news-list-pagination-btn {
-          padding-top: ${lmpTopMobile};
-          padding-right: ${lmpRightMobile};
-          padding-bottom: ${lmpBottomMobile};
-          padding-left: ${lmpLeftMobile};
-        }
-        @media (min-width: 768px) {
-          #news-list-${block.id} {
-            background-color: ${useBoxTablet ? boxColorTablet : 'transparent'};
-            border-radius: ${useBoxTablet ? getRadius(boxRadiusKeyTablet) : '0'};
-            border: ${useBoxTablet ? 'var(--box-border, 1px solid #f3f4f6)' : 'none'};
-            box-shadow: ${useBoxTablet ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'};
-            background-image: ${useBoxTablet && boxBgImageTablet ? `url("${boxBgImageTablet}")` : 'none'};
-            background-size: ${useBoxTablet && boxBgImageTablet ? 'cover' : 'initial'};
-            background-position: ${useBoxTablet && boxBgImageTablet ? 'center' : 'initial'};
-            background-repeat: ${useBoxTablet && boxBgImageTablet ? 'no-repeat' : 'repeat'};
-          }
-          #news-list-${block.id} .news-list-inner {
-            margin-top: ${mTopTablet};
-            margin-right: ${mRightTablet};
-            margin-bottom: ${mBottomTablet};
-            margin-left: ${mLeftTablet};
-            padding-top: ${pTopTablet};
-            padding-right: ${pRightTablet};
-            padding-bottom: ${pBottomTablet};
-            padding-left: ${pLeftTablet};
-          }
-          #news-list-${block.id} .news-list-thumb {
-            width: ${ratioTablet ? thumbWidthTablet : thumbWidthTablet};
-            height: ${ratioTablet ? 'auto' : thumbHeightTablet};
-            aspect-ratio: ${ratioTablet ? ratioTablet : 'auto'};
-            border-radius: ${thumbRadiusTablet};
-          }
-          #news-list-${block.id} .news-list-content {
-            padding-top: ${cpTopTablet};
-            padding-right: ${cpRightTablet};
-            padding-bottom: ${cpBottomTablet};
-            padding-left: ${cpLeftTablet};
-          }
-          #news-list-${block.id} .news-list-category { color: ${categoryLabelColorTablet}; }
-          ${paginationStyle === 'none' ? `
-            #news-list-${block.id} .news-list-item:nth-child(n+${tabletLimit + 1}) { display: none; }
-          ` : ''}
-          #news-list-${block.id} .news-list-loadmore-label--mobile { display: none; }
-          #news-list-${block.id} .news-list-loadmore-label--tablet { display: inline; }
-          #news-list-${block.id} .news-list-loadmore-label--desktop { display: none; }
-          #news-list-${block.id} .news-list-pagination-btn {
-            padding-top: ${lmpTopTablet};
-            padding-right: ${lmpRightTablet};
-            padding-bottom: ${lmpBottomTablet};
-            padding-left: ${lmpLeftTablet};
-          }
-        }
-        @media (min-width: 1025px) {
-          #news-list-${block.id} {
-            background-color: ${useBoxDesktop ? boxColorDesktop : 'transparent'};
-            border-radius: ${useBoxDesktop ? getRadius(boxRadiusKeyDesktop) : '0'};
-            border: ${useBoxDesktop ? 'var(--box-border, 1px solid #f3f4f6)' : 'none'};
-            box-shadow: ${useBoxDesktop ? 'var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))' : 'none'};
-            background-image: ${useBoxDesktop && boxBgImageDesktop ? `url("${boxBgImageDesktop}")` : 'none'};
-            background-size: ${useBoxDesktop && boxBgImageDesktop ? 'cover' : 'initial'};
-            background-position: ${useBoxDesktop && boxBgImageDesktop ? 'center' : 'initial'};
-            background-repeat: ${useBoxDesktop && boxBgImageDesktop ? 'no-repeat' : 'repeat'};
-          }
-          #news-list-${block.id} .news-list-inner {
-            margin-top: ${mTopDesktop};
-            margin-right: ${mRightDesktop};
-            margin-bottom: ${mBottomDesktop};
-            margin-left: ${mLeftDesktop};
-            padding-top: ${pTopDesktop};
-            padding-right: ${pRightDesktop};
-            padding-bottom: ${pBottomDesktop};
-            padding-left: ${pLeftDesktop};
-          }
-          #news-list-${block.id} .news-list-thumb {
-            width: ${ratioDesktop ? thumbWidthDesktop : thumbWidthDesktop};
-            height: ${ratioDesktop ? 'auto' : thumbHeightDesktop};
-            aspect-ratio: ${ratioDesktop ? ratioDesktop : 'auto'};
-            border-radius: ${thumbRadiusDesktop};
-          }
-          #news-list-${block.id} .news-list-content {
-            padding-top: ${cpTopDesktop};
-            padding-right: ${cpRightDesktop};
-            padding-bottom: ${cpBottomDesktop};
-            padding-left: ${cpLeftDesktop};
-          }
-          #news-list-${block.id} .news-list-category { color: ${categoryLabelColorDesktop}; }
-          ${paginationStyle === 'none' ? `
-            #news-list-${block.id} .news-list-item:nth-child(n+${baseLimit + 1}) { display: none; }
-          ` : ''}
-          #news-list-${block.id} .news-list-loadmore-label--mobile { display: none; }
-          #news-list-${block.id} .news-list-loadmore-label--tablet { display: none; }
-          #news-list-${block.id} .news-list-loadmore-label--desktop { display: inline; }
-          #news-list-${block.id} .news-list-pagination-btn {
-            padding-top: ${lmpTopDesktop};
-            padding-right: ${lmpRightDesktop};
-            padding-bottom: ${lmpBottomDesktop};
-            padding-left: ${lmpLeftDesktop};
-          }
-        }
-      `) }} />
-
-      <div className="news-list-inner">
+      <div className="news-list-inner responsive-block-frame">
         {(cfg.showTitle !== false) && (
           <h3
-            className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center justify-between theme-widget-title"
+            className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center justify-between theme-widget-title"
+            style={{ lineHeight: currentBlockTitleLh, marginBottom: currentBlockTitleMb, paddingBottom: currentBlockTitlePb }}
           >
             <span className="flex items-center">
-              <span className="widget-title-bar w-1 h-5 mr-3" style={{ borderRadius: 'var(--home-main-box-radius, 0.25rem)' }} />
+              <span className="widget-title-bar" style={{ borderRadius: 'var(--home-main-box-radius, 0.25rem)' }} />
               <span>{title}</span>
             </span>
             {archiveLink && (
               <Link
                 href={archiveLink}
-                className="text-xs font-medium text-gray-400 hover:text-[var(--accent)] transition-colors flex items-center gap-1"
+                className="text-xs font-medium [color:var(--muted-text,var(--home-meta-color,#9ca3af))] hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors flex items-center gap-1"
               >
                 Lihat Semua
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
@@ -984,6 +1133,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
         <div className="space-y-4">
           {visiblePosts.map((post, idx) => {
             const postLink = post.category ? `/${post.category.slug}/${post.slug}` : `/post/${post.slug}`;
+            const displayCategory = post.archiveDisplayCategory || post.category;
             const imageUrl = post.image || post.featuredImage?.fileUrl;
             const isVideo = String((post as any)?.type || "").toUpperCase() === "VIDEO";
             const authorName = (() => {
@@ -1008,13 +1158,10 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
               return '';
             })();
             const dateVal = post.publishedAt || post.createdAt;
-            const showCategory = device === 'mobile' ? showCategoryMobile : (device === 'tablet' ? showCategoryTablet : showCategoryDesktop);
-            const showAuthor = device === 'mobile' ? showAuthorMobile : (device === 'tablet' ? showAuthorTablet : showAuthorDesktop);
-            const showDate = device === 'mobile' ? showDateMobile : (device === 'tablet' ? showDateTablet : showDateDesktop);
             const categoryPaddingX = device === 'mobile' ? categoryPaddingXMobile : (device === 'tablet' ? categoryPaddingXTablet : categoryPaddingXDesktop);
             const categoryPaddingY = device === 'mobile' ? categoryPaddingYMobile : (device === 'tablet' ? categoryPaddingYTablet : categoryPaddingYDesktop);
             const categoryMarginBottom = device === 'mobile' ? categoryMarginBottomMobile : (device === 'tablet' ? categoryMarginBottomTablet : categoryMarginBottomDesktop);
-            const categoryTextColor = getResponsiveCategoryString('categoryLabelColor', 'categoryTextColor', 'var(--accent)');
+            const categoryTextColor = getResponsiveCategoryString('categoryLabelColor', 'categoryTextColor', 'var(--accent)', 'categoryLabelTextColor');
             const categoryBgColor = getResponsiveCategoryString('categoryLabelBgColor', 'categoryBgColor', 'transparent');
             const categoryHasBg = categoryBgColor !== 'transparent' && categoryBgColor !== 'none';
             const categoryFontSize = `${getResponsiveCategoryNumber('categoryLabelFontSize', 'categoryFontSize', 12)}px`;
@@ -1030,16 +1177,31 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
               getResponsive('categoryLabelBorderRadius') ?? getResponsive('categoryBorderRadius') ?? cfg.categoryLabelBorderRadius ?? cfg.categoryBorderRadius,
               effectiveRadius
             );
-
             return (
               <article
                 key={post.id ?? `${block.id}-${idx}`}
-                className="news-list-item flex gap-4 group items-start pb-4 last:pb-0"
+                className="news-list-item group pb-4 last:pb-0"
+                style={{
+                  display: 'flex',
+                  flexDirection: isCenterAligned ? 'column' : (isRightAligned ? 'row-reverse' : 'row'),
+                  alignItems: isCenterAligned ? currentCrossAlign : currentVerticalCrossAlign,
+                  gap: '1rem',
+                  borderBottomStyle: 'solid',
+                  borderBottomWidth: currentShowDivider && idx < visiblePosts.length - 1 ? `${currentDividerThickness}px` : '0',
+                  borderBottomColor: currentDividerColor,
+                }}
               >
                 {currentShowImage && (
                   <Link
                     href={postLink}
-                    className="news-list-thumb relative flex-shrink-0 overflow-hidden bg-gray-100 group-hover:shadow-md transition-shadow"
+                    className="news-list-thumb relative flex-shrink-0 overflow-hidden bg-[color:var(--bg-surface,#f3f4f6)] group-hover:shadow-md transition-shadow"
+                    style={{
+                      alignSelf: isCenterAligned ? currentCrossAlign : currentVerticalCrossAlign,
+                      width: currentThumbWidth,
+                      height: currentThumbRatio ? 'auto' : currentThumbHeight,
+                      aspectRatio: currentThumbRatio || 'auto',
+                      borderRadius: currentThumbRadius,
+                    }}
                   >
                     {imageUrl ? (
                       <Image
@@ -1048,10 +1210,10 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                         fill
                         quality={90}
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
-                        sizes={/px$/.test(thumbWidthDesktop) ? thumbWidthDesktop : '96px'}
+                        sizes={/px$/.test(currentThumbWidth) ? currentThumbWidth : '96px'}
                       />
                     ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-300 text-xs font-semibold">
+                      <div className="absolute inset-0 flex items-center justify-center [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-xs font-semibold">
                         No Image
                       </div>
                     )}
@@ -1067,45 +1229,108 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                   </Link>
                 )}
 
-                <div className="flex-grow min-w-0 news-list-content">
-                  {showCategory && post.category && (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" style={{ marginBottom: `${categoryMarginBottom}px` }}>
+                <div
+                  className="flex-grow min-w-0 news-list-content"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: currentCrossAlign,
+                    textAlign: currentTextAlign,
+                    paddingTop: currentCpTop,
+                    paddingRight: currentCpRight,
+                    paddingBottom: currentCpBottom,
+                    paddingLeft: currentCpLeft,
+                    width: '100%',
+                  }}
+                >
+                  {currentShowCategory && displayCategory && (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1" style={{ marginBottom: `${categoryMarginBottom}px`, justifyContent: currentJustifyAlign }}>
                       <Link
-                        href={`/${post.category.slug}`}
+                        href={`/${displayCategory.slug}`}
                         className="news-list-category hover:opacity-90 transition-opacity font-bold uppercase tracking-wider"
                         style={{
-                          color: categoryTextColor,
-                          backgroundColor: categoryBgColor,
+                          color: String(categoryTextColor),
+                          backgroundColor: String(categoryBgColor),
                           borderRadius: categoryHasBg ? categoryRadius : '0',
                           padding: categoryHasBg ? `${categoryPaddingY}px ${categoryPaddingX}px` : '0',
                           fontSize: categoryFontSize,
                           lineHeight: categoryLineHeight
                         }}
                       >
-                        {post.category.name}
+                        {displayCategory.name}
                       </Link>
                     </div>
                   )}
 
-                  <h4 className="news-list-title-wrap mb-1.5">
-                    <Link href={postLink} className="news-list-title transition-colors">
+                  <h4
+                    className="news-list-title-wrap mb-1.5"
+                    style={{
+                      fontSize: currentTitleFs,
+                      lineHeight: currentTitleLh,
+                      fontWeight: currentTitleFontWeight,
+                      fontFamily: 'var(--home-news-title-font, var(--font-heading, sans-serif))',
+                      fontSynthesis: 'var(--home-news-title-synthesis, var(--font-heading-synthesis, none))',
+                      marginBottom: currentTitleMb,
+                    }}
+                  >
+                    <Link
+                      href={postLink}
+                      className="news-list-title transition-colors hover:!text-[var(--nl-title-hover)]"
+                      style={{
+                        ["--news-list-title-color" as string]: String(currentTitleColor),
+                        ["--news-list-title-size" as string]: currentTitleFs,
+                        ["--news-list-title-weight" as string]: currentTitleFontWeight,
+                        ["--news-list-title-font" as string]: 'var(--home-news-title-font, var(--font-heading, sans-serif))',
+                        ["--news-list-title-hover" as string]: 'var(--nl-title-hover)',
+                        color: String(currentTitleColor),
+                        fontSize: currentTitleFs,
+                        lineHeight: currentTitleLh,
+                        fontWeight: currentTitleFontWeight,
+                        fontFamily: 'var(--home-news-title-font, var(--font-heading, sans-serif))',
+                        fontSynthesis: 'inherit',
+                      }}
+                    >
                       {post.title}
                     </Link>
                   </h4>
 
-                  <p className="news-list-excerpt line-clamp-2 leading-relaxed">
-                    {getDisplayExcerpt(post)}
-                  </p>
+                  {currentShowExcerpt && (
+                    <p
+                      className="line-clamp-2"
+                      style={{
+                        fontSize: currentExcerptFs,
+                        color: String(currentExcerptColor),
+                        lineHeight: currentExcerptLh,
+                        fontWeight: currentExcerptFontWeight,
+                      }}
+                    >
+                      {getDisplayExcerpt(post)}
+                    </p>
+                  )}
 
-                  {(authorName || dateVal) && (
-                    <div className="news-list-meta-info flex items-center gap-3 font-medium mt-2">
-                      {showAuthor && authorName && (
+                  {currentShowMeta && (authorName || dateVal) && (
+                    <div
+                      className="flex items-center gap-3 font-medium mt-2"
+                      style={{
+                        justifyContent: currentJustifyAlign,
+                        flexWrap: 'wrap',
+                        fontSize: currentMetaFs,
+                        color: String(currentMetaColor),
+                        lineHeight: currentMetaLineHeight,
+                        fontWeight: currentMetaFontWeight,
+                        marginBottom: `${currentMetaMarginBottom}px`,
+                      }}
+                    >
+                      {currentShowAuthor && authorName && (
                         <div className="flex items-center gap-1.5">
-                          <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] relative overflow-hidden" style={{ backgroundColor: 'color-mix(in oklab, var(--fg-primary) 10%, transparent)' }}>
+                          <span
+                            className="rounded-full flex items-center justify-center relative overflow-hidden shrink-0"
+                            style={{ width: '1.5em', height: '1.5em', fontSize: '0.92em', backgroundColor: 'color-mix(in oklab, var(--fg-primary) 10%, transparent)' }}
+                          >
                             {authorAvatar ? (
                               <Image src={authorAvatar} alt={authorName} fill className="object-cover" sizes="16px" />
                             ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 opacity-80">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-80" style={{ width: '1em', height: '1em' }}>
                                 <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                               </svg>
                             )}
@@ -1114,13 +1339,13 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                         </div>
                       )}
 
-                      {showAuthor && authorName && showDate && dateVal && (
-                        <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'currentColor', opacity: 0.5 }} />
+                      {currentShowAuthor && authorName && currentShowDate && dateVal && (
+                        <span className="rounded-full shrink-0" style={{ width: '0.42em', height: '0.42em', backgroundColor: 'currentColor', opacity: 0.5 }} />
                       )}
 
-                      {showDate && dateVal && (
+                      {currentShowDate && dateVal && (
                         <div className="flex items-center gap-1.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 opacity-70">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-70 shrink-0" style={{ width: '1.22em', height: '1.22em' }}>
                             <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
                           </svg>
                           <time
@@ -1141,26 +1366,39 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
           })}
         </div>
 
-        {paginationStyle === 'load_more' && (
+        {paginationStyle === 'load_more' && (page < totalPages || hasMoreRemote) && (
           <div className="mt-6 flex justify-center">
-            {page < totalPages && (
-              <button
-                type="button"
-                className="news-list-pagination-btn border rounded-lg text-sm font-semibold transition-colors"
-                style={buttonStyle}
-                onMouseEnter={(e) => {
-                  Object.assign((e.currentTarget as HTMLButtonElement).style, buttonHoverStyle);
-                }}
-                onMouseLeave={(e) => {
-                  Object.assign((e.currentTarget as HTMLButtonElement).style, buttonStyle);
-                }}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                <span className="news-list-loadmore-label--mobile">{loadMoreTextMobile}</span>
-                <span className="news-list-loadmore-label--tablet">{loadMoreTextTablet}</span>
-                <span className="news-list-loadmore-label--desktop">{loadMoreTextDesktop}</span>
-              </button>
-            )}
+            <button
+              type="button"
+              className="news-list-pagination-btn border rounded-lg text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+              style={{
+                ...buttonStyle,
+                paddingTop: currentLmpTop,
+                paddingRight: currentLmpRight,
+                paddingBottom: currentLmpBottom,
+                paddingLeft: currentLmpLeft,
+              }}
+              disabled={isFetchingMore || (page >= totalPages && !hasMoreRemote)}
+              onMouseEnter={(e) => {
+                applyPaginationHoverStyle(e.currentTarget as HTMLButtonElement);
+              }}
+              onMouseLeave={(e) => {
+                resetPaginationButtonStyle(e.currentTarget as HTMLButtonElement, {
+                  top: currentLmpTop,
+                  right: currentLmpRight,
+                  bottom: currentLmpBottom,
+                  left: currentLmpLeft,
+                });
+              }}
+              onClick={async () => {
+                const nextPage = page + 1;
+                const ready = await ensurePageLoaded(nextPage);
+                if (!ready) return;
+                setPage(nextPage);
+              }}
+            >
+              {isFetchingMore ? 'Memuat...' : currentLoadMoreText}
+            </button>
           </div>
         )}
 
@@ -1169,39 +1407,64 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
             <button
               type="button"
               className="news-list-pagination-btn border rounded-lg text-sm font-semibold transition-colors flex-1"
-              style={buttonStyle}
+              style={{
+                ...buttonStyle,
+                paddingTop: currentLmpTop,
+                paddingRight: currentLmpRight,
+                paddingBottom: currentLmpBottom,
+                paddingLeft: currentLmpLeft,
+              }}
               disabled={page <= 1}
               onMouseEnter={(e) => {
-                if ((e.currentTarget as HTMLButtonElement).disabled) return;
-                Object.assign((e.currentTarget as HTMLButtonElement).style, buttonHoverStyle);
+                applyPaginationHoverStyle(e.currentTarget as HTMLButtonElement);
               }}
               onMouseLeave={(e) => {
-                Object.assign((e.currentTarget as HTMLButtonElement).style, buttonStyle);
+                resetPaginationButtonStyle(e.currentTarget as HTMLButtonElement, {
+                  top: currentLmpTop,
+                  right: currentLmpRight,
+                  bottom: currentLmpBottom,
+                  left: currentLmpLeft,
+                });
               }}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
-              Prev
+              Sebelumnya
             </button>
             <button
               type="button"
               className="news-list-pagination-btn border rounded-lg text-sm font-semibold transition-colors flex-1"
-              style={buttonStyle}
-              disabled={page >= totalPages}
+              style={{
+                ...buttonStyle,
+                paddingTop: currentLmpTop,
+                paddingRight: currentLmpRight,
+                paddingBottom: currentLmpBottom,
+                paddingLeft: currentLmpLeft,
+              }}
+              disabled={isFetchingMore || (page >= totalPages && !hasMoreRemote)}
               onMouseEnter={(e) => {
-                if ((e.currentTarget as HTMLButtonElement).disabled) return;
-                Object.assign((e.currentTarget as HTMLButtonElement).style, buttonHoverStyle);
+                applyPaginationHoverStyle(e.currentTarget as HTMLButtonElement);
               }}
               onMouseLeave={(e) => {
-                Object.assign((e.currentTarget as HTMLButtonElement).style, buttonStyle);
+                resetPaginationButtonStyle(e.currentTarget as HTMLButtonElement, {
+                  top: currentLmpTop,
+                  right: currentLmpRight,
+                  bottom: currentLmpBottom,
+                  left: currentLmpLeft,
+                });
               }}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              onClick={async () => {
+                const nextPage = page + 1;
+                const ready = await ensurePageLoaded(nextPage);
+                if (!ready) return;
+                setPage(nextPage);
+              }}
             >
-              Next
+              {isFetchingMore ? 'Memuat...' : 'Berikutnya'}
             </button>
           </div>
         )}
 
-        {paginationStyle === 'auto_load' && <div ref={sentinelRef} />}
+        {paginationStyle === 'auto_load' && (hasMoreRemote || page < totalPages) && <div ref={sentinelRef} />}
       </div>
     </div>
   );

@@ -91,10 +91,14 @@ model Post {
   title           String
   subtitle        String?
   slug            String    @unique
+  focusKeyword    String?
+  canonicalUrl    String?
   content         String
   excerpt         String?
   image           String?
   featuredImageId String?
+  featuredImageAlt String?
+  postImageWatermarkEnabled Boolean @default(false)
   imageCaption    String?
   
   published       Boolean    @default(false)
@@ -136,6 +140,8 @@ model Post {
   reviewTargets   PostReviewTarget[]
   postCategories  PostCategory[]
   metricSnapshots PostMetricSnapshot[]
+  dailyViews      PostViewDaily[]
+  viewVisitors    PostViewVisitorWindow[]
   revisions       PostRevision[]
   slugHistory     PostSlugHistory[]
   comments        Comment[]
@@ -174,6 +180,66 @@ model PostMetricSnapshot {
   @@unique([postId, day])
   @@index([day])
   @@index([postId])
+}
+
+model PostViewDaily {
+  id        String   @id @default(cuid())
+  postId    String
+  day       DateTime
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, day])
+  @@index([day])
+  @@index([postId])
+}
+
+model PostViewVisitorWindow {
+  id          String   @id @default(cuid())
+  postId      String
+  visitorHash String
+  windowStart DateTime
+  createdAt   DateTime @default(now())
+
+  post        Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, visitorHash, windowStart])
+  @@index([postId])
+  @@index([visitorHash])
+  @@index([windowStart])
+}
+
+model PublicPageViewDaily {
+  id        String   @id @default(cuid())
+  pageKey   String
+  pageType  String
+  path      String
+  title     String
+  day       DateTime
+  views     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([pageKey, day])
+  @@index([day])
+  @@index([pageKey])
+  @@index([pageType])
+}
+
+model PublicPageViewVisitorWindow {
+  id          String   @id @default(cuid())
+  pageKey     String
+  visitorHash String
+  windowStart DateTime
+  createdAt   DateTime @default(now())
+
+  @@unique([pageKey, visitorHash, windowStart])
+  @@index([pageKey])
+  @@index([visitorHash])
+  @@index([windowStart])
 }
 
 model PostCategory {
@@ -216,6 +282,23 @@ model PostRevision {
   createdAt       DateTime  @default(now())
 }
 
+model RedirectRule {
+  id         String   @id @default(cuid())
+  oldPath    String   @unique
+  newPath    String
+  statusCode Int      @default(301)
+  isActive   Boolean  @default(true)
+  note       String?
+  hitCount   Int      @default(0)
+  lastHitAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([oldPath])
+  @@index([isActive])
+  @@index([updatedAt])
+}
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String
@@ -241,6 +324,7 @@ model Media {
   fileName     String
   fileUrl      String
   fileType     String
+  altText      String?
   size         Int
   width        Int?
   height       Int?
@@ -358,6 +442,10 @@ model Setting {
   globalSecondaryColor          String   @default("#64748b")
   globalAccentColor             String   @default("#f59e0b")
   globalBackgroundColor         String   @default("#ffffff")
+  globalBorderColor             String   @default("#e5e7eb")
+  globalSurfaceColor            String   @default("#f9fafb")
+  globalElevatedColor           String   @default("#ffffff")
+  globalMutedTextColor          String   @default("#9ca3af")
   globalBackgroundImage         String?
   globalBackgroundRepeat        String   @default("no-repeat")
   globalBackgroundSize          String   @default("cover")
@@ -423,14 +511,27 @@ model Setting {
   postInlineRelatedGridColumns  Int      @default(2)
   postInlineRelatedCardColumns  Int      @default(1)
   postInlineRelatedTitleFontSize Int      @default(16)
+  postInlineRelatedTitleFont    String   @default("Inter")
   postInlineRelatedTitleFontWeight String @default("700")
   postInlineRelatedTitleLineHeight String @default("1.35")
+  postInlineRelatedHeadingText  String   @default("Baca Juga")
+  postInlineRelatedHeadingFont  String   @default("Inter")
+  postInlineRelatedHeadingFontWeight String @default("700")
+  postInlineRelatedHeadingLetterSpacing String @default("0")
   postInlineRelatedFontSize     Int      @default(14)
   postInlineRelatedBgColor      String   @default("#f9fafb")
   postInlineRelatedHeaderBgColor String   @default("#f9fafb") // Add this
   postInlineRelatedTitleColor   String   @default("#1e293b")
   postInlineRelatedTextColor    String   @default("#1f2937")
   postInlineRelatedHoverColor   String   @default("#2563eb")
+  postImageWatermarkUrl         String?
+  postImageWatermarkOpacity     Int      @default(35)
+  postImageWatermarkSize        Int      @default(24)
+  postImageWatermarkPosition    String   @default("center")
+  postImageWatermarkPaddingTop    Int    @default(24)
+  postImageWatermarkPaddingRight  Int    @default(24)
+  postImageWatermarkPaddingBottom Int    @default(24)
+  postImageWatermarkPaddingLeft   Int    @default(24)
   postInlineAds                 Boolean  @default(false)
   postInlineAdPositions         String   @default("3")
   postBottomRelated             Boolean  @default(true)
@@ -451,28 +552,36 @@ model Setting {
   // Typography - Homepage
   homeWidgetTitleFontSize       String   @default("24px")
   homeWidgetTitleFontWeight     String   @default("700")
+  homeWidgetTitleLineHeight     String   @default("1.3")
   homeWidgetTitleFont           String   @default("Inter")
   homeNewsTitleFontSize         String   @default("18px")
   homeNewsTitleFontWeight       String   @default("600")
+  homeNewsTitleLineHeight       String   @default("1.35")
   homeNewsTitleFont             String   @default("Inter")
   homeExcerptFontSize           String   @default("14px")
   homeExcerptFontWeight         String   @default("400")
+  homeExcerptLineHeight         String   @default("1.6")
   homeExcerptFont               String   @default("Inter")
   homeMetaFontSize              String   @default("12px")
   homeMetaFontWeight            String   @default("500")
+  homeMetaLineHeight            String   @default("1.4")
   homeMetaFont                  String   @default("Inter")
 
   // Typography - Single Post
   postTitleFontWeight           String   @default("700")
+  postTitleLineHeight           String   @default("1.15")
   postTitleFont                 String   @default("Inter")
   postSubtitleFontSize          String   @default("18px")
   postSubtitleFontWeight        String   @default("500")
+  postSubtitleLineHeight        String   @default("1.6")
   postSubtitleFont              String   @default("Inter")
   postContentFontSize           String   @default("18px")
   postContentFontWeight         String   @default("400")
+  postContentLineHeight         String   @default("1.8")
   postContentFont               String   @default("Inter")
   postWidgetTitleFontSize       String   @default("20px")
   postWidgetTitleFontWeight     String   @default("600")
+  postWidgetTitleLineHeight     String   @default("1.3")
   postWidgetTitleFont           String   @default("Inter")
 
   // Typography - Archive
@@ -489,18 +598,22 @@ model Setting {
   // Typography - Global (Fallback)
   globalWidgetTitleFontSize     String   @default("20px")
   globalWidgetTitleFontWeight   String   @default("600")
+  globalWidgetTitleLineHeight   String   @default("1.3")
   globalWidgetTitleFont         String   @default("Inter")
   globalNewsTitleFontSize       String   @default("18px")
   globalNewsTitleFontWeight     String   @default("600")
+  globalNewsTitleLineHeight     String   @default("1.35")
   globalNewsTitleFont           String   @default("Inter")
   globalMetaFontSize            String   @default("12px")
   globalMetaFontWeight          String   @default("500")
+  globalMetaLineHeight          String   @default("1.4")
   globalMetaFont                String   @default("Inter")
   globalExcerptFontSize         String   @default("14px")
   globalExcerptFontWeight       String   @default("400")
   globalExcerptFont             String   @default("Inter")
   globalContentFontSize         String   @default("16px")
   globalContentFontWeight       String   @default("400")
+  globalContentLineHeight       String   @default("1.8")
   globalContentFont             String   @default("Inter")
 
   insertCodeHead                String?  @db.Text
@@ -521,6 +634,8 @@ model Setting {
   notificationSmtpSecure        Boolean  @default(true)
   notificationEvents            Json?    // e.g. { "onNewPost": true, "onPostRejected": true, "onPostPublished": true }
   printSettings                 Json?
+  autoShareSettings             Json?
+  toolVisibility                Json?
   aiOpenAiApiKeyEnc             String?  @db.Text
 
   createdAt                     DateTime @default(now())

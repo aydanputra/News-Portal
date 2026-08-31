@@ -154,12 +154,18 @@ export async function generateMetadata(): Promise<Metadata> {
     typeof process.env.NEXT_PUBLIC_SITE_URL === "string" && process.env.NEXT_PUBLIC_SITE_URL.trim() !== ""
       ? process.env.NEXT_PUBLIC_SITE_URL.trim()
       : "http://localhost:3000";
+  const siteName = settings.siteName || "CMS Portal Berita";
+  const siteDescription = settings.siteDescription || "Portal berita modern";
+  const homeTitle = siteDescription.trim() !== "" ? `${siteName} | ${siteDescription}` : siteName;
   
   return {
     metadataBase: new URL(siteUrl),
     alternates: { canonical: "/" },
-    title: settings.siteName || "CMS Portal Berita",
-    description: settings.siteDescription || "Portal berita modern",
+    title: {
+      default: homeTitle,
+      template: `%s | ${siteName}`,
+    },
+    description: siteDescription,
     icons: settings.faviconUrl ? {
       icon: settings.faviconUrl,
       shortcut: settings.faviconUrl,
@@ -178,7 +184,11 @@ export default async function RootLayout({
   const insertCodeFooter = sanitizeInsertCode((settings as any)?.insertCodeFooter, "footer");
 
   return (
-    <html lang="id" className={`${inter.variable} ${sora.variable}`} suppressHydrationWarning>
+    <html
+      lang="id"
+      className={`${inter.variable} ${sora.variable}`}
+      suppressHydrationWarning
+    >
       <head>
           <script
             dangerouslySetInnerHTML={{
@@ -210,7 +220,7 @@ export default async function RootLayout({
           />
           {renderInsertCodeHead((settings as any)?.insertCodeHead)}
       </head>
-      <body className={`antialiased ${inter.className}`}>
+      <body className="antialiased">
         {insertCodeBody ? <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: insertCodeBody }} /> : null}
         <NextTopLoader color={settings.primaryColor || "#f59e0b"} showSpinner={false} />
         <ThemeProvider settings={settings}>

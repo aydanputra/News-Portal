@@ -2,16 +2,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Mail, Lock, ArrowRight, Loader2, LayoutDashboard } from "lucide-react";
-import Link from "next/link";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -29,9 +26,8 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.error || "Gagal login");
       } else {
-        // Login berhasil, arahkan ke dashboard
-        router.push("/admin/dashboard");
-        router.refresh(); 
+        // Gunakan navigasi penuh agar layout admin termuat komplet di request pertama.
+        window.location.replace("/admin/dashboard");
       }
     } catch {
       setError("Terjadi kesalahan jaringan");
@@ -44,8 +40,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex">
       {/* Left Side - Image/Decoration */}
       <div className="hidden lg:flex lg:w-1/2 bg-blue-600 relative overflow-hidden items-center justify-center">
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-blue-800 opacity-90 z-10" />
-        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1504711434969-e33886168f5c?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(96,165,250,0.35),_transparent_40%),radial-gradient(circle_at_bottom_right,_rgba(34,211,238,0.28),_transparent_42%),linear-gradient(135deg,_#2563eb,_#1e3a8a)]" />
         
         <div className="relative z-20 text-white p-12 max-w-lg">
           <div className="mb-8 bg-white/10 w-16 h-16 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/20">
@@ -136,9 +131,9 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 text-center">
-            <Link href="/" className="text-sm text-gray-500 hover:text-blue-600 flex items-center justify-center space-x-1 transition-colors">
+            <a href="/" className="text-sm text-gray-500 hover:text-blue-600 flex items-center justify-center space-x-1 transition-colors">
                <span>← Kembali ke Halaman Depan</span>
-            </Link>
+            </a>
           </div>
         </div>
         

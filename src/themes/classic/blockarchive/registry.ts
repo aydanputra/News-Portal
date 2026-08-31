@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { Grid2x2, Layout, List, Megaphone, PanelRight, Tag } from "lucide-react";
+import { Grid2x2, Layout, List, Megaphone, PanelRight, Tag, Image as ImageIcon } from "lucide-react";
 
 export type ArchiveWidgetDefinition = {
   type: string;
@@ -20,6 +20,7 @@ export const CLASSIC_ARCHIVE_WIDGET_GROUPS: { main: ArchiveWidgetDefinition[]; s
     { type: "sidebar_widget", label: "Sidebar Widget", icon: PanelRight, desc: "Widget sidebar tambahan." },
     { type: "tag_cloud", label: "Tag Cloud", icon: Tag, desc: "Kumpulan tag populer." },
     { type: "ad_banner", label: "Iklan Banner", icon: Megaphone, desc: "Slot iklan pada halaman arsip." },
+    { type: "image_widget", label: "Widget Gambar", icon: ImageIcon, desc: "Tampilkan gambar dari URL." },
     { type: "section", label: "Inner Section", icon: Layout, desc: "Buat kolom tambahan di dalam kolom ini.", isSpecial: true }
   ]
 };

@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Save, Loader2, User, Mail, Lock, CheckCircle, AlertCircle, AtSign, AlignLeft, Send } from "lucide-react";
 import Link from "next/link";
+import { useAdminSession } from "@/components/admin/AdminSessionContext";
 
 export default function NewUserPage() {
   const router = useRouter();
+  const { user } = useAdminSession();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [currentRole, setCurrentRole] = useState<string>("");
   
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,28 +21,11 @@ export default function NewUserPage() {
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [role, setRole] = useState("WRITER");
 
-  useEffect(() => {
-    let active = true;
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!active) return;
-        setCurrentRole(data?.role || "");
-      })
-      .catch(() => {
-        if (!active) return;
-        setCurrentRole("");
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
-
   const roles = useMemo(() => {
     const base = ["WRITER", "EDITOR", "ADMIN"];
-    if (currentRole === "SUPER_ADMIN") base.push("SUPER_ADMIN");
+    if (user?.role === "SUPER_ADMIN") base.push("SUPER_ADMIN");
     return base;
-  }, [currentRole]);
+  }, [user?.role]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

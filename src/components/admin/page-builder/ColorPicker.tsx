@@ -29,9 +29,11 @@ export default function CustomColorPicker({
     const containerRef = useRef<HTMLDivElement>(null);
     const popoverRef = useRef<HTMLDivElement>(null);
     
-    // Ensure value is valid hex string. If undefined, use default or black.
+    // Use the effective color for swatch/picker, but keep text inputs empty
+    // while the color is still inherited from defaults.
     const effectiveValue = value || globalDefault || "#000000";
     const isUnset = !value;
+    const inputValue = value || "";
     
     useEffect(() => {
         const handler = (event: PointerEvent) => {
@@ -54,16 +56,16 @@ export default function CustomColorPicker({
     };
 
     return (
-        <div ref={containerRef} className={`relative ${containerClassName || ""}`.trim()}>
+        <div ref={containerRef} className={`relative min-w-0 ${containerClassName || ""}`.trim()}>
             {label && (
-                <label className={`text-[10px] text-[var(--fg-primary)] font-bold block mb-1.5 text-left uppercase tracking-wider ${labelClassName || ""}`.trim()}>
+                <label className={`text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium ${labelClassName || ""}`.trim()}>
                     {label}
                 </label>
             )}
 
-             <div className={`flex items-center gap-2 ${triggerClassName || ""}`.trim()}>
+             <div className={`flex w-full items-stretch gap-2 ${triggerClassName || ""}`.trim()}>
                 <div 
-                    className={`w-8 h-8 rounded-lg border border-[var(--border)] cursor-pointer shadow-sm relative overflow-hidden group hover:border-[var(--accent)] transition-all ring-0 focus:ring-2 ring-[var(--accent)]/20 ${swatchClassName || ""}`.trim()}
+                    className={`w-9 h-9 shrink-0 rounded-lg border border-[var(--border)] cursor-pointer shadow-sm relative overflow-hidden group hover:border-[var(--accent)] transition-all ring-0 focus:ring-2 ring-[var(--accent)]/20 ${swatchClassName || ""}`.trim()}
                     onClick={() => setIsOpen(!isOpen)}
                     title={label || "Pilih Warna"}
                 >
@@ -78,13 +80,13 @@ export default function CustomColorPicker({
                         </div>
                     )}
                 </div>
-                <div className="flex-1">
+                <div className="min-w-0 flex-1">
                     <input 
                         type="text" 
-                        value={value || ""}
-                        placeholder={globalDefault ? `Auto (${globalDefault})` : "Auto"}
-                        onChange={(e) => onChange(e.target.value)}
-                        className={`w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-md py-1.5 px-2 text-xs outline-none focus:border-[var(--accent)] font-mono text-[var(--fg-primary)] uppercase ${inputClassName || ""}`.trim()}
+                        value={inputValue}
+                        placeholder=""
+                        onChange={(e) => onChange(e.target.value || undefined)}
+                        className={`w-full h-9 bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg px-2.5 py-0 text-sm outline-none focus:border-[var(--accent)] font-mono text-[var(--fg-primary)] uppercase ${inputClassName || ""}`.trim()}
                     />
                 </div>
             </div>
@@ -98,9 +100,9 @@ export default function CustomColorPicker({
                         <span className="font-bold text-[var(--fg-primary)] text-[10px]">Pemilih Warna</span>
                         <div className="flex items-center gap-1">
                              <button 
-                                onClick={() => onChange("")} 
+                                onClick={() => onChange(undefined)} 
                                 className="p-1 text-[var(--fg-primary)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-elevated)] rounded shadow-sm border border-transparent hover:border-[var(--border)] transition-all"
-                                title="Reset to Default (Auto)"
+                                title="Reset ke Default (Otomatis)"
                             >
                                 <RotateCcw size={10} />
                             </button>
@@ -119,8 +121,9 @@ export default function CustomColorPicker({
                             </div>
                             <input 
                                 type="text" 
-                                value={effectiveValue} 
-                                onChange={(e) => onChange(e.target.value)}
+                                value={inputValue}
+                                placeholder=""
+                                onChange={(e) => onChange(e.target.value || undefined)}
                                 onPointerDown={stop}
                                 onMouseDown={stop}
                                 onTouchStart={stop}

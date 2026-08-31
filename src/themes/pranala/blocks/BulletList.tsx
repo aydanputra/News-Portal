@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import { getResponsiveBoolValues, getResponsiveValues } from "./responsive";
-import { safeStyleTagCss } from "@/lib/sanitizer";
 
 type BulletListPost = {
   id?: string;
@@ -31,6 +30,9 @@ type BulletListConfig = {
   titleLineHeight?: number | string;
   tabletTitleLineHeight?: number | string;
   mobileTitleLineHeight?: number | string;
+  titleMarginBottom?: number;
+  tabletTitleMarginBottom?: number;
+  mobileTitleMarginBottom?: number;
   titleFontWeight?: string;
   tabletTitleFontWeight?: string;
   mobileTitleFontWeight?: string;
@@ -55,9 +57,30 @@ type BulletListConfig = {
   blockTitleBorderColor?: string;
   tabletBlockTitleBorderColor?: string;
   mobileBlockTitleBorderColor?: string;
+  blockTitleLineHeight?: number | string;
+  tabletBlockTitleLineHeight?: number | string;
+  mobileBlockTitleLineHeight?: number | string;
+  blockTitleMarginBottom?: number;
+  tabletBlockTitleMarginBottom?: number;
+  mobileBlockTitleMarginBottom?: number;
+  blockTitlePaddingBottom?: number;
+  tabletBlockTitlePaddingBottom?: number;
+  mobileBlockTitlePaddingBottom?: number;
   useBox?: boolean | string;
   boxColor?: string;
   boxBorderRadius?: string | number;
+  boxPaddingTop?: number;
+  boxPaddingRight?: number;
+  boxPaddingBottom?: number;
+  boxPaddingLeft?: number;
+  tabletBoxPaddingTop?: number;
+  tabletBoxPaddingRight?: number;
+  tabletBoxPaddingBottom?: number;
+  tabletBoxPaddingLeft?: number;
+  mobileBoxPaddingTop?: number;
+  mobileBoxPaddingRight?: number;
+  mobileBoxPaddingBottom?: number;
+  mobileBoxPaddingLeft?: number;
   [key: string]: unknown;
 };
 
@@ -133,6 +156,20 @@ const resolveRadiusValue = (value: unknown, fallback: string): string => {
 
 export default function BulletList({ block, posts }: BulletListProps) {
   const cfg = block.config || {};
+  const [device, setDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
+
+  React.useEffect(() => {
+    const computeDevice = () => {
+      const width = window.innerWidth;
+      if (width >= 1025) return "desktop";
+      if (width >= 768) return "tablet";
+      return "mobile";
+    };
+    const updateDevice = () => setDevice(computeDevice());
+    updateDevice();
+    window.addEventListener("resize", updateDevice);
+    return () => window.removeEventListener("resize", updateDevice);
+  }, []);
 
   const limitDesktop = toNumber(cfg.limit, 6);
   const limitTablet = toNumber(cfg.tabletLimit, limitDesktop);
@@ -156,6 +193,9 @@ export default function BulletList({ block, posts }: BulletListProps) {
   const titleLhDesktop = String(cfg.titleLineHeight ?? "1.35");
   const titleLhTablet = String(cfg.tabletTitleLineHeight ?? cfg.titleLineHeight ?? "1.35");
   const titleLhMobile = String(cfg.mobileTitleLineHeight ?? cfg.titleLineHeight ?? "1.35");
+  const titleMbDesktop = cfg.titleMarginBottom !== undefined ? `${cfg.titleMarginBottom}px` : "0.375rem";
+  const titleMbTablet = cfg.tabletTitleMarginBottom !== undefined ? `${cfg.tabletTitleMarginBottom}px` : titleMbDesktop;
+  const titleMbMobile = cfg.mobileTitleMarginBottom !== undefined ? `${cfg.mobileTitleMarginBottom}px` : titleMbDesktop;
 
   const titleFwDesktop = toFontWeight(cfg.titleFontWeight, "var(--home-news-title-weight, 600)");
   const titleFwTablet = toFontWeight(cfg.tabletTitleFontWeight ?? cfg.titleFontWeight, titleFwDesktop);
@@ -178,12 +218,21 @@ export default function BulletList({ block, posts }: BulletListProps) {
   const blockTitleColorDesktop = (cfg.blockTitleColor as string) || "var(--home-widget-title-color, var(--heading-color, #1e293b))";
   const blockTitleColorTablet = (cfg.tabletBlockTitleColor as string) || blockTitleColorDesktop;
   const blockTitleColorMobile = (cfg.mobileBlockTitleColor as string) || blockTitleColorDesktop;
-  const blockTitleFsDesktop = formatSize(cfg.blockTitleFontSize, "24px");
+  const blockTitleFsDesktop = formatSize(cfg.blockTitleFontSize, "var(--home-widget-title-size, 24px)");
   const blockTitleFsTablet = formatSize(cfg.tabletBlockTitleFontSize ?? cfg.blockTitleFontSize, blockTitleFsDesktop);
-  const blockTitleFsMobile = formatSize(cfg.mobileBlockTitleFontSize ?? cfg.blockTitleFontSize, "20px");
+  const blockTitleFsMobile = formatSize(cfg.mobileBlockTitleFontSize ?? cfg.blockTitleFontSize, "var(--home-widget-title-size, 20px)");
   const blockTitleBorderDesktop = (cfg.blockTitleBorderColor as string) || "var(--accent)";
   const blockTitleBorderTablet = (cfg.tabletBlockTitleBorderColor as string) || blockTitleBorderDesktop;
   const blockTitleBorderMobile = (cfg.mobileBlockTitleBorderColor as string) || blockTitleBorderDesktop;
+  const blockTitleLhDesktop = String(cfg.blockTitleLineHeight ?? "1.2");
+  const blockTitleLhTablet = String(cfg.tabletBlockTitleLineHeight ?? cfg.blockTitleLineHeight ?? "1.2");
+  const blockTitleLhMobile = String(cfg.mobileBlockTitleLineHeight ?? cfg.blockTitleLineHeight ?? "1.2");
+  const blockTitleMbDesktop = cfg.blockTitleMarginBottom !== undefined ? `${cfg.blockTitleMarginBottom}px` : "12px";
+  const blockTitleMbTablet = cfg.tabletBlockTitleMarginBottom !== undefined ? `${cfg.tabletBlockTitleMarginBottom}px` : blockTitleMbDesktop;
+  const blockTitleMbMobile = cfg.mobileBlockTitleMarginBottom !== undefined ? `${cfg.mobileBlockTitleMarginBottom}px` : blockTitleMbDesktop;
+  const blockTitlePbDesktop = cfg.blockTitlePaddingBottom !== undefined ? `${cfg.blockTitlePaddingBottom}px` : "12px";
+  const blockTitlePbTablet = cfg.tabletBlockTitlePaddingBottom !== undefined ? `${cfg.tabletBlockTitlePaddingBottom}px` : blockTitlePbDesktop;
+  const blockTitlePbMobile = cfg.mobileBlockTitlePaddingBottom !== undefined ? `${cfg.mobileBlockTitlePaddingBottom}px` : blockTitlePbDesktop;
 
   const configRecord = cfg as Record<string, unknown>;
   const useBoxValues = getResponsiveBoolValues(configRecord, "useBox", false);
@@ -191,13 +240,50 @@ export default function BulletList({ block, posts }: BulletListProps) {
   const useBoxTablet = useBoxValues.tablet;
   const useBoxMobile = useBoxValues.mobile;
   const boxColorValues = getResponsiveValues<string>(configRecord, "boxColor");
-  const boxColorDesktop = boxColorValues.desktop || "var(--bg-elevated, #ffffff)";
+  const boxColorDesktop = boxColorValues.desktop || "transparent";
   const boxColorTablet = boxColorValues.tablet || boxColorDesktop;
   const boxColorMobile = boxColorValues.mobile || boxColorDesktop;
+  const boxBgImageDesktop = typeof (cfg as any).backgroundImage === "string" ? (cfg as any).backgroundImage : "";
+  const boxBgImageTablet = typeof (cfg as any).tabletBackgroundImage === "string" && (cfg as any).tabletBackgroundImage.trim() !== "" ? (cfg as any).tabletBackgroundImage : boxBgImageDesktop;
+  const boxBgImageMobile = typeof (cfg as any).mobileBackgroundImage === "string" && (cfg as any).mobileBackgroundImage.trim() !== "" ? (cfg as any).mobileBackgroundImage : boxBgImageDesktop;
+  const boxBgSizeDesktop = typeof (cfg as any).backgroundSize === "string" && (cfg as any).backgroundSize.trim() !== "" ? (cfg as any).backgroundSize : "cover";
+  const boxBgSizeTablet = typeof (cfg as any).tabletBackgroundSize === "string" && (cfg as any).tabletBackgroundSize.trim() !== "" ? (cfg as any).tabletBackgroundSize : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof (cfg as any).mobileBackgroundSize === "string" && (cfg as any).mobileBackgroundSize.trim() !== "" ? (cfg as any).mobileBackgroundSize : boxBgSizeDesktop;
+  const boxBgPositionDesktop = typeof (cfg as any).backgroundPosition === "string" && (cfg as any).backgroundPosition.trim() !== "" ? (cfg as any).backgroundPosition : "center";
+  const boxBgPositionTablet = typeof (cfg as any).tabletBackgroundPosition === "string" && (cfg as any).tabletBackgroundPosition.trim() !== "" ? (cfg as any).tabletBackgroundPosition : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof (cfg as any).mobileBackgroundPosition === "string" && (cfg as any).mobileBackgroundPosition.trim() !== "" ? (cfg as any).mobileBackgroundPosition : boxBgPositionDesktop;
+  const boxBgRepeatDesktop = typeof (cfg as any).backgroundRepeat === "string" && (cfg as any).backgroundRepeat.trim() !== "" ? (cfg as any).backgroundRepeat : "no-repeat";
+  const boxBgRepeatTablet = typeof (cfg as any).tabletBackgroundRepeat === "string" && (cfg as any).tabletBackgroundRepeat.trim() !== "" ? (cfg as any).tabletBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof (cfg as any).mobileBackgroundRepeat === "string" && (cfg as any).mobileBackgroundRepeat.trim() !== "" ? (cfg as any).mobileBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgAttachmentDesktop = typeof (cfg as any).backgroundAttachment === "string" && (cfg as any).backgroundAttachment.trim() !== "" ? (cfg as any).backgroundAttachment : "scroll";
+  const boxBgAttachmentTablet = typeof (cfg as any).tabletBackgroundAttachment === "string" && (cfg as any).tabletBackgroundAttachment.trim() !== "" ? (cfg as any).tabletBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof (cfg as any).mobileBackgroundAttachment === "string" && (cfg as any).mobileBackgroundAttachment.trim() !== "" ? (cfg as any).mobileBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxOverlayColorDesktop = typeof (cfg as any).backgroundOverlayColor === "string" ? (cfg as any).backgroundOverlayColor : "transparent";
+  const boxOverlayColorTablet = typeof (cfg as any).tabletBackgroundOverlayColor === "string" && (cfg as any).tabletBackgroundOverlayColor.trim() !== "" ? (cfg as any).tabletBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof (cfg as any).mobileBackgroundOverlayColor === "string" && (cfg as any).mobileBackgroundOverlayColor.trim() !== "" ? (cfg as any).mobileBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number((cfg as any).backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number((cfg as any).tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number((cfg as any).mobileBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
   const globalRadius = "var(--home-main-box-radius, 0.75rem)";
   const boxRadiusDesktop = resolveRadiusValue(cfg.boxBorderRadius, globalRadius);
   const boxRadiusTablet = resolveRadiusValue(cfg.tabletBoxBorderRadius ?? cfg.boxBorderRadius, boxRadiusDesktop);
   const boxRadiusMobile = resolveRadiusValue(cfg.mobileBoxBorderRadius ?? cfg.boxBorderRadius, boxRadiusDesktop);
+  const boxPtBase = cfg.boxPaddingTop !== undefined ? `${cfg.boxPaddingTop}px` : "0px";
+  const boxPrBase = cfg.boxPaddingRight !== undefined ? `${cfg.boxPaddingRight}px` : "0px";
+  const boxPbBase = cfg.boxPaddingBottom !== undefined ? `${cfg.boxPaddingBottom}px` : "0px";
+  const boxPlBase = cfg.boxPaddingLeft !== undefined ? `${cfg.boxPaddingLeft}px` : "0px";
+  const boxPtMobile = cfg.mobileBoxPaddingTop !== undefined ? `${cfg.mobileBoxPaddingTop}px` : boxPtBase;
+  const boxPrMobile = cfg.mobileBoxPaddingRight !== undefined ? `${cfg.mobileBoxPaddingRight}px` : boxPrBase;
+  const boxPbMobile = cfg.mobileBoxPaddingBottom !== undefined ? `${cfg.mobileBoxPaddingBottom}px` : boxPbBase;
+  const boxPlMobile = cfg.mobileBoxPaddingLeft !== undefined ? `${cfg.mobileBoxPaddingLeft}px` : boxPlBase;
+  const boxPtTablet = cfg.tabletBoxPaddingTop !== undefined ? `${cfg.tabletBoxPaddingTop}px` : boxPtBase;
+  const boxPrTablet = cfg.tabletBoxPaddingRight !== undefined ? `${cfg.tabletBoxPaddingRight}px` : boxPrBase;
+  const boxPbTablet = cfg.tabletBoxPaddingBottom !== undefined ? `${cfg.tabletBoxPaddingBottom}px` : boxPbBase;
+  const boxPlTablet = cfg.tabletBoxPaddingLeft !== undefined ? `${cfg.tabletBoxPaddingLeft}px` : boxPlBase;
+  const boxPtDesktop = boxPtBase;
+  const boxPrDesktop = boxPrBase;
+  const boxPbDesktop = boxPbBase;
+  const boxPlDesktop = boxPlBase;
   const pTopMobile = cfg.mobilePaddingTop !== undefined ? `${cfg.mobilePaddingTop}px` : "0px";
   const pRightMobile = cfg.mobilePaddingRight !== undefined ? `${cfg.mobilePaddingRight}px` : "0px";
   const pBottomMobile = cfg.mobilePaddingBottom !== undefined ? `${cfg.mobilePaddingBottom}px` : "0px";
@@ -227,16 +313,51 @@ export default function BulletList({ block, posts }: BulletListProps) {
   const mRightDesktop = cfg.marginRight !== undefined ? `${cfg.marginRight}px` : mRightTablet;
   const mBottomDesktop = cfg.marginBottom !== undefined ? `${cfg.marginBottom}px` : mBottomTablet;
   const mLeftDesktop = cfg.marginLeft !== undefined ? `${cfg.marginLeft}px` : mLeftTablet;
+  const currentUseBox = device === "mobile" ? useBoxMobile : device === "tablet" ? useBoxTablet : useBoxDesktop;
+  const currentBoxColor = device === "mobile" ? boxColorMobile : device === "tablet" ? boxColorTablet : boxColorDesktop;
+  const currentBoxBgImage = device === "mobile" ? boxBgImageMobile : device === "tablet" ? boxBgImageTablet : boxBgImageDesktop;
+  const currentBoxBgSize = device === "mobile" ? boxBgSizeMobile : device === "tablet" ? boxBgSizeTablet : boxBgSizeDesktop;
+  const currentBoxBgPosition = device === "mobile" ? boxBgPositionMobile : device === "tablet" ? boxBgPositionTablet : boxBgPositionDesktop;
+  const currentBoxBgRepeat = device === "mobile" ? boxBgRepeatMobile : device === "tablet" ? boxBgRepeatTablet : boxBgRepeatDesktop;
+  const currentBoxBgAttachment = device === "mobile" ? boxBgAttachmentMobile : device === "tablet" ? boxBgAttachmentTablet : boxBgAttachmentDesktop;
+  const currentBoxOverlayColor = device === "mobile" ? boxOverlayColorMobile : device === "tablet" ? boxOverlayColorTablet : boxOverlayColorDesktop;
+  const currentBoxOverlayOpacity = device === "mobile" ? boxOverlayOpacityMobile : device === "tablet" ? boxOverlayOpacityTablet : boxOverlayOpacityDesktop;
+  const hasCurrentBoxOverlay = currentBoxOverlayOpacity > 0 && typeof currentBoxOverlayColor === "string" && currentBoxOverlayColor.trim() !== "" && currentBoxOverlayColor !== "transparent";
+  const currentBoxOverlayFill = hasCurrentBoxOverlay ? `color-mix(in srgb, ${currentBoxOverlayColor} ${currentBoxOverlayOpacity}%, transparent)` : "transparent";
+  const currentBoxBackgroundImage = currentUseBox && currentBoxBgImage
+    ? (hasCurrentBoxOverlay
+      ? `linear-gradient(${currentBoxOverlayFill}, ${currentBoxOverlayFill}), url("${currentBoxBgImage}")`
+      : `url("${currentBoxBgImage}")`)
+    : "none";
+  const currentBoxRadius = device === "mobile" ? boxRadiusMobile : device === "tablet" ? boxRadiusTablet : boxRadiusDesktop;
+  const currentBoxPt = device === "mobile" ? boxPtMobile : device === "tablet" ? boxPtTablet : boxPtDesktop;
+  const currentBoxPr = device === "mobile" ? boxPrMobile : device === "tablet" ? boxPrTablet : boxPrDesktop;
+  const currentBoxPb = device === "mobile" ? boxPbMobile : device === "tablet" ? boxPbTablet : boxPbDesktop;
+  const currentBoxPl = device === "mobile" ? boxPlMobile : device === "tablet" ? boxPlTablet : boxPlDesktop;
+  const currentColumns = device === "mobile" ? columnMobile : device === "tablet" ? columnTablet : columnDesktop;
+  const currentGap = device === "mobile" ? gapMobile : device === "tablet" ? gapTablet : gapDesktop;
+  const currentLimit = device === "mobile" ? limitMobile : device === "tablet" ? limitTablet : limitDesktop;
+  const currentTitleFs = device === "mobile" ? titleFsMobile : device === "tablet" ? titleFsTablet : titleFsDesktop;
+  const currentTitleLh = device === "mobile" ? titleLhMobile : device === "tablet" ? titleLhTablet : titleLhDesktop;
+  const currentTitleMb = device === "mobile" ? titleMbMobile : device === "tablet" ? titleMbTablet : titleMbDesktop;
+  const currentTitleFw = device === "mobile" ? titleFwMobile : device === "tablet" ? titleFwTablet : titleFwDesktop;
+  const currentTitleColor = device === "mobile" ? titleColorMobile : device === "tablet" ? titleColorTablet : titleColorDesktop;
+  const currentTitleHover = device === "mobile" ? titleHoverMobile : device === "tablet" ? titleHoverTablet : titleHoverDesktop;
+  const currentBulletColor = device === "mobile" ? bulletColorMobile : device === "tablet" ? bulletColorTablet : bulletColorDesktop;
+  const currentBulletSize = device === "mobile" ? bulletSizeMobile : device === "tablet" ? bulletSizeTablet : bulletSizeDesktop;
+  const currentBlockTitleColor = device === "mobile" ? blockTitleColorMobile : device === "tablet" ? blockTitleColorTablet : blockTitleColorDesktop;
+  const currentBlockTitleBorder = device === "mobile" ? blockTitleBorderMobile : device === "tablet" ? blockTitleBorderTablet : blockTitleBorderDesktop;
+  const currentBlockTitleFs = device === "mobile" ? blockTitleFsMobile : device === "tablet" ? blockTitleFsTablet : blockTitleFsDesktop;
+  const currentBlockTitleLh = device === "mobile" ? blockTitleLhMobile : device === "tablet" ? blockTitleLhTablet : blockTitleLhDesktop;
+  const currentBlockTitleMb = device === "mobile" ? blockTitleMbMobile : device === "tablet" ? blockTitleMbTablet : blockTitleMbDesktop;
+  const currentBlockTitlePb = device === "mobile" ? blockTitlePbMobile : device === "tablet" ? blockTitlePbTablet : blockTitlePbDesktop;
+  const renderedPosts = visiblePosts.slice(0, currentLimit);
 
   return (
     <div
       id={`bullet-list-${block.id}`}
-      className="w-full"
+      className="w-full responsive-block-frame"
       style={{
-        backgroundColor: "transparent",
-        borderRadius: "0",
-        border: "none",
-        boxShadow: "none",
         "--widget-title-color-mobile": blockTitleColorMobile,
         "--widget-title-color-tablet": blockTitleColorTablet,
         "--widget-title-color-desktop": blockTitleColorDesktop,
@@ -246,141 +367,79 @@ export default function BulletList({ block, posts }: BulletListProps) {
         "--widget-title-border-color-mobile": blockTitleBorderMobile,
         "--widget-title-border-color-tablet": blockTitleBorderTablet,
         "--widget-title-border-color-desktop": blockTitleBorderDesktop,
+        "--rb-mt-mobile": mTopMobile,
+        "--rb-mr-mobile": mRightMobile,
+        "--rb-mb-mobile": mBottomMobile,
+        "--rb-ml-mobile": mLeftMobile,
+        "--rb-pt-mobile": pTopMobile,
+        "--rb-pr-mobile": pRightMobile,
+        "--rb-pb-mobile": pBottomMobile,
+        "--rb-pl-mobile": pLeftMobile,
+        "--rb-mt-tablet": mTopTablet,
+        "--rb-mr-tablet": mRightTablet,
+        "--rb-mb-tablet": mBottomTablet,
+        "--rb-ml-tablet": mLeftTablet,
+        "--rb-pt-tablet": pTopTablet,
+        "--rb-pr-tablet": pRightTablet,
+        "--rb-pb-tablet": pBottomTablet,
+        "--rb-pl-tablet": pLeftTablet,
+        "--rb-mt-desktop": mTopDesktop,
+        "--rb-mr-desktop": mRightDesktop,
+        "--rb-mb-desktop": mBottomDesktop,
+        "--rb-ml-desktop": mLeftDesktop,
+        "--rb-pt-desktop": pTopDesktop,
+        "--rb-pr-desktop": pRightDesktop,
+        "--rb-pb-desktop": pBottomDesktop,
+        "--rb-pl-desktop": pLeftDesktop,
       } as React.CSSProperties}
     >
-      <style
-        dangerouslySetInnerHTML={{
-          __html: safeStyleTagCss(`
-            #bullet-list-${block.id} {
-              background-color: ${useBoxMobile ? boxColorMobile : "transparent"};
-              border-radius: ${useBoxMobile ? boxRadiusMobile : "0"};
-              border: ${useBoxMobile ? "var(--box-border, 1px solid #f3f4f6)" : "none"};
-              box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"};
-            }
-            #bullet-list-${block.id} .bullet-list-grid {
-              display: grid;
-              grid-template-columns: repeat(${columnMobile}, minmax(0, 1fr));
-              column-gap: 2rem;
-              row-gap: ${gapMobile};
-            }
-            #bullet-list-${block.id} .bullet-list-inner {
-              margin-top: ${mTopMobile};
-              margin-right: ${mRightMobile};
-              margin-bottom: ${mBottomMobile};
-              margin-left: ${mLeftMobile};
-              padding-top: ${pTopMobile};
-              padding-right: ${pRightMobile};
-              padding-bottom: ${pBottomMobile};
-              padding-left: ${pLeftMobile};
-            }
-            #bullet-list-${block.id} .bullet-list-item:nth-child(n+${limitMobile + 1}) { display: none; }
-            #bullet-list-${block.id} .bullet-list-link-wrap {
-              font-size: ${titleFsMobile};
-              line-height: ${titleLhMobile};
-              font-weight: ${titleFwMobile};
-            }
-            #bullet-list-${block.id} .bullet-list-link {
-              font-size: ${titleFsMobile};
-              line-height: ${titleLhMobile};
-              font-weight: ${titleFwMobile};
-              font-family: var(--home-news-title-font), sans-serif;
-            }
-            #bullet-list-${block.id} .bullet-list-link { color: ${titleColorMobile}; }
-            #bullet-list-${block.id} .bullet-list-link:hover { color: ${titleHoverMobile}; }
-            #bullet-list-${block.id} .bullet-list-bullet { color: ${bulletColorMobile}; font-size: ${bulletSizeMobile}; line-height: 1; }
-            @media (min-width: 768px) {
-              #bullet-list-${block.id} {
-                background-color: ${useBoxTablet ? boxColorTablet : "transparent"};
-                border-radius: ${useBoxTablet ? boxRadiusTablet : "0"};
-                border: ${useBoxTablet ? "var(--box-border, 1px solid #f3f4f6)" : "none"};
-                box-shadow: ${useBoxTablet ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"};
-              }
-              #bullet-list-${block.id} .bullet-list-inner {
-                margin-top: ${mTopTablet};
-                margin-right: ${mRightTablet};
-                margin-bottom: ${mBottomTablet};
-                margin-left: ${mLeftTablet};
-                padding-top: ${pTopTablet};
-                padding-right: ${pRightTablet};
-                padding-bottom: ${pBottomTablet};
-                padding-left: ${pLeftTablet};
-              }
-              #bullet-list-${block.id} .bullet-list-grid {
-                grid-template-columns: repeat(${columnTablet}, minmax(0, 1fr));
-                row-gap: ${gapTablet};
-              }
-              #bullet-list-${block.id} .bullet-list-item:nth-child(n+${limitTablet + 1}) { display: none; }
-              #bullet-list-${block.id} .bullet-list-link-wrap {
-                font-size: ${titleFsTablet};
-                line-height: ${titleLhTablet};
-                font-weight: ${titleFwTablet};
-              }
-              #bullet-list-${block.id} .bullet-list-link {
-                font-size: ${titleFsTablet};
-                line-height: ${titleLhTablet};
-                font-weight: ${titleFwTablet};
-                font-family: var(--home-news-title-font), sans-serif;
-              }
-              #bullet-list-${block.id} .bullet-list-link { color: ${titleColorTablet}; }
-              #bullet-list-${block.id} .bullet-list-link:hover { color: ${titleHoverTablet}; }
-              #bullet-list-${block.id} .bullet-list-bullet { color: ${bulletColorTablet}; font-size: ${bulletSizeTablet}; line-height: 1; }
-            }
-            @media (min-width: 1025px) {
-              #bullet-list-${block.id} {
-                background-color: ${useBoxDesktop ? boxColorDesktop : "transparent"};
-                border-radius: ${useBoxDesktop ? boxRadiusDesktop : "0"};
-                border: ${useBoxDesktop ? "var(--box-border, 1px solid #f3f4f6)" : "none"};
-                box-shadow: ${useBoxDesktop ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"};
-              }
-              #bullet-list-${block.id} .bullet-list-inner {
-                margin-top: ${mTopDesktop};
-                margin-right: ${mRightDesktop};
-                margin-bottom: ${mBottomDesktop};
-                margin-left: ${mLeftDesktop};
-                padding-top: ${pTopDesktop};
-                padding-right: ${pRightDesktop};
-                padding-bottom: ${pBottomDesktop};
-                padding-left: ${pLeftDesktop};
-              }
-              #bullet-list-${block.id} .bullet-list-grid {
-                grid-template-columns: repeat(${columnDesktop}, minmax(0, 1fr));
-                row-gap: ${gapDesktop};
-              }
-              #bullet-list-${block.id} .bullet-list-item:nth-child(n+${limitDesktop + 1}) { display: none; }
-              #bullet-list-${block.id} .bullet-list-link-wrap {
-                font-size: ${titleFsDesktop};
-                line-height: ${titleLhDesktop};
-                font-weight: ${titleFwDesktop};
-              }
-              #bullet-list-${block.id} .bullet-list-link {
-                font-size: ${titleFsDesktop};
-                line-height: ${titleLhDesktop};
-                font-weight: ${titleFwDesktop};
-                font-family: var(--home-news-title-font), sans-serif;
-              }
-              #bullet-list-${block.id} .bullet-list-link { color: ${titleColorDesktop}; }
-              #bullet-list-${block.id} .bullet-list-link:hover { color: ${titleHoverDesktop}; }
-              #bullet-list-${block.id} .bullet-list-bullet { color: ${bulletColorDesktop}; font-size: ${bulletSizeDesktop}; line-height: 1; }
-            }
-          `),
+      <div
+        style={{
+          backgroundColor: currentUseBox ? currentBoxColor : "transparent",
+          borderRadius: currentUseBox ? currentBoxRadius : "0",
+          border: "none",
+          boxShadow: currentUseBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
+          backgroundImage: currentBoxBackgroundImage,
+          backgroundSize: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+          backgroundPosition: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+          backgroundRepeat: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+          backgroundAttachment: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+          paddingTop: currentUseBox ? currentBoxPt : "0px",
+          paddingRight: currentUseBox ? currentBoxPr : "0px",
+          paddingBottom: currentUseBox ? currentBoxPb : "0px",
+          paddingLeft: currentUseBox ? currentBoxPl : "0px",
         }}
-      />
-
-      <div className="bullet-list-inner">
-        <div className="bullet-list-grid">
-          {visiblePosts.map((post, idx) => {
-            const postLink = post.category ? `/${post.category.slug}/${post.slug}` : `/post/${post.slug}`;
-            return (
-              <article key={post.id || `${block.id}-${idx}`} className="bullet-list-item">
-                <h4 className="bullet-list-link-wrap">
-                  <Link href={postLink} className="bullet-list-link inline-flex items-start gap-2 transition-colors">
-                    <span className="bullet-list-bullet leading-[1.2] mt-[0.1em]">›</span>
-                    <span>{post.title}</span>
-                  </Link>
-                </h4>
-              </article>
-            );
-          })}
+      >
+        <div className="bullet-list-inner">
+          {(cfg.showTitle !== false) && (
+            <h3 className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title" style={{ marginBottom: currentBlockTitleMb, paddingBottom: currentBlockTitlePb }}>
+              <div className="widget-title-bar" style={{ borderRadius: globalRadius, backgroundColor: currentBlockTitleBorder }}></div>
+              <span style={{ color: currentBlockTitleColor, fontSize: currentBlockTitleFs, lineHeight: currentBlockTitleLh }}>{cfg.title || "Bullet List"}</span>
+            </h3>
+          )}
+          <div className="bullet-list-grid" style={{ display: "grid", gridTemplateColumns: `repeat(${currentColumns}, minmax(0, 1fr))`, columnGap: "2rem", rowGap: currentGap }}>
+            {renderedPosts.map((post, idx) => {
+              const postLink = post.category ? `/${post.category.slug}/${post.slug}` : `/post/${post.slug}`;
+              return (
+                <article key={post.id || `${block.id}-${idx}`} className="bullet-list-item">
+                  <h4 className="bullet-list-link-wrap" style={{ fontSize: currentTitleFs, lineHeight: currentTitleLh, fontWeight: currentTitleFw, marginBottom: currentTitleMb }}>
+                    <Link
+                      href={postLink}
+                      className="inline-flex items-start gap-2 transition-colors"
+                      style={{ color: currentTitleColor, fontSize: currentTitleFs, lineHeight: currentTitleLh, fontWeight: currentTitleFw, fontFamily: "var(--home-news-title-font), sans-serif" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = currentTitleHover; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = currentTitleColor; }}
+                    >
+                      <span className="bullet-list-bullet leading-[1.2] mt-[0.1em]" style={{ color: currentBulletColor, fontSize: currentBulletSize, lineHeight: 1 }}>›</span>
+                      <span style={{ fontSize: currentTitleFs, lineHeight: currentTitleLh, fontWeight: currentTitleFw, fontFamily: "var(--home-news-title-font), sans-serif" }}>
+                        {post.title}
+                      </span>
+                    </Link>
+                  </h4>
+                </article>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,36 @@
 type ChildConfig = Record<string, unknown>;
 
+const SIDEBAR_WIDGET_DEFAULT_TITLES: Record<string, string> = {
+  popular_posts: "Berita Populer",
+  recent_posts: "Berita Terbaru",
+  category_list: "Daftar Kategori",
+  ad_slot: "Iklan / Ad Slot",
+};
+
+const SIDEBAR_WIDGET_AUTO_TITLES = new Set([
+  "Sidebar Widget",
+  "Popular Posts",
+  "Recent Posts",
+  "Category List",
+  "Ad Slot",
+  "Berita Populer",
+  "Berita Terbaru",
+  "Daftar Kategori",
+  "Iklan / Ad Slot",
+  "Terpopuler",
+]);
+
+export const getSidebarWidgetDefaultTitle = (widgetType: unknown, fallbackTitle = "Sidebar Widget"): string => {
+  if (typeof widgetType !== "string") return fallbackTitle;
+  return SIDEBAR_WIDGET_DEFAULT_TITLES[widgetType] || fallbackTitle;
+};
+
+export const isSidebarWidgetAutoTitle = (title: unknown): boolean => {
+  if (typeof title !== "string") return false;
+  const normalized = title.trim();
+  return normalized !== "" && SIDEBAR_WIDGET_AUTO_TITLES.has(normalized);
+};
+
 const HOMEPAGE_NEWS_TYPES = new Set([
   "news_grid",
   "news_list",
@@ -24,6 +55,129 @@ const HOMEPAGE_SECTION_CONFIG: ChildConfig = {
   marginLeft: 0,
   marginRight: 0,
   children: []
+};
+
+const HOMEPAGE_WIDGET_TITLE_CONFIG: ChildConfig = {
+  blockTitleFontSize: 24,
+  tabletBlockTitleFontSize: 24,
+  mobileBlockTitleFontSize: 20,
+  blockTitleMarginBottom: 14,
+  tabletBlockTitleMarginBottom: 12,
+  mobileBlockTitleMarginBottom: 10,
+  blockTitlePaddingBottom: 6,
+  tabletBlockTitlePaddingBottom: 6,
+  mobileBlockTitlePaddingBottom: 5,
+};
+
+const HOMEPAGE_SHARED_TEXT_CONFIG: ChildConfig = {
+  categoryLabelFontSize: 10,
+  tabletCategoryLabelFontSize: 10,
+  mobileCategoryLabelFontSize: 9,
+  categoryLabelPaddingX: 8,
+  tabletCategoryLabelPaddingX: 8,
+  mobileCategoryLabelPaddingX: 7,
+  categoryLabelPaddingY: 4,
+  tabletCategoryLabelPaddingY: 4,
+  mobileCategoryLabelPaddingY: 3,
+  categoryLabelMarginBottom: 10,
+  tabletCategoryLabelMarginBottom: 9,
+  mobileCategoryLabelMarginBottom: 8,
+  titleFontSize: 18,
+  tabletTitleFontSize: 17,
+  mobileTitleFontSize: 16,
+  titleLineHeight: 1.35,
+  tabletTitleLineHeight: 1.35,
+  mobileTitleLineHeight: 1.35,
+  titleMarginBottom: 8,
+  tabletTitleMarginBottom: 7,
+  mobileTitleMarginBottom: 6,
+  metaFontSize: 12,
+  tabletMetaFontSize: 11,
+  mobileMetaFontSize: 10,
+  metaMarginBottom: 10,
+  tabletMetaMarginBottom: 9,
+  mobileMetaMarginBottom: 8,
+  excerptFontSize: 14,
+  tabletExcerptFontSize: 13,
+  mobileExcerptFontSize: 13,
+  excerptLineHeight: 1.6,
+  tabletExcerptLineHeight: 1.6,
+  mobileExcerptLineHeight: 1.55,
+  imageWidth: 100,
+  tabletImageWidth: 100,
+  mobileImageWidth: 90,
+  imageHeight: 150,
+  tabletImageHeight: 150,
+  mobileImageHeight: 140,
+  imageBorderRadius: "global",
+  listContentAlign: "left",
+  loadMorePaddingTop: 10,
+  loadMorePaddingRight: 16,
+  loadMorePaddingBottom: 10,
+  loadMorePaddingLeft: 16,
+};
+
+const HOMEPAGE_CLASSIC_HERO_CONFIG: ChildConfig = {
+  categorySlug: "all",
+  limit: 1,
+  offset: 0,
+  useBox: false,
+  showTitle: false,
+  showCategory: true,
+  showMetaInfo: true,
+  showAuthor: true,
+  showDate: true,
+  showExcerpt: true,
+  excerptLength: 120,
+  imageHeight: 520,
+  tabletImageHeight: 420,
+  mobileImageHeight: 320,
+  imageRatio: "auto",
+  contentPaddingTop: 32,
+  tabletContentPaddingTop: 28,
+  mobileContentPaddingTop: 20,
+  contentPaddingRight: 32,
+  tabletContentPaddingRight: 28,
+  mobileContentPaddingRight: 20,
+  contentPaddingBottom: 32,
+  tabletContentPaddingBottom: 28,
+  mobileContentPaddingBottom: 20,
+  contentPaddingLeft: 32,
+  tabletContentPaddingLeft: 28,
+  mobileContentPaddingLeft: 20,
+  categoryLabelFontSize: 10,
+  tabletCategoryLabelFontSize: 10,
+  mobileCategoryLabelFontSize: 9,
+  categoryLabelPaddingX: 10,
+  tabletCategoryLabelPaddingX: 9,
+  mobileCategoryLabelPaddingX: 8,
+  categoryLabelPaddingY: 4,
+  tabletCategoryLabelPaddingY: 4,
+  mobileCategoryLabelPaddingY: 3,
+  categoryLabelMarginBottom: 14,
+  tabletCategoryLabelMarginBottom: 12,
+  mobileCategoryLabelMarginBottom: 10,
+  newsTitleFontSize: 46,
+  tabletNewsTitleFontSize: 36,
+  mobileNewsTitleFontSize: 26,
+  newsTitleLineHeight: 1.1,
+  tabletNewsTitleLineHeight: 1.12,
+  mobileNewsTitleLineHeight: 1.15,
+  newsTitleMarginBottom: 14,
+  tabletNewsTitleMarginBottom: 12,
+  mobileNewsTitleMarginBottom: 10,
+  metaFontSize: 14,
+  tabletMetaFontSize: 13,
+  mobileMetaFontSize: 12,
+  metaMarginBottom: 14,
+  tabletMetaMarginBottom: 12,
+  mobileMetaMarginBottom: 10,
+  excerptFontSize: 17,
+  tabletExcerptFontSize: 15,
+  mobileExcerptFontSize: 14,
+  excerptLineHeight: 1.6,
+  tabletExcerptLineHeight: 1.55,
+  mobileExcerptLineHeight: 1.5,
 };
 
 const HOMEPAGE_NEWS_HEADLINE_BIG_CONFIG: ChildConfig = {
@@ -62,7 +216,7 @@ const HOMEPAGE_NEWS_HEADLINE_BIG_CONFIG: ChildConfig = {
   mobileExcerptMarginBottom: 16,
   categoryLabelColor: "#ffffff",
   categoryLabelBgColor: "var(--accent)",
-  excerptLength: 220
+  excerptLength: 120
 };
 
 const HOMEPAGE_NEWS_GRID_CONFIG: ChildConfig = {
@@ -76,7 +230,7 @@ const HOMEPAGE_NEWS_GRID_CONFIG: ChildConfig = {
   mobileImageHeight: 160,
   gridBoxBorderRadius: "default",
   showExcerpt: true,
-  excerptLength: 90,
+  excerptLength: 120,
   titleFontSize: 18,
   tabletTitleFontSize: 17,
   mobileTitleFontSize: 16,
@@ -91,7 +245,16 @@ const HOMEPAGE_NEWS_GRID_CONFIG: ChildConfig = {
 const HOMEPAGE_NEWS_BULLET_LIST_CONFIG: ChildConfig = {
   columnCount: 2,
   offset: 0,
-  showTitle: false
+  showTitle: false,
+  listGap: 14,
+  titleFontSize: 20,
+  tabletTitleFontSize: 19,
+  mobileTitleFontSize: 18,
+  titleLineHeight: 1.4,
+  tabletTitleLineHeight: 1.38,
+  mobileTitleLineHeight: 1.35,
+  titleMarginBottom: 0,
+  bulletSize: 4,
 };
 
 const HOMEPAGE_HERO_SPLIT_4_CONFIG: ChildConfig = {
@@ -115,7 +278,7 @@ const HOMEPAGE_HERO_SPLIT_4_CONFIG: ChildConfig = {
   heroExcerptLength: 120,
   heroExcerptFontSize: 14,
   heroExcerptLineHeight: 1.6,
-  miniExcerptLength: 70,
+  miniExcerptLength: 120,
   miniExcerptFontSize: 12,
   miniExcerptLineHeight: 1.5,
   showCategory: true,
@@ -137,6 +300,7 @@ const HOMEPAGE_HERO_SPLIT_4_CONFIG: ChildConfig = {
 const HOMEPAGE_HERO_SLIDER_CONFIG: ChildConfig = {
   limit: 5,
   offset: 0,
+  showTitle: true,
   autoplay: false,
   autoplayMs: 5000,
   loop: true,
@@ -153,6 +317,45 @@ const HOMEPAGE_HERO_SLIDER_CONFIG: ChildConfig = {
   thumbnailImageHeight: 72,
   showExcerpt: true,
   excerptLength: 120,
+  blockTitleFontSize: 24,
+  tabletBlockTitleFontSize: 24,
+  mobileBlockTitleFontSize: 20,
+  blockTitleMarginBottom: 14,
+  tabletBlockTitleMarginBottom: 12,
+  mobileBlockTitleMarginBottom: 10,
+  blockTitlePaddingBottom: 6,
+  tabletBlockTitlePaddingBottom: 6,
+  mobileBlockTitlePaddingBottom: 5,
+  categoryLabelFontSize: 10,
+  tabletCategoryLabelFontSize: 10,
+  mobileCategoryLabelFontSize: 9,
+  titleFontSize: 42,
+  tabletTitleFontSize: 32,
+  mobileTitleFontSize: 24,
+  titleLineHeight: 1.15,
+  tabletTitleLineHeight: 1.18,
+  mobileTitleLineHeight: 1.2,
+  metaMarginBottom: 12,
+  tabletMetaMarginBottom: 10,
+  mobileMetaMarginBottom: 8,
+  excerptFontSize: 15,
+  tabletExcerptFontSize: 14,
+  mobileExcerptFontSize: 13,
+  excerptLineHeight: 1.6,
+  tabletExcerptLineHeight: 1.55,
+  mobileExcerptLineHeight: 1.5,
+  heroContentPaddingTop: 24,
+  tabletHeroContentPaddingTop: 20,
+  mobileHeroContentPaddingTop: 16,
+  heroContentPaddingRight: 24,
+  tabletHeroContentPaddingRight: 20,
+  mobileHeroContentPaddingRight: 16,
+  heroContentPaddingBottom: 24,
+  tabletHeroContentPaddingBottom: 20,
+  mobileHeroContentPaddingBottom: 16,
+  heroContentPaddingLeft: 24,
+  tabletHeroContentPaddingLeft: 20,
+  mobileHeroContentPaddingLeft: 16,
   imageHeight: 500,
   tabletImageHeight: 420,
   mobileImageHeight: 320
@@ -176,7 +379,36 @@ const HOMEPAGE_NEWS_GRID_SLIDER_CONFIG: ChildConfig = {
   showAuthor: true,
   slideTransitionMs: 500,
   showExcerpt: true,
-  excerptLength: 90,
+  excerptLength: 120,
+  gridGapX: 4,
+  imageHeight: 190,
+  tabletImageHeight: 170,
+  mobileImageHeight: 160,
+  blockTitleFontSize: 24,
+  tabletBlockTitleFontSize: 24,
+  mobileBlockTitleFontSize: 20,
+  blockTitleMarginBottom: 14,
+  tabletBlockTitleMarginBottom: 12,
+  mobileBlockTitleMarginBottom: 10,
+  blockTitlePaddingBottom: 6,
+  tabletBlockTitlePaddingBottom: 6,
+  mobileBlockTitlePaddingBottom: 5,
+  categoryLabelFontSize: 10,
+  tabletCategoryLabelFontSize: 10,
+  mobileCategoryLabelFontSize: 9,
+  titleFontSize: 18,
+  tabletTitleFontSize: 17,
+  mobileTitleFontSize: 16,
+  titleLineHeight: 1.35,
+  metaMarginBottom: 10,
+  tabletMetaMarginBottom: 9,
+  mobileMetaMarginBottom: 8,
+  excerptFontSize: 14,
+  tabletExcerptFontSize: 13,
+  mobileExcerptFontSize: 13,
+  excerptLineHeight: 1.6,
+  tabletExcerptLineHeight: 1.6,
+  mobileExcerptLineHeight: 1.55,
   gridBoxBorderRadius: "default"
 };
 
@@ -199,6 +431,8 @@ const buildHomepageNewsConfig = (type: string, title: string): ChildConfig => {
     limit: type === "news_headline_big" ? 1 : 6,
     offset: 0,
     title,
+    ...HOMEPAGE_WIDGET_TITLE_CONFIG,
+    ...HOMEPAGE_SHARED_TEXT_CONFIG,
     blockTitleFontSize: 24,
     tabletBlockTitleFontSize: 24,
     mobileBlockTitleFontSize: 20,
@@ -239,7 +473,9 @@ export const buildHomepageChildConfig = (type: string, title: string, columnInde
   const config: ChildConfig = { columnIndex };
 
   if (type === "section") return { ...config, ...HOMEPAGE_SECTION_CONFIG };
+  if (type === "image_widget") return { ...config, title, imageUrl: "", altText: title, linkUrl: "", openInNewTab: false, objectFit: "contain", imageWidth: "", imageHeight: "", borderRadius: "", showShadow: false, useBox: false };
   if (type === "ad_banner") return { ...config, selectedAdId: "", position: "", useBox: false, showTitle: false };
+  if (type === "classic_hero" || type === "hero") return { ...config, title, ...HOMEPAGE_CLASSIC_HERO_CONFIG };
   if (HOMEPAGE_NEWS_TYPES.has(type)) return { ...config, ...buildHomepageNewsConfig(type, title) };
   if (type === "headline_2") {
     return {
@@ -250,17 +486,59 @@ export const buildHomepageChildConfig = (type: string, title: string, columnInde
       useBox: false,
       boxBorderRadius: "xl",
       boxColor: "#ffffff",
-      imageBorderRadius: "2xl",
+      imageBorderRadius: "global",
       titleFontSize: 36,
       mobileTitleFontSize: 24,
       showExcerpt: true,
       mobileShowExcerpt: false,
-      excerptLength: 150
+      excerptLength: 120
     };
   }
-  if (type === "sidebar_widget") return { ...config, widgetType: "popular_posts", limit: 5, title, useBox: false };
+  if (type === "sidebar_widget") return {
+    ...config,
+    ...HOMEPAGE_WIDGET_TITLE_CONFIG,
+    widgetType: "popular_posts",
+    limit: 5,
+    title,
+    useBox: false,
+    imageWidth: 100,
+    tabletImageWidth: 100,
+    mobileImageWidth: 90,
+    imageHeight: 75,
+    tabletImageHeight: 75,
+    mobileImageHeight: 65,
+    rankNumberFontSize: 24,
+    tabletRankNumberFontSize: 22,
+    mobileRankNumberFontSize: 20,
+    categoryLabelFontSize: 10,
+    tabletCategoryLabelFontSize: 10,
+    mobileCategoryLabelFontSize: 9,
+    categoryLabelPaddingX: 8,
+    tabletCategoryLabelPaddingX: 8,
+    mobileCategoryLabelPaddingX: 7,
+    categoryLabelPaddingY: 3,
+    tabletCategoryLabelPaddingY: 3,
+    mobileCategoryLabelPaddingY: 3,
+    categoryLabelMarginBottom: 8,
+    tabletCategoryLabelMarginBottom: 7,
+    mobileCategoryLabelMarginBottom: 6,
+    titleFontSize: 16,
+    tabletTitleFontSize: 15,
+    mobileTitleFontSize: 15,
+    titleLineHeight: 1.35,
+    tabletTitleLineHeight: 1.35,
+    mobileTitleLineHeight: 1.3,
+    metaFontSize: 11,
+    tabletMetaFontSize: 11,
+    mobileMetaFontSize: 10,
+    metaMarginBottom: 8,
+    tabletMetaMarginBottom: 7,
+    mobileMetaMarginBottom: 6,
+    sidebarContentAlign: "left",
+  };
   if (type === "tag_cloud") return {
     ...config,
+    ...HOMEPAGE_WIDGET_TITLE_CONFIG,
     limit: 10,
     title,
     useBox: false,
@@ -271,7 +549,7 @@ export const buildHomepageChildConfig = (type: string, title: string, columnInde
     tagPaddingX: 12,
     tagPaddingY: 4,
     tagTextColor: "#374151",
-    tagBackgroundColor: "#F3F4F6",
+    tagBackgroundColor: "transparent",
     tagBorderColor: "#E5E7EB",
     tagHoverBackgroundColor: "#2563EB",
     tagHoverTextColor: "#FFFFFF",
@@ -284,9 +562,26 @@ export const buildHomepageChildConfig = (type: string, title: string, columnInde
 export const buildPageChildConfig = (type: string, title: string, columnIndex: number): ChildConfig => {
   const config: ChildConfig = { columnIndex };
 
+  if (type === "image_widget") return { ...config, title, imageUrl: "", altText: title, linkUrl: "", openInNewTab: false, objectFit: "contain", imageWidth: "", imageHeight: "", borderRadius: "", showShadow: false, useBox: false };
   if (type === "ad_banner") return { ...config, selectedAdId: "", position: "", useBox: false, showTitle: false };
+  if (type === "classic_hero" || type === "hero") {
+    return {
+      ...config,
+      categorySlug: "all",
+      limit: 1,
+      title,
+      useBox: false,
+      showTitle: false,
+      showCategory: true,
+      showMetaInfo: true,
+      showAuthor: true,
+      showDate: true,
+      showExcerpt: true,
+      excerptLength: 120,
+    };
+  }
   if (type === "news_grid" || type === "news_list" || type === "news_slider" || type === "news_list_highlight") {
-    return { ...config, categorySlug: "all", limit: 6, title, useBox: false };
+    return { ...config, categorySlug: "all", limit: 6, title, useBox: false, excerptLength: 120 };
   }
   if (type === "headline_2") {
     return {
@@ -297,12 +592,12 @@ export const buildPageChildConfig = (type: string, title: string, columnIndex: n
       useBox: false,
       boxBorderRadius: "xl",
       boxColor: "#ffffff",
-      imageBorderRadius: "2xl",
+      imageBorderRadius: "global",
       titleFontSize: 36,
       mobileTitleFontSize: 24,
       showExcerpt: true,
       mobileShowExcerpt: false,
-      excerptLength: 150
+      excerptLength: 120
     };
   }
   if (type === "sidebar_widget") return { ...config, widgetType: "popular_posts", limit: 5, title, useBox: false };
@@ -318,7 +613,7 @@ export const buildPageChildConfig = (type: string, title: string, columnIndex: n
     tagPaddingX: 12,
     tagPaddingY: 4,
     tagTextColor: "#374151",
-    tagBackgroundColor: "#F3F4F6",
+    tagBackgroundColor: "transparent",
     tagBorderColor: "#E5E7EB",
     tagHoverBackgroundColor: "#2563EB",
     tagHoverTextColor: "#FFFFFF",
@@ -327,7 +622,7 @@ export const buildPageChildConfig = (type: string, title: string, columnIndex: n
   if (type === "section") return { ...config, ...PAGE_SECTION_CONFIG };
   if (type === "post_title") return { ...config, fontSize: 32, fontWeight: "bold", textAlign: "left", lineHeight: 1.15, useBox: false };
   if (type === "post_subtitle") return { ...config, fontSize: 18, fontWeight: "normal", textAlign: "left", lineHeight: 1.6, isItalic: false, useBox: false };
-  if (type === "post_content") return { ...config, fontSize: 18, fontWeight: "normal", textAlign: "left", lineHeight: 1.7, useBox: false };
+  if (type === "post_content") return { ...config, fontSize: 18, fontWeight: "normal", textAlign: "left", lineHeight: 1.7, useBox: false, showContentBorder: false };
   if (type === "post_meta") return {
     ...config,
     showAuthor: true,
@@ -355,30 +650,58 @@ export const buildPageChildConfig = (type: string, title: string, columnIndex: n
     aspectRatio: "16/9",
     imageFit: "cover",
     imagePosition: "center",
-    imageBorderRadius: 12,
     imageMinHeight: 320,
     showImageCaption: false,
+    imageCaptionFontSize: 12,
+    imageCaptionLineHeight: 1.5,
+    imageCaptionFontWeight: "400",
     useBox: false
   };
-  if (type === "post_share") return { ...config, showFacebook: true, showTwitter: true, showWhatsapp: true };
+  if (type === "post_share") return {
+    ...config,
+    align: "left",
+    showShareLabel: true,
+    shareLabelText: "Bagikan :",
+    shareLabelPosition: "inline",
+    shareLabelFontSize: 14,
+    shareLabelLineHeight: 1.4,
+    shareLabelFontWeight: "600",
+    shareTheme: "brand",
+    shareContentMode: "icon_text",
+    iconOnlyShape: "square",
+    shareIconSize: 14,
+    shareShowContainerBorder: true,
+    shareSize: "md",
+    shareRadius: "global",
+    shareGap: 8,
+    showFacebook: true,
+    showTwitter: true,
+    showWhatsapp: true,
+    showTelegram: false,
+    showLinkedIn: false,
+    showEmail: false,
+    showCopyLink: true
+  };
   if (type === "post_tags") return {
     ...config,
     useBox: false,
     showTagLabel: true,
     tagLabelText: "Tag Terkait :",
     tagLabelFontSize: 12,
+    tagLabelLineHeight: 1.4,
     tagLabelFontWeight: "600",
     tagLabelColor: "#374151",
     tagDesign: "cloud",
     textAlign: "left",
     tagFontSize: 12,
+    tagLineHeight: 1.3,
     tagBorderRadius: "default",
     tagGapX: 8,
     tagGapY: 8,
     tagPaddingX: 12,
     tagPaddingY: 4,
     tagTextColor: "#374151",
-    tagBackgroundColor: "#F3F4F6",
+    tagBackgroundColor: "transparent",
     tagBorderColor: "#E5E7EB",
     tagHoverBackgroundColor: "#2563EB",
     tagHoverTextColor: "#FFFFFF",
@@ -421,6 +744,11 @@ export const buildPageChildConfig = (type: string, title: string, columnIndex: n
   };
   if (type === "post_stats") return {
     ...config,
+    statsDesign: "minimal",
+    textAlign: "left",
+    fontSize: 14,
+    fontWeight: "normal",
+    lineHeight: 1.4,
     showViews: true,
     showComments: true,
     useBox: false
@@ -446,7 +774,7 @@ export const buildPageChildConfig = (type: string, title: string, columnIndex: n
     relatedExcerptColor: "#4b5563",
     relatedCardColor: "#FFFFFF",
     relatedBorderColor: "#D1D5DB",
-    excerptLength: 90,
+    excerptLength: 120,
     thumbnailRatio: "16/10",
     useBox: false
   };
@@ -475,6 +803,26 @@ export const buildArchiveChildConfig = (type: string, title: string, columnIndex
   const config: ChildConfig = { columnIndex };
 
   if (type === "section") return { ...config, ...PAGE_SECTION_CONFIG };
+  if (type === "image_widget") return { ...config, title, imageUrl: "", altText: title, linkUrl: "", openInNewTab: false, objectFit: "contain", imageWidth: "", imageHeight: "", borderRadius: "", showShadow: false, useBox: false };
+  if (type === "sidebar_widget" || type === "tag_cloud" || type === "ad_banner") {
+    return buildHomepageChildConfig(type, title, columnIndex);
+  }
+  if (type === "classic_hero" || type === "hero") {
+    return {
+      ...config,
+      title,
+      categorySlug: "all",
+      limit: 1,
+      showTitle: false,
+      showCategory: true,
+      showMetaInfo: true,
+      showAuthor: true,
+      showDate: true,
+      showExcerpt: true,
+      excerptLength: 120,
+      useBox: false,
+    };
+  }
   if (type === "archive_header") {
     return {
       ...config,
@@ -483,9 +831,6 @@ export const buildArchiveChildConfig = (type: string, title: string, columnIndex
       showDescription: true,
       showPostCount: true,
       textAlign: "left",
-      titleFontSize: 36,
-      descriptionFontSize: 16,
-      metaFontSize: 13,
       useBox: false,
     };
   }
@@ -497,7 +842,7 @@ export const buildArchiveChildConfig = (type: string, title: string, columnIndex
       columns: 3,
       showExcerpt: true,
       showMeta: true,
-      excerptLength: 110,
+      excerptLength: 120,
       useBox: false,
     };
   }
@@ -538,7 +883,7 @@ export const buildArchiveChildConfig = (type: string, title: string, columnIndex
       showDate: true,
       showExcerpt: true,
       showDivider: true,
-      excerptLength: 140,
+      excerptLength: 120,
       imageWidth: 100,
       tabletImageWidth: 100,
       mobileImageWidth: 90,
@@ -546,9 +891,6 @@ export const buildArchiveChildConfig = (type: string, title: string, columnIndex
       tabletImageHeight: 75,
       mobileImageHeight: 65,
       titleMarginBottom: 6,
-      metaFontSize: 12,
-      tabletMetaFontSize: 11,
-      mobileMetaFontSize: 10,
       useBox: false,
     };
   }
@@ -622,7 +964,7 @@ export const buildArchiveChildConfig = (type: string, title: string, columnIndex
       tagPaddingX: 12,
       tagPaddingY: 4,
       tagTextColor: "#374151",
-      tagBackgroundColor: "#F3F4F6",
+      tagBackgroundColor: "transparent",
       tagBorderColor: "#E5E7EB",
       tagHoverBackgroundColor: "#2563EB",
       tagHoverTextColor: "#FFFFFF",

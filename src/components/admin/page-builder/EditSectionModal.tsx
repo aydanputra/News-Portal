@@ -34,7 +34,7 @@ export default function EditSectionModal({
 }: EditSectionModalProps) {
   if (!isOpen || !section) return null;
   const activeDeviceLabel = activeSectionDeviceTab.toUpperCase();
-  const sectionLabel = section.type === "section" ? "Inner Section" : "Section";
+  const sectionLabel = "Section";
 
   // Cast or handle builderLocation for SectionConfigPanel
   const sidebarSourceLocation = (builderLocation === "home" || builderLocation === "post" || builderLocation === "archive")

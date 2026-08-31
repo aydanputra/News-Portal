@@ -123,6 +123,7 @@ export default function FooterAppearancePage() {
 
       <EditChildModal
         builderLocation="footer"
+        activeTheme={state.activeTheme}
         child={actions.getEditingChildBlock()}
         isOpen={!!state.editingChild}
         onClose={() => actions.setEditingChild(null)}
@@ -137,10 +138,16 @@ export default function FooterAppearancePage() {
         getConfigValue={actions.getConfigValue}
         onUpdateTitle={actions.onUpdateTitle}
         globalSettings={{
-          primaryColor: "#2563eb",
-          headingColor: "#1e293b",
-          metaColor: "#94a3b8",
-          excerptColor: "#64748b",
+          primaryColor: state.accentColor,
+          backgroundColor: state.backgroundColor,
+          headingColor: state.headingColor,
+          metaColor: state.metaColor,
+          excerptColor: state.excerptColor,
+          homeWidgetTitleColor: state.homeWidgetTitleColor,
+          homeNewsTitleColor: state.homeNewsTitleColor,
+          homeHoverColor: state.homeHoverColor,
+          homeExcerptColor: state.homeExcerptColor,
+          homeMetaColor: state.homeMetaColor,
         }}
       />
     </div>

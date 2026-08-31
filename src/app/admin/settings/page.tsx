@@ -28,6 +28,30 @@ const NOTIF_EVENTS_DEFAULT = {
 
 const AI_MODEL_PRESETS = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini", "gpt-4.1", "o4-mini", "o3-mini"];
 
+function SettingsSection({
+  title,
+  description,
+  className = "",
+  bodyClassName = "",
+  children,
+}: {
+  title: string;
+  description?: string;
+  className?: string;
+  bodyClassName?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] shadow-sm ${className}`}>
+      <div className="border-b border-[var(--border)] px-5 py-3.5">
+        <h2 className="text-base font-bold text-[var(--fg-primary)]">{title}</h2>
+        {description ? <p className="mt-0.5 text-xs text-[var(--fg-muted)]">{description}</p> : null}
+      </div>
+      <div className={`px-5 py-4 md:px-6 ${bodyClassName}`}>{children}</div>
+    </section>
+  );
+}
+
 export default function SettingsPage() {
   const searchParams = useSearchParams();
   const activeTab = searchParams.get("tab") || "general";
@@ -86,11 +110,16 @@ export default function SettingsPage() {
     releasedAt: string | null;
   } | null>(null);
   const [systemTools, setSystemTools] = useState<{
-    allowlistActive: boolean;
-    source?: "instance" | "host" | "none";
+    source?: "super_admin" | "default";
     host?: string;
-    enabledTools: string[];
+    enabledToolGroups: Array<{ id: string; label: string }>;
+    toolVisibility: Record<string, boolean>;
+    canManage: boolean;
+    allTools: Array<{ id: string; label: string; description?: string }>;
   } | null>(null);
+  const [systemToolDraft, setSystemToolDraft] = useState<Record<string, boolean>>({});
+  const [systemToolsSaving, setSystemToolsSaving] = useState(false);
+  const [systemToolsMessage, setSystemToolsMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   useEffect(() => {
     if (toast) {
@@ -162,15 +191,30 @@ export default function SettingsPage() {
       if (!toolsRes.ok) {
         nextError = nextError || toolsJson?.error || "Gagal memuat status tools";
       } else {
+        const toolVisibility =
+          toolsJson?.toolVisibility && typeof toolsJson.toolVisibility === "object"
+            ? Object.fromEntries(Object.entries(toolsJson.toolVisibility).map(([key, value]) => [key, Boolean(value)]))
+            : {};
         setSystemTools({
-          allowlistActive: Boolean(toolsJson?.allowlistActive),
-          source:
-            toolsJson?.source === "instance" || toolsJson?.source === "host" || toolsJson?.source === "none"
-              ? toolsJson.source
-              : undefined,
+          source: toolsJson?.source === "super_admin" || toolsJson?.source === "default" ? toolsJson.source : undefined,
           host: typeof toolsJson?.host === "string" ? toolsJson.host : undefined,
-          enabledTools: Array.isArray(toolsJson?.enabledTools) ? toolsJson.enabledTools.map((x: any) => String(x)) : [],
+          enabledToolGroups: Array.isArray(toolsJson?.enabledToolGroups)
+            ? toolsJson.enabledToolGroups.map((item: any) => ({
+                id: String(item?.id || ""),
+                label: String(item?.label || item?.id || ""),
+              }))
+            : [],
+          toolVisibility,
+          canManage: Boolean(toolsJson?.canManage),
+          allTools: Array.isArray(toolsJson?.allTools)
+            ? toolsJson.allTools.map((item: any) => ({
+                id: String(item?.id || ""),
+                label: String(item?.label || item?.id || ""),
+                description: typeof item?.description === "string" ? item.description : undefined,
+              }))
+            : [],
         });
+        setSystemToolDraft(toolVisibility);
       }
       setSystemError(nextError);
     } catch {
@@ -185,6 +229,29 @@ export default function SettingsPage() {
     loadSystemStatus();
   }, [activeTab, loadSystemStatus]);
 
+  const saveSystemTools = useCallback(async () => {
+    setSystemToolsSaving(true);
+    setSystemToolsMessage(null);
+    try {
+      const res = await fetch("/api/admin/tools/enabled", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolVisibility: systemToolDraft }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        setSystemToolsMessage({ type: "error", text: json?.error || "Gagal menyimpan visibilitas tools" });
+        return;
+      }
+      setSystemToolsMessage({ type: "success", text: "Visibilitas tools disimpan" });
+      await loadSystemStatus();
+    } catch {
+      setSystemToolsMessage({ type: "error", text: "Gagal menyimpan visibilitas tools" });
+    } finally {
+      setSystemToolsSaving(false);
+    }
+  }, [loadSystemStatus, systemToolDraft]);
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -196,9 +263,6 @@ export default function SettingsPage() {
         logoUrl,
         faviconUrl,
         activeTheme,
-        insertCodeHead,
-        insertCodeBody,
-        insertCodeFooter,
 
         notificationTelegramEnabled: notifTelegramEnabled,
         notificationTelegramBotToken: notifTelegramBotToken,
@@ -213,6 +277,12 @@ export default function SettingsPage() {
         notificationSmtpSecure: notifSmtpSecure,
         notificationEvents: notifEvents,
       };
+
+      if (activeTab === "insert-code") {
+        payload.insertCodeHead = insertCodeHead;
+        payload.insertCodeBody = insertCodeBody;
+        payload.insertCodeFooter = insertCodeFooter;
+      }
 
       if (aiApiKeyClear) {
         payload.aiOpenAiApiKey = "";
@@ -249,7 +319,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 md:p-8 bg-[var(--bg-base)] min-h-screen pb-24 md:pb-8 max-w-[1600px] mx-auto relative admin-form">
+    <div className="relative mx-auto min-h-screen max-w-[1560px] bg-[var(--bg-base)] px-4 pb-24 pt-4 md:px-6 md:pb-10 md:pt-6 admin-form">
       {/* Toast Notification */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-6 py-3 rounded shadow-lg text-white font-medium animate-fade-in-down ${
@@ -258,9 +328,11 @@ export default function SettingsPage() {
           {toast.message}
         </div>
       )}
-      <h1 className="font-display text-2xl md:text-3xl font-bold text-[var(--fg-primary)] mb-6">Pengaturan Website</h1>
+      <div className="mb-4 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] px-5 py-4 shadow-sm md:px-6">
+        <h1 className="font-display text-2xl font-bold text-[var(--fg-primary)] md:text-[30px]">Pengaturan Website</h1>
+      </div>
 
-      <form onSubmit={handleSave} className="card p-6 space-y-6">
+      <form onSubmit={handleSave} className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5 shadow-sm md:p-6">
         {activeTab === "system" ? (
           <>
             <div className="bg-[var(--bg-surface)] border border-[var(--border)] rounded-lg p-4">
@@ -342,13 +414,9 @@ export default function SettingsPage() {
                 <div className="font-bold text-[var(--fg-primary)]">Tools Aktif</div>
                 <div className="mt-3 text-sm text-[var(--fg-muted)] space-y-2">
                   <div>
-                    <span className="font-semibold text-[var(--fg-secondary)]">Allowlist aktif:</span>{" "}
-                    <span className="font-bold text-[var(--fg-primary)]">{systemTools?.allowlistActive ? "Ya" : "Tidak"}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-[var(--fg-secondary)]">Sumber kontrol:</span>{" "}
+                    <span className="font-semibold text-[var(--fg-secondary)]">Kontrol aktif:</span>{" "}
                     <span className="font-bold text-[var(--fg-primary)]">
-                      {systemTools?.source === "instance" ? "TOOLS_ENABLED (per website)" : systemTools?.source === "host" ? "TENANT_TOOLS_ALLOWLIST (per domain)" : "Tidak ada"}
+                      {systemTools?.source === "super_admin" ? "Checkbox Super Admin" : "Default Semua Aktif"}
                     </span>
                   </div>
                   {systemTools?.host ? (
@@ -358,12 +426,12 @@ export default function SettingsPage() {
                     </div>
                   ) : null}
                   <div>
-                    <span className="font-semibold text-[var(--fg-secondary)]">Enabled tools:</span>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Tools aktif:</span>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {(systemTools?.enabledTools || []).length ? (
-                        (systemTools?.enabledTools || []).map((t) => (
-                          <span key={t} className="px-2 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--fg-primary)] font-semibold text-xs">
-                            {t}
+                      {(systemTools?.enabledToolGroups || []).length ? (
+                        (systemTools?.enabledToolGroups || []).map((tool) => (
+                          <span key={tool.id} className="px-2 py-1 rounded-lg bg-[var(--bg-surface)] border border-[var(--border)] text-[var(--fg-primary)] font-semibold text-xs">
+                            {tool.label}
                           </span>
                         ))
                       ) : (
@@ -373,6 +441,67 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="card p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <div className="font-bold text-[var(--fg-primary)]">Visibilitas Tools Admin</div>
+                  <div className="mt-1 text-sm text-[var(--fg-muted)]">
+                    Saat ini tools dikelola dalam 3 grup. Import Tools mencakup Import WordPress, Generate Media, dan Generate Excerpts.
+                  </div>
+                </div>
+                {systemTools?.canManage ? (
+                  <button type="button" onClick={saveSystemTools} disabled={systemToolsSaving} className="btn btn-primary">
+                    {systemToolsSaving ? "Menyimpan..." : "Simpan Visibilitas"}
+                  </button>
+                ) : null}
+              </div>
+
+              {systemToolsMessage && (
+                <div
+                  className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
+                    systemToolsMessage.type === "success"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-red-200 bg-red-50 text-red-700"
+                  }`}
+                >
+                  {systemToolsMessage.text}
+                </div>
+              )}
+
+              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-2">
+                {(systemTools?.allTools || []).map((tool) => (
+                  <label
+                    key={tool.id}
+                    className={`flex items-center justify-between gap-3 rounded-xl border p-4 ${
+                      systemTools?.canManage ? "cursor-pointer" : ""
+                    } border-[var(--border)] bg-[var(--bg-surface)]`}
+                  >
+                    <div className="min-w-0">
+                      <div className="font-semibold text-[var(--fg-primary)]">{tool.label}</div>
+                      <div className="mt-1 text-xs text-[var(--fg-muted)]">{tool.description || tool.id}</div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(systemToolDraft[tool.id])}
+                      disabled={!systemTools?.canManage || systemToolsSaving}
+                      onChange={(e) =>
+                        setSystemToolDraft((prev) => ({
+                          ...prev,
+                          [tool.id]: e.target.checked,
+                        }))
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+
+              {!systemTools?.canManage ? (
+                <div className="mt-4 text-xs text-[var(--fg-muted)]">
+                  Hanya super admin yang dapat mengubah visibilitas tool.
+                </div>
+              ) : null}
             </div>
           </>
         ) : activeTab === "insert-code" ? (
@@ -1093,172 +1222,195 @@ export default function SettingsPage() {
           </>
         ) : (
           <>
-            {/* Nama Situs */}
-            <div>
-              <label className="block font-medium text-[var(--fg-primary)] mb-1">Nama Situs</label>
-              <input
-                type="text"
-                className="input w-full"
-                value={siteName}
-                onChange={(e) => setSiteName(e.target.value)}
-                required
-              />
-            </div>
+            <div className="grid grid-cols-1 items-stretch gap-5 xl:grid-cols-2">
+              <SettingsSection
+                title="Informasi Dasar"
+                className="h-full"
+              >
+                <div className="space-y-5">
+                  <div className="space-y-2">
+                    <label className="mb-1 block font-medium text-[var(--fg-primary)]">Nama Situs</label>
+                    <input
+                      type="text"
+                      className="input w-full"
+                      value={siteName}
+                      onChange={(e) => setSiteName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block font-medium text-[var(--fg-primary)]">Deskripsi Situs</label>
+                    <textarea
+                      className="input min-h-[132px] w-full resize-y rounded-xl leading-6"
+                      value={siteDescription}
+                      onChange={(e) => setSiteDescription(e.target.value)}
+                      placeholder="Contoh: Portal berita digital yang cepat, ringkas, dan enak dibaca."
+                      rows={4}
+                    />
+                  </div>
+                </div>
+              </SettingsSection>
 
-            {/* Deskripsi */}
-            <div>
-              <label className="block font-medium text-[var(--fg-primary)] mb-1">Deskripsi Situs</label>
-              <textarea
-                className="input w-full"
-                value={siteDescription}
-                onChange={(e) => setSiteDescription(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            {/* Logo */}
-            <div>
-              <label className="block font-medium text-[var(--fg-primary)] mb-2">Logo Website</label>
-              <div className="flex items-start gap-4">
-                {logoUrl ? (
-                  <div className="relative group">
-                    <div className="w-40 h-20 border rounded-lg bg-[var(--bg-surface)] overflow-hidden flex items-center justify-center">
-                      <Image
-                        src={logoUrl}
-                        alt="Logo"
-                        width={160}
-                        height={80}
-                        className="object-contain max-h-full"
-                      />
-                    </div>
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-lg">
+              <SettingsSection
+                title="Aset Brand"
+                className="h-full"
+                bodyClassName="h-full"
+              >
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="grid gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-4 md:grid-cols-[176px_minmax(0,1fr)] md:items-center">
+                    {logoUrl ? (
+                      <div className="flex h-24 w-44 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]">
+                        <Image
+                          src={logoUrl}
+                          alt="Logo"
+                          width={176}
+                          height={96}
+                          className="max-h-full object-contain"
+                        />
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => setMediaModalTarget("logo")}
-                        className="text-white text-xs font-bold bg-[var(--accent)] px-3 py-1.5 rounded hover:bg-[var(--accent-hover)]"
+                        className="flex h-24 w-44 flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] text-[var(--fg-muted)] transition hover:bg-[var(--bg-elevated)]"
                       >
-                        Ganti Logo
+                        <ImageIcon size={20} className="mb-1" />
+                        <span className="text-xs font-medium">Pilih Logo</span>
                       </button>
+                    )}
+
+                    <div className="flex min-w-0 flex-col justify-center gap-2">
+                      <div className="text-sm font-semibold text-[var(--fg-primary)]">Logo Website</div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMediaModalTarget("logo")}
+                          className="h-9 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm font-semibold text-[var(--fg-primary)] transition hover:bg-white"
+                        >
+                          {logoUrl ? "Ganti Logo" : "Pilih Logo"}
+                        </button>
+                        {logoUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setLogoUrl("")}
+                            className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                          >
+                            Hapus
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setMediaModalTarget("logo")}
-                    className="w-40 h-20 border-2 border-dashed border-[var(--border)] rounded-lg flex flex-col items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--bg-surface)] transition"
-                  >
-                    <ImageIcon size={20} className="mb-1" />
-                    <span className="text-xs font-medium">Pilih Logo</span>
-                  </button>
-                )}
 
-                {logoUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setLogoUrl("")}
-                    className="text-red-500 text-sm hover:underline mt-2"
-                  >
-                    Hapus Logo
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-[var(--fg-muted)] mt-2">Format: PNG, JPG, WEBP. Ukuran rekomendasi: 200x60px.</p>
-            </div>
-
-            {/* Favicon */}
-            <div>
-              <label className="block font-medium text-[var(--fg-primary)] mb-2">Favicon Website</label>
-              <div className="flex items-start gap-4">
-                {faviconUrl ? (
-                  <div className="relative group">
-                    <div className="w-20 h-20 border rounded-lg bg-[var(--bg-surface)] overflow-hidden flex items-center justify-center">
-                      <Image
-                        src={faviconUrl}
-                        alt="Favicon"
-                        width={64}
-                        height={64}
-                        className="object-contain max-h-full"
-                      />
-                    </div>
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition flex items-center justify-center rounded-lg">
+                  <div className="grid gap-4 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] p-4 md:grid-cols-[96px_minmax(0,1fr)] md:items-center">
+                    {faviconUrl ? (
+                      <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]">
+                        <Image
+                          src={faviconUrl}
+                          alt="Favicon"
+                          width={72}
+                          height={72}
+                          className="max-h-full object-contain"
+                        />
+                      </div>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => setMediaModalTarget("favicon")}
-                        className="text-white text-xs font-bold bg-[var(--accent)] px-3 py-1.5 rounded hover:bg-[var(--accent-hover)]"
+                        className="flex h-24 w-24 flex-col items-center justify-center rounded-xl border-2 border-dashed border-[var(--border)] text-[var(--fg-muted)] transition hover:bg-[var(--bg-elevated)]"
                       >
-                        Ganti
+                        <ImageIcon size={20} className="mb-1" />
+                        <span className="text-xs font-medium">Pilih</span>
                       </button>
+                    )}
+
+                    <div className="flex min-w-0 flex-col justify-center gap-2">
+                      <div className="text-sm font-semibold text-[var(--fg-primary)]">Favicon Website</div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setMediaModalTarget("favicon")}
+                          className="h-9 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] px-3 text-sm font-semibold text-[var(--fg-primary)] transition hover:bg-white"
+                        >
+                          {faviconUrl ? "Ganti Favicon" : "Pilih Favicon"}
+                        </button>
+                        {faviconUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => setFaviconUrl("")}
+                            className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                          >
+                            Hapus
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
                   </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setMediaModalTarget("favicon")}
-                    className="w-20 h-20 border-2 border-dashed border-[var(--border)] rounded-lg flex flex-col items-center justify-center text-[var(--fg-muted)] hover:bg-[var(--bg-surface)] transition"
-                  >
-                    <ImageIcon size={20} className="mb-1" />
-                    <span className="text-xs font-medium">Pilih</span>
-                  </button>
-                )}
-
-                {faviconUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setFaviconUrl("")}
-                    className="text-red-500 text-sm hover:underline mt-2"
-                  >
-                    Hapus Favicon
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-[var(--fg-muted)] mt-2">Format: ICO, PNG, JPG. Ukuran rekomendasi: 32x32px atau 64x64px.</p>
+                </div>
+              </SettingsSection>
             </div>
 
-            {/* Pilihan Tema */}
-            <div>
-              <label className="block font-medium text-[var(--fg-primary)] mb-1">Tema Website</label>
-              <p className="text-sm text-[var(--fg-muted)] mb-2">Pilih tampilan dasar website Anda.</p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SettingsSection
+              title="Tema Website"
+              description="Pilih tampilan tema berdasarkan preview beranda utama masing-masing tema."
+            >
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {themeOptions.map((theme) => (
-                  <div
+                  <button
+                    type="button"
                     key={theme.id}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${activeTheme === theme.id ? "border-[var(--accent)] bg-[var(--accent-subtle)]" : "border-[var(--border)] hover:border-[var(--accent)]"}`}
+                    className={`flex h-full flex-col overflow-hidden rounded-2xl border-2 text-left transition-all ${
+                      activeTheme === theme.id
+                        ? "border-[var(--accent)] bg-[var(--accent-subtle)] shadow-[0_0_0_1px_var(--accent-subtle)]"
+                        : "border-[var(--border)] bg-[var(--bg-elevated)] hover:border-[var(--accent)] hover:bg-[var(--bg-surface)]"
+                    }`}
                     onClick={() => setActiveTheme(theme.id)}
                   >
-                    <div className="h-24 bg-[var(--bg-surface)] rounded mb-3 flex flex-col gap-1 p-2 overflow-hidden">
-                      {theme.mockupType === "modern" ? (
-                        <>
-                          <div className="h-12 bg-[color:var(--fg-muted)/0.3] rounded w-full"></div>
-                          <div className="flex gap-1">
-                            <div className="h-8 bg-[color:var(--fg-muted)/0.2] rounded w-2/3"></div>
-                            <div className="h-8 bg-[color:var(--fg-muted)/0.2] rounded w-1/3"></div>
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="h-4 bg-[color:var(--fg-muted)/0.3] rounded w-full mb-1"></div>
-                          <div className="flex gap-1 h-full">
-                            <div className="h-full bg-[color:var(--fg-muted)/0.2] rounded w-3/4"></div>
-                            <div className="h-full bg-[color:var(--fg-muted)/0.2] rounded w-1/4"></div>
-                          </div>
-                        </>
-                      )}
+                    <div className="relative aspect-square w-full overflow-hidden border-b border-[var(--border)] bg-[var(--bg-surface)]">
+                      <div
+                        className="absolute left-0 top-0 h-[1320px] w-[1280px] origin-top-left pointer-events-none"
+                        style={{ transform: "scale(0.35)" }}
+                      >
+                        <iframe
+                          src={`/preview/theme/${theme.id}`}
+                          title={`Preview tema ${theme.label}`}
+                          className="h-full w-full border-0 bg-white"
+                          loading="lazy"
+                          tabIndex={-1}
+                        />
+                      </div>
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-white/10" />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent px-4 py-3">
+                        <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/85">
+                          Preview Beranda Tema
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-[var(--fg-primary)]">{theme.label}</span>
-                      {activeTheme === theme.id && <span className="text-[var(--accent)] text-sm font-bold">✓ Aktif</span>}
+                    <div className="flex flex-1 flex-col gap-3 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="font-bold text-[var(--fg-primary)]">{theme.label}</span>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                            activeTheme === theme.id
+                              ? "bg-[var(--accent)] text-white"
+                              : "border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--fg-muted)]"
+                          }`}
+                        >
+                          {activeTheme === theme.id ? "Aktif" : "Pilih"}
+                        </span>
+                      </div>
+                      <p className="text-sm leading-6 text-[var(--fg-muted)]">{theme.description}</p>
                     </div>
-                    <p className="text-xs text-[var(--fg-muted)] mt-1">{theme.description}</p>
-                  </div>
+                  </button>
                 ))}
               </div>
-            </div>
+            </SettingsSection>
           </>
         )}
 
         {activeTab !== "system" && (
-          <div className="pt-4 border-t border-[var(--border)]">
-            <button type="submit" disabled={loading} className="btn btn-primary w-full">
+          <div className="border-t border-[var(--border)] pt-4">
+            <button type="submit" disabled={loading} className="btn btn-primary h-11 w-full rounded-xl">
               {loading ? "Menyimpan..." : "Simpan Pengaturan"}
             </button>
           </div>

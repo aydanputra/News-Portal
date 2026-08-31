@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, Check } from "lucide-react";
 import Link from "next/link";
 
@@ -9,15 +9,9 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [hasLoadedList, setHasLoadedList] = useState(false);
 
-  // Poll for unread count every 30s
-  useEffect(() => {
-    fetchCount();
-    const interval = setInterval(fetchCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchCount = async () => {
+  const fetchCount = useCallback(async () => {
     try {
       const res = await fetch("/api/notifications/unread-count");
       const data = await res.json();
@@ -25,24 +19,77 @@ export default function NotificationBell() {
     } catch (err) {
       console.error(err);
     }
-  };
+  }, []);
 
-  const fetchNotifications = async () => {
+  useEffect(() => {
+    if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+      return;
+    }
+
+    let idleCallbackId: number | null = null;
+    let timeoutId: number | null = null;
+    const runFetch = () => {
+      void fetchCount();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchCount();
+      }
+    };
+
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") {
+        void fetchCount();
+      }
+    }, 60000);
+
+    const idleWindow = window as Window &
+      typeof globalThis & {
+        requestIdleCallback?: (
+          callback: IdleRequestCallback,
+          options?: IdleRequestOptions,
+        ) => number;
+        cancelIdleCallback?: (handle: number) => void;
+      };
+
+    if (typeof idleWindow.requestIdleCallback === "function") {
+      idleCallbackId = idleWindow.requestIdleCallback(runFetch, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(runFetch, 350);
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.clearInterval(interval);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      if (idleCallbackId !== null && typeof idleWindow.cancelIdleCallback === "function") {
+        idleWindow.cancelIdleCallback(idleCallbackId);
+      }
+    };
+  }, [fetchCount]);
+
+  const fetchNotifications = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch("/api/notifications");
       const data = await res.json();
       setNotifications(data.data || []);
+      setHasLoadedList(true);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const handleToggle = () => {
-    if (!isOpen) {
-      fetchNotifications();
+    if (!isOpen && !hasLoadedList) {
+      void fetchNotifications();
     }
     setIsOpen(!isOpen);
   };
@@ -65,15 +112,15 @@ export default function NotificationBell() {
 
   const markAllRead = async () => {
     try {
-        await fetch("/api/notifications/mark-read", {
-          method: "POST",
-          body: JSON.stringify({ id: "all" }),
-        });
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-        setUnreadCount(0);
-      } catch (err) {
-        console.error(err);
-      }
+      await fetch("/api/notifications/mark-read", {
+        method: "POST",
+        body: JSON.stringify({ id: "all" }),
+      });
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(0);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -94,12 +141,15 @@ export default function NotificationBell() {
         <>
           {/* Backdrop */}
           <div
-            className="fixed inset-0 z-30"
+            className="fixed inset-0 z-[100] bg-black/20 md:bg-transparent"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Dropdown */}
-          <div className="absolute right-0 mt-2 w-80 md:w-96 bg-[var(--bg-elevated)] rounded-xl shadow-lg border border-[var(--border)] z-40 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div
+            className="fixed left-1/2 z-[110] w-[min(20rem,calc(100vw-2rem))] -translate-x-1/2 bg-[var(--bg-elevated)] rounded-xl shadow-lg border border-[var(--border)] overflow-hidden animate-in fade-in zoom-in-95 duration-200 md:absolute md:left-auto md:top-full md:right-0 md:z-40 md:mt-2 md:w-96 md:translate-x-0"
+            style={{ top: "calc(var(--admin-header-height, 64px) + 0.5rem)" }}
+          >
             <div className="p-4 border-b border-[var(--border)] flex items-center justify-between bg-[var(--bg-surface)]">
               <h3 className="font-bold text-[var(--fg-primary)]">Notifikasi</h3>
               {unreadCount > 0 && (

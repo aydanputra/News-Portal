@@ -2,8 +2,14 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag, revalidatePath } from "next/cache";
 import crypto from "crypto";
-import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
+import { assertRateLimit } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
 import { sanitizeInsertCode } from "@/lib/sanitizer";
+import {
+  mergeThemeConfigWithSettings,
+  normalizeDeprecatedSettingFonts,
+  THEME_GLOBAL_STYLE_SYNC_KEYS,
+} from "@/lib/settings";
 
 function deriveKey(masterKey: string) {
   return crypto.scryptSync(masterKey, "news-portal-ai-openai", 32);
@@ -47,35 +53,10 @@ export async function GET(request: Request) {
       where: { themeId: targetThemeId },
     });
 
-    if (themeConfig && (themeConfig as any).config) {
-      const mergedSetting = {
-        ...globalSetting,
-        ...((themeConfig as any).config as object),
-      };
-
-      // Global wins (agar warna/font global tidak ketimpa config per-theme)
-      globalSetting = {
-        ...mergedSetting,
-        primaryColor: globalSetting.primaryColor,
-        secondaryColor: globalSetting.secondaryColor,
-        accentColor: globalSetting.accentColor,
-        backgroundColor: globalSetting.backgroundColor,
-        headingColor: globalSetting.headingColor,
-        excerptColor: globalSetting.excerptColor,
-        metaColor: globalSetting.metaColor,
-        headingFont: globalSetting.headingFont,
-        bodyFont: globalSetting.bodyFont,
-        baseFontSize: globalSetting.baseFontSize,
-        globalBorderRadius: globalSetting.globalBorderRadius,
-
-        globalContainerWidth: globalSetting.globalContainerWidth,
-        globalCustomContainerWidth: globalSetting.globalCustomContainerWidth,
-        homeContainerWidth: globalSetting.homeContainerWidth,
-        homeCustomContainerWidth: globalSetting.homeCustomContainerWidth,
-        postContainerWidth: globalSetting.postContainerWidth,
-        postCustomContainerWidth: globalSetting.postCustomContainerWidth,
-      };
+    if (requestedThemeId && themeConfig && (themeConfig as any).config) {
+      globalSetting = mergeThemeConfigWithSettings(globalSetting, (themeConfig as any).config);
     }
+    globalSetting = normalizeDeprecatedSettingFonts(globalSetting);
 
     // Get Global Styles
     const globalStyles = {
@@ -130,6 +111,10 @@ export async function GET(request: Request) {
         globalSecondaryColor: globalSetting?.globalSecondaryColor || "#64748b",
         globalAccentColor: globalSetting?.globalAccentColor || "#f59e0b",
         globalBackgroundColor: globalSetting?.globalBackgroundColor || "#ffffff",
+        globalBorderColor: globalSetting?.globalBorderColor || "#e5e7eb",
+        globalSurfaceColor: globalSetting?.globalSurfaceColor || "#f9fafb",
+        globalElevatedColor: globalSetting?.globalElevatedColor || "#ffffff",
+        globalMutedTextColor: globalSetting?.globalMutedTextColor || globalSetting?.metaColor || "#9ca3af",
         globalBackgroundImage: globalSetting?.globalBackgroundImage || "",
         globalBackgroundRepeat: globalSetting?.globalBackgroundRepeat || "no-repeat",
         globalBackgroundSize: globalSetting?.globalBackgroundSize || "cover",
@@ -147,8 +132,13 @@ export async function GET(request: Request) {
         postInlineRelatedGridColumns: globalSetting?.postInlineRelatedGridColumns || 2,
         postInlineRelatedCardColumns: globalSetting?.postInlineRelatedCardColumns || 1,
         postInlineRelatedTitleFontSize: globalSetting?.postInlineRelatedTitleFontSize || 16,
+        postInlineRelatedTitleFont: globalSetting?.postInlineRelatedTitleFont || globalSetting?.postTitleFont || globalSetting?.postWidgetTitleFont || "Inter",
         postInlineRelatedTitleFontWeight: globalSetting?.postInlineRelatedTitleFontWeight || "700",
         postInlineRelatedTitleLineHeight: globalSetting?.postInlineRelatedTitleLineHeight || "1.35",
+        postInlineRelatedHeadingText: globalSetting?.postInlineRelatedHeadingText || "Baca Juga",
+        postInlineRelatedHeadingFont: globalSetting?.postInlineRelatedHeadingFont || globalSetting?.postInlineRelatedTitleFont || globalSetting?.postTitleFont || "Inter",
+        postInlineRelatedHeadingFontWeight: globalSetting?.postInlineRelatedHeadingFontWeight || "700",
+        postInlineRelatedHeadingLetterSpacing: globalSetting?.postInlineRelatedHeadingLetterSpacing || "0",
         postInlineRelatedFontSize: globalSetting?.postInlineRelatedFontSize || 14,
         postInlineRelatedBgColor: globalSetting?.postInlineRelatedBgColor || "#f9fafb",
         // @ts-ignore
@@ -156,6 +146,14 @@ export async function GET(request: Request) {
         postInlineRelatedTitleColor: globalSetting?.postInlineRelatedTitleColor || "#1e293b",
         postInlineRelatedTextColor: globalSetting?.postInlineRelatedTextColor || "#1f2937",
         postInlineRelatedHoverColor: globalSetting?.postInlineRelatedHoverColor || "#2563eb",
+        postImageWatermarkUrl: globalSetting?.postImageWatermarkUrl || "",
+        postImageWatermarkOpacity: globalSetting?.postImageWatermarkOpacity ?? 35,
+        postImageWatermarkSize: globalSetting?.postImageWatermarkSize ?? 24,
+        postImageWatermarkPosition: globalSetting?.postImageWatermarkPosition || "center",
+        postImageWatermarkPaddingTop: globalSetting?.postImageWatermarkPaddingTop ?? 24,
+        postImageWatermarkPaddingRight: globalSetting?.postImageWatermarkPaddingRight ?? 24,
+        postImageWatermarkPaddingBottom: globalSetting?.postImageWatermarkPaddingBottom ?? 24,
+        postImageWatermarkPaddingLeft: globalSetting?.postImageWatermarkPaddingLeft ?? 24,
         postInlineAds: globalSetting?.postInlineAds ?? false,
         postInlineAdPositions: globalSetting?.postInlineAdPositions || "3",
         postBottomRelated: globalSetting?.postBottomRelated ?? true,
@@ -171,28 +169,37 @@ export async function GET(request: Request) {
         // Typography - Homepage
         homeWidgetTitleFontSize: globalSetting?.homeWidgetTitleFontSize || "24px",
         homeWidgetTitleFontWeight: globalSetting?.homeWidgetTitleFontWeight || "700",
+        homeWidgetTitleLineHeight: globalSetting?.homeWidgetTitleLineHeight || "1.3",
         homeWidgetTitleFont: globalSetting?.homeWidgetTitleFont || "Inter",
         homeNewsTitleFontSize: globalSetting?.homeNewsTitleFontSize || "18px",
         homeNewsTitleFontWeight: globalSetting?.homeNewsTitleFontWeight || "600",
+        homeNewsTitleLineHeight: globalSetting?.homeNewsTitleLineHeight || "1.35",
         homeNewsTitleFont: globalSetting?.homeNewsTitleFont || "Inter",
         homeExcerptFontSize: globalSetting?.homeExcerptFontSize || "14px",
         homeExcerptFontWeight: globalSetting?.homeExcerptFontWeight || "400",
+        homeExcerptLineHeight: globalSetting?.homeExcerptLineHeight || "1.6",
         homeExcerptFont: globalSetting?.homeExcerptFont || "Inter",
         homeMetaFontSize: globalSetting?.homeMetaFontSize || "12px",
         homeMetaFontWeight: globalSetting?.homeMetaFontWeight || "500",
+        homeMetaLineHeight: globalSetting?.homeMetaLineHeight || "1.4",
         homeMetaFont: globalSetting?.homeMetaFont || "Inter",
 
         // Typography - Single Post
+        postTitleFontSize: globalSetting?.postTitleFontSize || "32px",
         postTitleFontWeight: globalSetting?.postTitleFontWeight || "700",
+        postTitleLineHeight: globalSetting?.postTitleLineHeight || "1.15",
         postTitleFont: globalSetting?.postTitleFont || "Inter",
         postSubtitleFontSize: globalSetting?.postSubtitleFontSize || "18px",
         postSubtitleFontWeight: globalSetting?.postSubtitleFontWeight || "500",
+        postSubtitleLineHeight: globalSetting?.postSubtitleLineHeight || "1.6",
         postSubtitleFont: globalSetting?.postSubtitleFont || "Inter",
         postContentFontSize: globalSetting?.postContentFontSize || "18px",
         postContentFontWeight: globalSetting?.postContentFontWeight || "400",
+        postContentLineHeight: globalSetting?.postContentLineHeight || globalSetting?.globalContentLineHeight || "1.8",
         postContentFont: globalSetting?.postContentFont || "Inter",
         postWidgetTitleFontSize: globalSetting?.postWidgetTitleFontSize || "20px",
         postWidgetTitleFontWeight: globalSetting?.postWidgetTitleFontWeight || "600",
+        postWidgetTitleLineHeight: globalSetting?.postWidgetTitleLineHeight || "1.3",
         postWidgetTitleFont: globalSetting?.postWidgetTitleFont || "Inter",
 
         // Typography - Archive
@@ -209,18 +216,22 @@ export async function GET(request: Request) {
         // Typography - Global (Fallback)
         globalWidgetTitleFontSize: globalSetting?.globalWidgetTitleFontSize || "20px",
         globalWidgetTitleFontWeight: globalSetting?.globalWidgetTitleFontWeight || "600",
+        globalWidgetTitleLineHeight: globalSetting?.globalWidgetTitleLineHeight || "1.3",
         globalWidgetTitleFont: globalSetting?.globalWidgetTitleFont || "Inter",
         globalNewsTitleFontSize: globalSetting?.globalNewsTitleFontSize || "18px",
         globalNewsTitleFontWeight: globalSetting?.globalNewsTitleFontWeight || "600",
+        globalNewsTitleLineHeight: globalSetting?.globalNewsTitleLineHeight || "1.35",
         globalNewsTitleFont: globalSetting?.globalNewsTitleFont || "Inter",
         globalMetaFontSize: globalSetting?.globalMetaFontSize || "12px",
         globalMetaFontWeight: globalSetting?.globalMetaFontWeight || "500",
+        globalMetaLineHeight: globalSetting?.globalMetaLineHeight || "1.4",
         globalMetaFont: globalSetting?.globalMetaFont || "Inter",
         globalExcerptFontSize: globalSetting?.globalExcerptFontSize || "14px",
         globalExcerptFontWeight: globalSetting?.globalExcerptFontWeight || "400",
         globalExcerptFont: globalSetting?.globalExcerptFont || "Inter",
         globalContentFontSize: globalSetting?.globalContentFontSize || "16px",
         globalContentFontWeight: globalSetting?.globalContentFontWeight || "400",
+        globalContentLineHeight: globalSetting?.globalContentLineHeight || "1.8",
         globalContentFont: globalSetting?.globalContentFont || "Inter",
 
         // Notification Settings
@@ -270,7 +281,6 @@ export async function PUT(request: Request) {
     }
 
     const { themeId, ...data } = await request.json();
-
     const wantsToUpdateAiKey = "aiOpenAiApiKey" in data || "aiApiKey" in data;
     if (wantsToUpdateAiKey && !["ADMIN", "SUPER_ADMIN"].includes(admin.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -325,6 +335,21 @@ export async function PUT(request: Request) {
     // Validate Font Sizes
     const postInlineRelatedTitleFontSize = parseInt(data.postInlineRelatedTitleFontSize);
     data.postInlineRelatedTitleFontSize = isNaN(postInlineRelatedTitleFontSize) ? 16 : postInlineRelatedTitleFontSize;
+    data.postInlineRelatedTitleFont = typeof data.postInlineRelatedTitleFont === "string" && data.postInlineRelatedTitleFont.trim() !== ""
+      ? data.postInlineRelatedTitleFont
+      : (typeof data.postTitleFont === "string" && data.postTitleFont.trim() !== "" ? data.postTitleFont : "Inter");
+    data.postInlineRelatedHeadingText = typeof data.postInlineRelatedHeadingText === "string" && data.postInlineRelatedHeadingText.trim() !== ""
+      ? data.postInlineRelatedHeadingText.trim()
+      : "Baca Juga";
+    data.postInlineRelatedHeadingFont = typeof data.postInlineRelatedHeadingFont === "string" && data.postInlineRelatedHeadingFont.trim() !== ""
+      ? data.postInlineRelatedHeadingFont
+      : data.postInlineRelatedTitleFont;
+    data.postInlineRelatedHeadingFontWeight = typeof data.postInlineRelatedHeadingFontWeight === "string" && data.postInlineRelatedHeadingFontWeight.trim() !== ""
+      ? data.postInlineRelatedHeadingFontWeight
+      : "700";
+    data.postInlineRelatedHeadingLetterSpacing = typeof data.postInlineRelatedHeadingLetterSpacing === "string" && data.postInlineRelatedHeadingLetterSpacing.trim() !== ""
+      ? data.postInlineRelatedHeadingLetterSpacing.trim()
+      : "0";
 
     const postInlineRelatedFontSize = parseInt(data.postInlineRelatedFontSize);
     data.postInlineRelatedFontSize = isNaN(postInlineRelatedFontSize) ? 14 : postInlineRelatedFontSize;
@@ -347,6 +372,26 @@ export async function PUT(request: Request) {
     data.postInlineRelatedCardColumns = isNaN(postInlineRelatedCardColumns)
       ? 1
       : Math.min(2, Math.max(1, postInlineRelatedCardColumns));
+    data.postImageWatermarkUrl = typeof data.postImageWatermarkUrl === "string" ? data.postImageWatermarkUrl.trim() : "";
+    const postImageWatermarkOpacity = parseInt(data.postImageWatermarkOpacity);
+    data.postImageWatermarkOpacity = isNaN(postImageWatermarkOpacity) ? 35 : Math.min(100, Math.max(0, postImageWatermarkOpacity));
+    const postImageWatermarkSize = parseInt(data.postImageWatermarkSize);
+    data.postImageWatermarkSize = isNaN(postImageWatermarkSize) ? 24 : Math.min(80, Math.max(5, postImageWatermarkSize));
+    data.postImageWatermarkPosition =
+      typeof data.postImageWatermarkPosition === "string" &&
+      ["top", "bottom", "left", "right", "center"].includes(data.postImageWatermarkPosition)
+        ? data.postImageWatermarkPosition
+        : "center";
+    const watermarkPaddingFields = [
+      "postImageWatermarkPaddingTop",
+      "postImageWatermarkPaddingRight",
+      "postImageWatermarkPaddingBottom",
+      "postImageWatermarkPaddingLeft",
+    ] as const;
+    for (const field of watermarkPaddingFields) {
+      const parsedValue = parseInt(data[field]);
+      data[field] = isNaN(parsedValue) ? 24 : Math.min(240, Math.max(0, parsedValue));
+    }
 
     // IF themeId is provided, save to ThemeConfig (Theme Specific Override)
     if (themeId) {
@@ -383,6 +428,7 @@ export async function PUT(request: Request) {
 
     const postWidgetTitleColor = data.postWidgetTitleColor || "#1e293b";
     const postContentColor = data.postContentColor || "#374151";
+    const postMetaColor = data.postMetaColor || data.metaColor || "#94a3b8";
     const postLinkColor = data.postLinkColor || data.postHoverColor || data.homeHoverColor || "#2563eb";
     const postLinkHoverColor = data.postLinkHoverColor || data.postHoverColor || data.homeHoverColor || "#1d4ed8";
     const postBadgeTextColor = data.postBadgeTextColor || data.postMetaColor || data.metaColor || "#374151";
@@ -392,6 +438,10 @@ export async function PUT(request: Request) {
     const globalSecondaryColor = data.globalSecondaryColor || "#64748b";
     const globalAccentColor = data.globalAccentColor || "#f59e0b";
     const globalBackgroundColor = data.globalBackgroundColor || "#ffffff";
+    const globalBorderColor = data.globalBorderColor || "#e5e7eb";
+    const globalSurfaceColor = data.globalSurfaceColor || "#f9fafb";
+    const globalElevatedColor = data.globalElevatedColor || "#ffffff";
+    const globalMutedTextColor = data.globalMutedTextColor || data.metaColor || "#9ca3af";
 
     // ELSE Update Global Styles AND Sync to Post/Home Specifics
     // @ts-ignore
@@ -438,6 +488,7 @@ export async function PUT(request: Request) {
         // NEW COLORS (Single Post)
         postWidgetTitleColor: postWidgetTitleColor,
         postContentColor: postContentColor,
+        postMetaColor: postMetaColor,
         postLinkColor: postLinkColor,
         postLinkHoverColor: postLinkHoverColor,
         postBadgeTextColor: postBadgeTextColor,
@@ -448,6 +499,10 @@ export async function PUT(request: Request) {
         globalSecondaryColor: globalSecondaryColor,
         globalAccentColor: globalAccentColor,
         globalBackgroundColor: globalBackgroundColor,
+        globalBorderColor: globalBorderColor,
+        globalSurfaceColor: globalSurfaceColor,
+        globalElevatedColor: globalElevatedColor,
+        globalMutedTextColor: globalMutedTextColor,
         globalBackgroundImage: data.globalBackgroundImage,
         globalBackgroundRepeat: data.globalBackgroundRepeat,
         globalBackgroundSize: data.globalBackgroundSize,
@@ -457,28 +512,37 @@ export async function PUT(request: Request) {
         // Typography - Homepage
         homeWidgetTitleFontSize: data.homeWidgetTitleFontSize || "24px",
         homeWidgetTitleFontWeight: data.homeWidgetTitleFontWeight || "700",
+        homeWidgetTitleLineHeight: data.homeWidgetTitleLineHeight || "1.3",
         homeWidgetTitleFont: data.homeWidgetTitleFont || "Inter",
         homeNewsTitleFontSize: data.homeNewsTitleFontSize || "18px",
         homeNewsTitleFontWeight: data.homeNewsTitleFontWeight || "600",
+        homeNewsTitleLineHeight: data.homeNewsTitleLineHeight || "1.35",
         homeNewsTitleFont: data.homeNewsTitleFont || "Inter",
         homeExcerptFontSize: data.homeExcerptFontSize || "14px",
         homeExcerptFontWeight: data.homeExcerptFontWeight || "400",
+        homeExcerptLineHeight: data.homeExcerptLineHeight || "1.6",
         homeExcerptFont: data.homeExcerptFont || "Inter",
         homeMetaFontSize: data.homeMetaFontSize || "12px",
         homeMetaFontWeight: data.homeMetaFontWeight || "500",
+        homeMetaLineHeight: data.homeMetaLineHeight || "1.4",
         homeMetaFont: data.homeMetaFont || "Inter",
 
         // Typography - Single Post
+        postTitleFontSize: data.postTitleFontSize || "32px",
         postTitleFontWeight: data.postTitleFontWeight || "700",
+        postTitleLineHeight: data.postTitleLineHeight || "1.15",
         postTitleFont: data.postTitleFont || "Inter",
         postSubtitleFontSize: data.postSubtitleFontSize || "18px",
         postSubtitleFontWeight: data.postSubtitleFontWeight || "500",
+        postSubtitleLineHeight: data.postSubtitleLineHeight || "1.6",
         postSubtitleFont: data.postSubtitleFont || "Inter",
         postContentFontSize: data.postContentFontSize || "18px",
         postContentFontWeight: data.postContentFontWeight || "400",
+        postContentLineHeight: data.postContentLineHeight || data.globalContentLineHeight || "1.8",
         postContentFont: data.postContentFont || "Inter",
         postWidgetTitleFontSize: data.postWidgetTitleFontSize || "20px",
         postWidgetTitleFontWeight: data.postWidgetTitleFontWeight || "600",
+        postWidgetTitleLineHeight: data.postWidgetTitleLineHeight || "1.3",
         postWidgetTitleFont: data.postWidgetTitleFont || "Inter",
 
         // Typography - Archive
@@ -495,18 +559,22 @@ export async function PUT(request: Request) {
         // Typography - Global (Fallback)
         globalWidgetTitleFontSize: data.globalWidgetTitleFontSize || "20px",
         globalWidgetTitleFontWeight: data.globalWidgetTitleFontWeight || "600",
+        globalWidgetTitleLineHeight: data.globalWidgetTitleLineHeight || "1.3",
         globalWidgetTitleFont: data.globalWidgetTitleFont || "Inter",
         globalNewsTitleFontSize: data.globalNewsTitleFontSize || "18px",
         globalNewsTitleFontWeight: data.globalNewsTitleFontWeight || "600",
+        globalNewsTitleLineHeight: data.globalNewsTitleLineHeight || "1.35",
         globalNewsTitleFont: data.globalNewsTitleFont || "Inter",
         globalMetaFontSize: data.globalMetaFontSize || "12px",
         globalMetaFontWeight: data.globalMetaFontWeight || "500",
+        globalMetaLineHeight: data.globalMetaLineHeight || "1.4",
         globalMetaFont: data.globalMetaFont || "Inter",
         globalExcerptFontSize: data.globalExcerptFontSize || "14px",
         globalExcerptFontWeight: data.globalExcerptFontWeight || "400",
         globalExcerptFont: data.globalExcerptFont || "Inter",
         globalContentFontSize: data.globalContentFontSize || "16px",
         globalContentFontWeight: data.globalContentFontWeight || "400",
+        globalContentLineHeight: data.globalContentLineHeight || "1.8",
         globalContentFont: data.globalContentFont || "Inter",
 
         // SYNC: Force Post & Home to use Global Colors (Legacy Support)
@@ -516,7 +584,6 @@ export async function PUT(request: Request) {
         postBackgroundColor: data.backgroundColor,
         postHeadingColor: data.headingColor,
         postExcerptColor: data.excerptColor,
-        postMetaColor: data.metaColor,
         postHeadingFont: data.headingFont,
         postBodyFont: data.bodyFont,
         postGlobalBorderRadius: data.globalBorderRadius,
@@ -532,8 +599,13 @@ export async function PUT(request: Request) {
         postInlineRelatedGridColumns: data.postInlineRelatedGridColumns,
         postInlineRelatedCardColumns: data.postInlineRelatedCardColumns,
         postInlineRelatedTitleFontSize: data.postInlineRelatedTitleFontSize,
+        postInlineRelatedTitleFont: data.postInlineRelatedTitleFont,
         postInlineRelatedTitleFontWeight: data.postInlineRelatedTitleFontWeight,
         postInlineRelatedTitleLineHeight: data.postInlineRelatedTitleLineHeight,
+        postInlineRelatedHeadingText: data.postInlineRelatedHeadingText,
+        postInlineRelatedHeadingFont: data.postInlineRelatedHeadingFont,
+        postInlineRelatedHeadingFontWeight: data.postInlineRelatedHeadingFontWeight,
+        postInlineRelatedHeadingLetterSpacing: data.postInlineRelatedHeadingLetterSpacing,
         postInlineRelatedFontSize: data.postInlineRelatedFontSize,
         
         // COLOR FIX: Use the cleaned variables
@@ -543,6 +615,14 @@ export async function PUT(request: Request) {
         postInlineRelatedTitleColor: postInlineRelatedTitleColor,
         postInlineRelatedTextColor: postInlineRelatedTextColor,
         postInlineRelatedHoverColor: postInlineRelatedHoverColor,
+        postImageWatermarkUrl: data.postImageWatermarkUrl,
+        postImageWatermarkOpacity: data.postImageWatermarkOpacity,
+        postImageWatermarkSize: data.postImageWatermarkSize,
+        postImageWatermarkPosition: data.postImageWatermarkPosition,
+        postImageWatermarkPaddingTop: data.postImageWatermarkPaddingTop,
+        postImageWatermarkPaddingRight: data.postImageWatermarkPaddingRight,
+        postImageWatermarkPaddingBottom: data.postImageWatermarkPaddingBottom,
+        postImageWatermarkPaddingLeft: data.postImageWatermarkPaddingLeft,
         postInlineAds: data.postInlineAds,
         postInlineAdPositions: data.postInlineAdPositions,
         
@@ -608,6 +688,7 @@ export async function PUT(request: Request) {
         // NEW COLORS (Single Post)
         postWidgetTitleColor: postWidgetTitleColor,
         postContentColor: postContentColor,
+        postMetaColor: postMetaColor,
         postLinkColor: postLinkColor,
         postLinkHoverColor: postLinkHoverColor,
         postBadgeTextColor: postBadgeTextColor,
@@ -618,33 +699,46 @@ export async function PUT(request: Request) {
         globalSecondaryColor: globalSecondaryColor,
         globalAccentColor: globalAccentColor,
         globalBackgroundColor: globalBackgroundColor,
+        globalBorderColor: globalBorderColor,
+        globalSurfaceColor: globalSurfaceColor,
+        globalElevatedColor: globalElevatedColor,
+        globalMutedTextColor: globalMutedTextColor,
         globalBackgroundImage: data.globalBackgroundImage,
 
         // Typography - Homepage
         homeWidgetTitleFontSize: data.homeWidgetTitleFontSize || "24px",
         homeWidgetTitleFontWeight: data.homeWidgetTitleFontWeight || "700",
+        homeWidgetTitleLineHeight: data.homeWidgetTitleLineHeight || "1.3",
         homeWidgetTitleFont: data.homeWidgetTitleFont || "Inter",
         homeNewsTitleFontSize: data.homeNewsTitleFontSize || "18px",
         homeNewsTitleFontWeight: data.homeNewsTitleFontWeight || "600",
+        homeNewsTitleLineHeight: data.homeNewsTitleLineHeight || "1.35",
         homeNewsTitleFont: data.homeNewsTitleFont || "Inter",
         homeExcerptFontSize: data.homeExcerptFontSize || "14px",
         homeExcerptFontWeight: data.homeExcerptFontWeight || "400",
+        homeExcerptLineHeight: data.homeExcerptLineHeight || "1.6",
         homeExcerptFont: data.homeExcerptFont || "Inter",
         homeMetaFontSize: data.homeMetaFontSize || "12px",
         homeMetaFontWeight: data.homeMetaFontWeight || "500",
+        homeMetaLineHeight: data.homeMetaLineHeight || "1.4",
         homeMetaFont: data.homeMetaFont || "Inter",
 
         // Typography - Single Post
+        postTitleFontSize: data.postTitleFontSize || "32px",
         postTitleFontWeight: data.postTitleFontWeight || "700",
+        postTitleLineHeight: data.postTitleLineHeight || "1.15",
         postTitleFont: data.postTitleFont || "Inter",
         postSubtitleFontSize: data.postSubtitleFontSize || "18px",
         postSubtitleFontWeight: data.postSubtitleFontWeight || "500",
+        postSubtitleLineHeight: data.postSubtitleLineHeight || "1.6",
         postSubtitleFont: data.postSubtitleFont || "Inter",
         postContentFontSize: data.postContentFontSize || "18px",
         postContentFontWeight: data.postContentFontWeight || "400",
+        postContentLineHeight: data.postContentLineHeight || data.globalContentLineHeight || "1.8",
         postContentFont: data.postContentFont || "Inter",
         postWidgetTitleFontSize: data.postWidgetTitleFontSize || "20px",
         postWidgetTitleFontWeight: data.postWidgetTitleFontWeight || "600",
+        postWidgetTitleLineHeight: data.postWidgetTitleLineHeight || "1.3",
         postWidgetTitleFont: data.postWidgetTitleFont || "Inter",
 
         // Typography - Archive
@@ -661,18 +755,22 @@ export async function PUT(request: Request) {
         // Typography - Global (Fallback)
         globalWidgetTitleFontSize: data.globalWidgetTitleFontSize || "20px",
         globalWidgetTitleFontWeight: data.globalWidgetTitleFontWeight || "600",
+        globalWidgetTitleLineHeight: data.globalWidgetTitleLineHeight || "1.3",
         globalWidgetTitleFont: data.globalWidgetTitleFont || "Inter",
         globalNewsTitleFontSize: data.globalNewsTitleFontSize || "18px",
         globalNewsTitleFontWeight: data.globalNewsTitleFontWeight || "600",
+        globalNewsTitleLineHeight: data.globalNewsTitleLineHeight || "1.35",
         globalNewsTitleFont: data.globalNewsTitleFont || "Inter",
         globalMetaFontSize: data.globalMetaFontSize || "12px",
         globalMetaFontWeight: data.globalMetaFontWeight || "500",
+        globalMetaLineHeight: data.globalMetaLineHeight || "1.4",
         globalMetaFont: data.globalMetaFont || "Inter",
         globalExcerptFontSize: data.globalExcerptFontSize || "14px",
         globalExcerptFontWeight: data.globalExcerptFontWeight || "400",
         globalExcerptFont: data.globalExcerptFont || "Inter",
         globalContentFontSize: data.globalContentFontSize || "16px",
         globalContentFontWeight: data.globalContentFontWeight || "400",
+        globalContentLineHeight: data.globalContentLineHeight || "1.8",
         globalContentFont: data.globalContentFont || "Inter",
 
         // SYNC: Force Post & Home to use Global Colors (Legacy Support)
@@ -682,7 +780,6 @@ export async function PUT(request: Request) {
         postBackgroundColor: data.backgroundColor,
         postHeadingColor: data.headingColor,
         postExcerptColor: data.excerptColor,
-        postMetaColor: data.metaColor,
         postHeadingFont: data.headingFont,
         postBodyFont: data.bodyFont,
         postGlobalBorderRadius: data.globalBorderRadius,
@@ -698,8 +795,13 @@ export async function PUT(request: Request) {
         postInlineRelatedGridColumns: data.postInlineRelatedGridColumns,
         postInlineRelatedCardColumns: data.postInlineRelatedCardColumns,
         postInlineRelatedTitleFontSize: data.postInlineRelatedTitleFontSize,
+        postInlineRelatedTitleFont: data.postInlineRelatedTitleFont,
         postInlineRelatedTitleFontWeight: data.postInlineRelatedTitleFontWeight,
         postInlineRelatedTitleLineHeight: data.postInlineRelatedTitleLineHeight,
+        postInlineRelatedHeadingText: data.postInlineRelatedHeadingText,
+        postInlineRelatedHeadingFont: data.postInlineRelatedHeadingFont,
+        postInlineRelatedHeadingFontWeight: data.postInlineRelatedHeadingFontWeight,
+        postInlineRelatedHeadingLetterSpacing: data.postInlineRelatedHeadingLetterSpacing,
         postInlineRelatedFontSize: data.postInlineRelatedFontSize,
         
         // COLOR FIX: Use the cleaned variables
@@ -709,6 +811,14 @@ export async function PUT(request: Request) {
         postInlineRelatedTitleColor: postInlineRelatedTitleColor,
         postInlineRelatedTextColor: postInlineRelatedTextColor,
         postInlineRelatedHoverColor: postInlineRelatedHoverColor,
+        postImageWatermarkUrl: data.postImageWatermarkUrl,
+        postImageWatermarkOpacity: data.postImageWatermarkOpacity,
+        postImageWatermarkSize: data.postImageWatermarkSize,
+        postImageWatermarkPosition: data.postImageWatermarkPosition,
+        postImageWatermarkPaddingTop: data.postImageWatermarkPaddingTop,
+        postImageWatermarkPaddingRight: data.postImageWatermarkPaddingRight,
+        postImageWatermarkPaddingBottom: data.postImageWatermarkPaddingBottom,
+        postImageWatermarkPaddingLeft: data.postImageWatermarkPaddingLeft,
         postInlineAds: data.postInlineAds,
         postInlineAdPositions: data.postInlineAdPositions,
         
@@ -737,6 +847,31 @@ export async function PUT(request: Request) {
         notificationEvents: data.notificationEvents || { onNewPost: true, onPostRejected: true, onPostPublished: true },
         ...(wantsToUpdateAiKey ? { aiOpenAiApiKeyEnc: aiKeyEnc } : {}),
       } as any
+    });
+
+    const activeThemeId = updatedSetting.activeTheme || data.activeTheme || "classic";
+    const existingThemeConfig = await (prisma as any).themeConfig.findUnique({
+      where: { themeId: activeThemeId },
+    });
+    const mergedThemeConfig: Record<string, unknown> = {
+      ...(existingThemeConfig?.config &&
+      typeof existingThemeConfig.config === "object" &&
+      !Array.isArray(existingThemeConfig.config)
+        ? (existingThemeConfig.config as Record<string, unknown>)
+        : {}),
+    };
+
+    for (const key of THEME_GLOBAL_STYLE_SYNC_KEYS) {
+      mergedThemeConfig[key] = data[key];
+    }
+
+    mergedThemeConfig.globalBorderRadius = data.globalBorderRadius;
+    mergedThemeConfig.postGlobalBorderRadius = data.globalBorderRadius;
+
+    await (prisma as any).themeConfig.upsert({
+      where: { themeId: activeThemeId },
+      update: { config: mergedThemeConfig },
+      create: { themeId: activeThemeId, config: mergedThemeConfig },
     });
 
     // Revalidate Settings Cache (Immediate Update)

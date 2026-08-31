@@ -18,3 +18,20 @@ Thumbs.db
 Desktop.ini
 
 *.backup
+
+# build artifacts
+*.tsbuildinfo
+
+# deploy/import temp artifacts
+*.tgz
+*.tar
+*.zip
+*.b64
+*.ndjson
+.tmp_*
+debug-*.md
+.dbg-*
+.deploy_*
+
+# user-uploaded content (stored on filesystem/DB, not in git)
+public/uploads/

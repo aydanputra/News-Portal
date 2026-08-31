@@ -7,11 +7,15 @@ import ArchivePostList from "../blockarchive/ArchivePostList";
 import ArchivePagination from "../blockarchive/ArchivePagination";
 import ArchiveEmptyState from "../blockarchive/ArchiveEmptyState";
 import Section from "../blocks/Section";
-import HeroSlider from "../blocks/HeroSlider";
 import NewsGrid from "../blocks/NewsGrid";
+import { PRANALA_BLOCKS } from "../blocks/registry";
+import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import {
+  resolveThemeFontFamily,
+  resolveThemeFontSynthesis,
+} from "@/lib/font-utils";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import SidebarWidgetRenderer from "../components/SidebarWidgetRenderer";
-import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface ArchiveProps {
   title: string;
@@ -113,6 +117,30 @@ const formatSize = (value: unknown, fallback: string) => {
   return fallback;
 };
 
+const getResponsiveValue = (config: any, key: string, device: "desktop" | "tablet" | "mobile") => {
+  if (device === "desktop") return config?.[key];
+  const responsiveKey = `${device}${key.charAt(0).toUpperCase() + key.slice(1)}`;
+  return config?.[responsiveKey] ?? config?.[key];
+};
+
+const formatSpacing = (value: unknown): string | undefined => {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return undefined;
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) return `${trimmed}px`;
+    return trimmed;
+  }
+  return undefined;
+};
+
+const resolvePublicFont = (font: unknown, fallback = "var(--font-body, sans-serif)") => {
+  const value = typeof font === "string" ? font.trim() : "";
+  if (!value) return fallback;
+  return resolveThemeFontFamily(value, fallback);
+};
+
 export default function PranalaArchive({
   title,
   description,
@@ -140,48 +168,181 @@ export default function PranalaArchive({
 
   const accent = setting?.globalAccentColor || setting?.accentColor || '#2563eb';
   const headingColor = setting?.homeTitleColor || setting?.headingColor || '#111827';
-  const widgetTitleColor = setting?.homeWidgetTitleColor || setting?.globalWidgetTitleColor || headingColor;
-  const newsTitleColor = setting?.homeNewsTitleColor || setting?.globalNewsTitleColor || headingColor;
-  const excerptColor = setting?.homeExcerptColor || setting?.globalExcerptColor || setting?.excerptColor || '#4b5563';
-  const metaColor = setting?.homeMetaColor || setting?.globalMetaColor || setting?.metaColor || '#9ca3af';
+  const widgetTitleColor = setting?.globalWidgetTitleColor || setting?.homeWidgetTitleColor || headingColor;
+  const newsTitleColor = setting?.globalNewsTitleColor || setting?.homeNewsTitleColor || headingColor;
+  const excerptColor = setting?.globalExcerptColor || setting?.homeExcerptColor || setting?.excerptColor || '#4b5563';
+  const metaColor = setting?.globalMetaColor || setting?.homeMetaColor || setting?.metaColor || '#9ca3af';
   const hoverColor = setting?.homeHoverColor || accent;
+  const borderColor = setting?.globalBorderColor || "#e5e7eb";
+  const surfaceColor = setting?.globalSurfaceColor || "#f9fafb";
+  const elevatedColor = setting?.globalElevatedColor || "#ffffff";
+  const mutedTextColor = setting?.globalMutedTextColor || metaColor || "#9ca3af";
   const archiveRadius = normalizeRadius(setting?.globalBorderRadius ?? setting?.postGlobalBorderRadius, "0.75rem");
   const archiveTitleSize = formatSize(setting?.archiveTitleFontSize ?? setting?.globalWidgetTitleFontSize, "2.25rem");
   const archiveTitleWeight = typeof (setting?.archiveTitleFontWeight ?? setting?.globalWidgetTitleFontWeight) === "string"
     ? (setting?.archiveTitleFontWeight ?? setting?.globalWidgetTitleFontWeight)
     : "700";
-  const archiveTitleFont = setting?.archiveTitleFont || setting?.globalWidgetTitleFont || setting?.headingFont || "inherit";
+  const archiveTitleFontValue = setting?.archiveTitleFont || setting?.globalWidgetTitleFont || setting?.headingFont || "var(--font-heading, sans-serif)";
+  const archiveTitleFont = resolvePublicFont(archiveTitleFontValue, "var(--font-heading, sans-serif)");
+  const archiveTitleSynthesis = resolveThemeFontSynthesis(archiveTitleFontValue);
   const archiveExcerptSize = formatSize(setting?.archiveExcerptFontSize ?? setting?.globalExcerptFontSize, "1rem");
   const archiveExcerptWeight = typeof (setting?.archiveExcerptFontWeight ?? setting?.globalExcerptFontWeight) === "string"
     ? (setting?.archiveExcerptFontWeight ?? setting?.globalExcerptFontWeight)
     : "400";
-  const archiveExcerptFont = setting?.archiveExcerptFont || setting?.globalExcerptFont || setting?.bodyFont || "inherit";
+  const archiveExcerptFontValue = setting?.archiveExcerptFont || setting?.globalExcerptFont || setting?.bodyFont || "var(--font-body, sans-serif)";
+  const archiveExcerptFont = resolvePublicFont(archiveExcerptFontValue, "var(--font-body, sans-serif)");
+  const archiveExcerptSynthesis = resolveThemeFontSynthesis(archiveExcerptFontValue);
   const archiveMetaSize = formatSize(setting?.archiveMetaFontSize ?? setting?.globalMetaFontSize, "0.8125rem");
   const archiveMetaWeight = typeof (setting?.archiveMetaFontWeight ?? setting?.globalMetaFontWeight) === "string"
     ? (setting?.archiveMetaFontWeight ?? setting?.globalMetaFontWeight)
     : "500";
-  const archiveMetaFont = setting?.archiveMetaFont || setting?.globalMetaFont || setting?.bodyFont || "inherit";
-  const widgetTitleSize = formatSize(setting?.homeWidgetTitleFontSize ?? setting?.globalWidgetTitleFontSize, "24px");
-  const widgetTitleWeight = typeof (setting?.homeWidgetTitleFontWeight ?? setting?.globalWidgetTitleFontWeight) === "string"
-    ? (setting?.homeWidgetTitleFontWeight ?? setting?.globalWidgetTitleFontWeight)
+  const archiveMetaFontValue = setting?.archiveMetaFont || setting?.globalMetaFont || setting?.bodyFont || "var(--font-body, sans-serif)";
+  const archiveMetaFont = resolvePublicFont(archiveMetaFontValue, "var(--font-body, sans-serif)");
+  const archiveMetaSynthesis = resolveThemeFontSynthesis(archiveMetaFontValue);
+  const widgetTitleSize = formatSize(setting?.globalWidgetTitleFontSize ?? setting?.homeWidgetTitleFontSize, "24px");
+  const widgetTitleWeight = typeof (setting?.globalWidgetTitleFontWeight ?? setting?.homeWidgetTitleFontWeight) === "string"
+    ? (setting?.globalWidgetTitleFontWeight ?? setting?.homeWidgetTitleFontWeight)
     : "700";
-  const widgetTitleFont = setting?.homeWidgetTitleFont || setting?.globalWidgetTitleFont || setting?.headingFont || "inherit";
+  const widgetTitleFontValue = setting?.globalWidgetTitleFont || setting?.homeWidgetTitleFont || setting?.headingFont || "var(--font-heading, sans-serif)";
+  const widgetTitleLineHeight = typeof (setting?.globalWidgetTitleLineHeight ?? setting?.homeWidgetTitleLineHeight) === "string"
+    ? (setting?.globalWidgetTitleLineHeight ?? setting?.homeWidgetTitleLineHeight)
+    : "1.3";
+  const widgetTitleFont = resolvePublicFont(widgetTitleFontValue, "var(--font-heading, sans-serif)");
+  const widgetTitleSynthesis = resolveThemeFontSynthesis(widgetTitleFontValue);
   const newsTitleSize = formatSize(setting?.globalNewsTitleFontSize ?? setting?.homeNewsTitleFontSize, "1.125rem");
   const newsTitleWeight = typeof (setting?.globalNewsTitleFontWeight ?? setting?.homeNewsTitleFontWeight) === "string"
     ? (setting?.globalNewsTitleFontWeight ?? setting?.homeNewsTitleFontWeight)
     : "600";
-  const newsTitleFont = setting?.globalNewsTitleFont || setting?.homeNewsTitleFont || setting?.headingFont || "inherit";
+  const newsTitleFontValue = setting?.globalNewsTitleFont || setting?.homeNewsTitleFont || setting?.headingFont || "var(--font-heading, sans-serif)";
+  const newsTitleFont = resolvePublicFont(newsTitleFontValue, "var(--font-heading, sans-serif)");
+  const newsTitleSynthesis = resolveThemeFontSynthesis(newsTitleFontValue);
+  const newsTitleLineHeight = typeof (setting?.globalNewsTitleLineHeight ?? setting?.homeNewsTitleLineHeight) === "string"
+    ? (setting?.globalNewsTitleLineHeight ?? setting?.homeNewsTitleLineHeight)
+    : "1.35";
   const excerptSize = formatSize(setting?.globalExcerptFontSize ?? setting?.homeExcerptFontSize, "0.875rem");
   const excerptWeight = typeof (setting?.globalExcerptFontWeight ?? setting?.homeExcerptFontWeight) === "string"
     ? (setting?.globalExcerptFontWeight ?? setting?.homeExcerptFontWeight)
     : "400";
-  const excerptFont = setting?.globalExcerptFont || setting?.homeExcerptFont || setting?.bodyFont || "inherit";
+  const excerptFontValue = setting?.globalExcerptFont || setting?.homeExcerptFont || setting?.bodyFont || "var(--font-body, sans-serif)";
+  const excerptFont = resolvePublicFont(excerptFontValue, "var(--font-body, sans-serif)");
+  const excerptSynthesis = resolveThemeFontSynthesis(excerptFontValue);
+  const excerptLineHeight = typeof (setting?.globalContentLineHeight ?? setting?.homeExcerptLineHeight) === "string"
+    ? (setting?.globalContentLineHeight ?? setting?.homeExcerptLineHeight)
+    : "1.6";
   const metaSize = formatSize(setting?.globalMetaFontSize ?? setting?.homeMetaFontSize, "0.75rem");
   const metaWeight = typeof (setting?.globalMetaFontWeight ?? setting?.homeMetaFontWeight) === "string"
     ? (setting?.globalMetaFontWeight ?? setting?.homeMetaFontWeight)
     : "500";
-  const metaFont = setting?.globalMetaFont || setting?.homeMetaFont || setting?.bodyFont || "inherit";
+  const metaFontValue = setting?.globalMetaFont || setting?.homeMetaFont || setting?.bodyFont || "var(--font-body, sans-serif)";
+  const metaFont = resolvePublicFont(metaFontValue, "var(--font-body, sans-serif)");
+  const metaSynthesis = resolveThemeFontSynthesis(metaFontValue);
+  const metaLineHeight = typeof (setting?.globalMetaLineHeight ?? setting?.homeMetaLineHeight) === "string"
+    ? (setting?.globalMetaLineHeight ?? setting?.homeMetaLineHeight)
+    : "1.4";
   const visibleBlocks = (blocks || []).filter((block) => block?.isVisible !== false);
+
+  const renderWidgetWithSpacing = (
+    widget: any,
+    content: React.ReactNode,
+    growClass = "",
+    directions?: { mobile?: string; tablet?: string; desktop?: string }
+  ) => {
+    if (!widget) return null;
+    const normalizeAlign = (val: any) => (val === "center" || val === "right" || val === "left" ? val : "left");
+    const normalizeVAlign = (val: any) => (val === "bottom" ? "bottom" : val === "center" || val === "middle" ? "center" : "top");
+    const toSelf = (val: string, prefix = "") => (val === "center" ? `${prefix}self-center` : val === "bottom" ? `${prefix}self-end` : `${prefix}self-start`);
+    const config = widget?.config || {};
+
+    const vAlignDesktopRaw = getResponsiveValue(config, "verticalAlign", "desktop") ?? config.verticalAlign;
+    const vAlignTabletRaw = getResponsiveValue(config, "verticalAlign", "tablet") ?? vAlignDesktopRaw;
+    const vAlignMobileRaw = getResponsiveValue(config, "verticalAlign", "mobile") ?? vAlignTabletRaw;
+    const selfAlignMobile = directions?.mobile === "horizontal" ? toSelf(normalizeVAlign(vAlignMobileRaw)) : "";
+    const selfAlignTablet = directions?.tablet === "horizontal" ? toSelf(normalizeVAlign(vAlignTabletRaw), "md:") : "";
+    const selfAlignDesktop = directions?.desktop === "horizontal" ? toSelf(normalizeVAlign(vAlignDesktopRaw), "lg:") : "";
+    const selfAlignClass = `${selfAlignMobile} ${selfAlignTablet} ${selfAlignDesktop}`.trim();
+
+    const alignD = normalizeAlign(getResponsiveValue(config, "textAlign", "desktop") ?? config.textAlign);
+    const alignT = normalizeAlign(getResponsiveValue(config, "textAlign", "tablet") ?? alignD);
+    const alignM = normalizeAlign(getResponsiveValue(config, "textAlign", "mobile") ?? alignT);
+
+    const verticalAlignD = normalizeVAlign(vAlignDesktopRaw);
+    const verticalAlignT = normalizeVAlign(vAlignTabletRaw);
+    const verticalAlignM = normalizeVAlign(vAlignMobileRaw);
+
+    const mtD = formatSpacing(getResponsiveValue(config, "marginTop", "desktop")) ?? "0px";
+    const mrD = formatSpacing(getResponsiveValue(config, "marginRight", "desktop")) ?? "0px";
+    const mbD = formatSpacing(getResponsiveValue(config, "marginBottom", "desktop")) ?? "0px";
+    const mlD = formatSpacing(getResponsiveValue(config, "marginLeft", "desktop")) ?? "0px";
+    const ptD = formatSpacing(getResponsiveValue(config, "paddingTop", "desktop")) ?? "0px";
+    const prD = formatSpacing(getResponsiveValue(config, "paddingRight", "desktop")) ?? "0px";
+    const pbD = formatSpacing(getResponsiveValue(config, "paddingBottom", "desktop")) ?? "0px";
+    const plD = formatSpacing(getResponsiveValue(config, "paddingLeft", "desktop")) ?? "0px";
+
+    const mtT = formatSpacing(getResponsiveValue(config, "marginTop", "tablet")) ?? mtD;
+    const mrT = formatSpacing(getResponsiveValue(config, "marginRight", "tablet")) ?? mrD;
+    const mbT = formatSpacing(getResponsiveValue(config, "marginBottom", "tablet")) ?? mbD;
+    const mlT = formatSpacing(getResponsiveValue(config, "marginLeft", "tablet")) ?? mlD;
+    const ptT = formatSpacing(getResponsiveValue(config, "paddingTop", "tablet")) ?? ptD;
+    const prT = formatSpacing(getResponsiveValue(config, "paddingRight", "tablet")) ?? prD;
+    const pbT = formatSpacing(getResponsiveValue(config, "paddingBottom", "tablet")) ?? pbD;
+    const plT = formatSpacing(getResponsiveValue(config, "paddingLeft", "tablet")) ?? plD;
+
+    const mtM = formatSpacing(getResponsiveValue(config, "marginTop", "mobile")) ?? mtT;
+    const mrM = formatSpacing(getResponsiveValue(config, "marginRight", "mobile")) ?? mrT;
+    const mbM = formatSpacing(getResponsiveValue(config, "marginBottom", "mobile")) ?? mbT;
+    const mlM = formatSpacing(getResponsiveValue(config, "marginLeft", "mobile")) ?? mlT;
+    const ptM = formatSpacing(getResponsiveValue(config, "paddingTop", "mobile")) ?? ptT;
+    const prM = formatSpacing(getResponsiveValue(config, "paddingRight", "mobile")) ?? prT;
+    const pbM = formatSpacing(getResponsiveValue(config, "paddingBottom", "mobile")) ?? pbT;
+    const plM = formatSpacing(getResponsiveValue(config, "paddingLeft", "mobile")) ?? plT;
+
+    const mtDPos = verticalAlignD === "bottom" || verticalAlignD === "center" ? "auto" : mtD;
+    const mtTPos = verticalAlignT === "bottom" || verticalAlignT === "center" ? "auto" : mtT;
+    const mtMPos = verticalAlignM === "bottom" || verticalAlignM === "center" ? "auto" : mtM;
+    const mbDPos = verticalAlignD === "center" ? "auto" : mbD;
+    const mbTPos = verticalAlignT === "center" ? "auto" : mbT;
+    const mbMPos = verticalAlignM === "center" ? "auto" : mbM;
+
+    const styleVars: React.CSSProperties = {
+      ["--aw-ta-d" as any]: alignD,
+      ["--aw-ta-t" as any]: alignT,
+      ["--aw-ta-m" as any]: alignM,
+      ["--aw-mt-d" as any]: mtDPos,
+      ["--aw-mt-t" as any]: mtTPos,
+      ["--aw-mt-m" as any]: mtMPos,
+      ["--aw-mr-d" as any]: mrD,
+      ["--aw-mr-t" as any]: mrT,
+      ["--aw-mr-m" as any]: mrM,
+      ["--aw-mb-d" as any]: mbDPos,
+      ["--aw-mb-t" as any]: mbTPos,
+      ["--aw-mb-m" as any]: mbMPos,
+      ["--aw-ml-d" as any]: mlD,
+      ["--aw-ml-t" as any]: mlT,
+      ["--aw-ml-m" as any]: mlM,
+      ["--aw-pt-d" as any]: ptD,
+      ["--aw-pt-t" as any]: ptT,
+      ["--aw-pt-m" as any]: ptM,
+      ["--aw-pr-d" as any]: prD,
+      ["--aw-pr-t" as any]: prT,
+      ["--aw-pr-m" as any]: prM,
+      ["--aw-pb-d" as any]: pbD,
+      ["--aw-pb-t" as any]: pbT,
+      ["--aw-pb-m" as any]: pbM,
+      ["--aw-pl-d" as any]: plD,
+      ["--aw-pl-t" as any]: plT,
+      ["--aw-pl-m" as any]: plM,
+    };
+
+    return (
+      <div
+        key={widget.id}
+        style={styleVars}
+        className={`w-full min-w-0 ${growClass} ${selfAlignClass} [text-align:var(--aw-ta-m)] md:[text-align:var(--aw-ta-t)] lg:[text-align:var(--aw-ta-d)] mt-[var(--aw-mt-m)] mr-[var(--aw-mr-m)] mb-[var(--aw-mb-m)] ml-[var(--aw-ml-m)] pt-[var(--aw-pt-m)] pr-[var(--aw-pr-m)] pb-[var(--aw-pb-m)] pl-[var(--aw-pl-m)] md:mt-[var(--aw-mt-t)] md:mr-[var(--aw-mr-t)] md:mb-[var(--aw-mb-t)] md:ml-[var(--aw-ml-t)] md:pt-[var(--aw-pt-t)] md:pr-[var(--aw-pr-t)] md:pb-[var(--aw-pb-t)] md:pl-[var(--aw-pl-t)] lg:mt-[var(--aw-mt-d)] lg:mr-[var(--aw-mr-d)] lg:mb-[var(--aw-mb-d)] lg:ml-[var(--aw-ml-d)] lg:pt-[var(--aw-pt-d)] lg:pr-[var(--aw-pr-d)] lg:pb-[var(--aw-pb-d)] lg:pl-[var(--aw-pl-d)]`.trim()}
+      >
+        {content}
+      </div>
+    );
+  };
 
   const renderArchiveWidget = (widget: any) => {
     if (!widget || widget.isVisible === false) return null;
@@ -223,19 +384,68 @@ export default function PranalaArchive({
         );
       case "archive_post_grid":
         return <ArchivePostGrid block={widget} posts={posts} />;
-      case "news_grid":
-        return <NewsGrid block={widget} posts={posts} customTitle={widget.title} />;
       case "archive_post_list":
-        return <ArchivePostList block={widget} posts={posts} customTitle={widget.title} accentColor={accent} borderRadius={archiveRadius} />;
-      case "news_hero_slider":
-        return <HeroSlider block={widget} posts={posts} />;
+        return <ArchivePostList block={widget} posts={posts} customTitle={widget.title} accentColor={accent} borderRadius={archiveRadius} setting={setting} />;
       case "archive_pagination":
         return <ArchivePagination block={widget} currentPage={currentPage} totalPages={totalPages} basePath={archiveBasePath} />;
       case "archive_empty_state":
         return <ArchiveEmptyState block={widget} isEmpty={posts.length === 0} />;
       default:
-        return null;
+        break;
     }
+
+    const effectiveType = resolveBlockTypeAlias(widget?.type);
+    const blockDef = PRANALA_BLOCKS[effectiveType];
+    if (!blockDef) return null;
+
+    const displayTitle = widget?.title && widget.title.trim() !== "" ? widget.title : widget?.config?.title || "";
+
+    const archiveFallbackNewsTitleTypes = new Set([
+      "news_hero_slider",
+      "news_grid_slider",
+      "news_list",
+      "news_grid",
+      "news_bullet_list",
+      "sidebar_widget",
+    ]);
+
+    const mergedConfig = {
+      ...(widget?.config || {}),
+      title: displayTitle,
+    } as Record<string, unknown>;
+
+    if (archiveFallbackNewsTitleTypes.has(effectiveType)) {
+      delete mergedConfig.titleFontSize;
+      delete mergedConfig.titleFontWeight;
+      delete mergedConfig.titleLineHeight;
+      delete mergedConfig.mobileTitleFontSize;
+      delete mergedConfig.mobileTitleFontWeight;
+      delete mergedConfig.mobileTitleLineHeight;
+      delete mergedConfig.tabletTitleFontSize;
+      delete mergedConfig.tabletTitleFontWeight;
+      delete mergedConfig.tabletTitleLineHeight;
+    }
+
+    const Component = blockDef.component as React.ComponentType<Record<string, unknown>>;
+    const mergedWidget = {
+      ...widget,
+      type: effectiveType,
+      config: mergedConfig,
+    };
+
+    return (
+      <div className={`relative group/widget w-full min-w-0 ${getResponsiveHideClass(mergedWidget?.config)}`.trim()}>
+        <Component
+          key={widget.id}
+          block={mergedWidget}
+          posts={widgetData}
+          categories={categories}
+          customTitle={displayTitle}
+          accentColor={accent}
+          borderRadius={archiveRadius}
+        />
+      </div>
+    );
   };
 
   const renderSection = (section: any, isNested = false) => {
@@ -289,13 +499,13 @@ export default function PranalaArchive({
 
     const alignClassMobile = dirMobile === "horizontal"
       ? (alignMobile === "center" ? "justify-center" : alignMobile === "right" ? "justify-end" : "justify-start")
-      : `items-stretch ${alignMobile === "center" ? "text-center" : alignMobile === "right" ? "text-right" : "text-left"}`;
+      : `${alignMobile === "center" ? "items-center text-center" : alignMobile === "right" ? "items-end text-right" : "items-start text-left"}`;
     const alignClassTablet = dirTablet === "horizontal"
       ? (alignTablet === "center" ? "md:justify-center" : alignTablet === "right" ? "md:justify-end" : "md:justify-start")
-      : `md:items-stretch ${alignTablet === "center" ? "md:text-center" : alignTablet === "right" ? "md:text-right" : "md:text-left"}`;
+      : `${alignTablet === "center" ? "md:items-center md:text-center" : alignTablet === "right" ? "md:items-end md:text-right" : "md:items-start md:text-left"}`;
     const alignClassDesktop = dirDesktop === "horizontal"
       ? (alignDesktop === "center" ? "lg:justify-center" : alignDesktop === "right" ? "lg:justify-end" : "lg:justify-start")
-      : `lg:items-stretch ${alignDesktop === "center" ? "lg:text-center" : alignDesktop === "right" ? "lg:text-right" : "lg:text-left"}`;
+      : `${alignDesktop === "center" ? "lg:items-center lg:text-center" : alignDesktop === "right" ? "lg:items-end lg:text-right" : "lg:items-start lg:text-left"}`;
 
     const itemClass = [
       dirMobile === "horizontal" && sizeMobile === "grow" ? "flex-1 basis-0 min-w-0" : "",
@@ -306,27 +516,16 @@ export default function PranalaArchive({
     const renderedColumns = columns.map((items, i) => (
       <div
         key={`${section.id}-col-${i}`}
-        className={`${getColSpanClass(colWidths[i])} flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop} ${i === sidebarIndex ? "md:sticky md:top-24 md:self-start" : ""}`.trim()}
-        style={{ gap: "var(--section-widget-gap)" }}
+        className={`${getColSpanClass(colWidths[i])} flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop} ${i === sidebarIndex ? "md:sticky md:top-24 md:self-start" : ""} gap-[var(--sec-wgap-m)] md:gap-[var(--sec-wgap-t)] lg:gap-[var(--sec-wgap-d)]`.trim()}
       >
-        {items.map((widget: any) => (
-          <div
-            key={widget.id}
-            className={`${itemClass} ${(() => {
-              const vM = widget?.config?.mobileVerticalAlign ?? widget?.config?.tabletVerticalAlign ?? widget?.config?.verticalAlign;
-              const vT = widget?.config?.tabletVerticalAlign ?? widget?.config?.verticalAlign;
-              const vD = widget?.config?.verticalAlign;
-              const normalize = (val: any) => val === "bottom" ? "bottom" : val === "center" || val === "middle" ? "center" : "top";
-              const toSelf = (val: string, prefix = "") => val === "center" ? `${prefix}self-center` : val === "bottom" ? `${prefix}self-end` : `${prefix}self-start`;
-              const selfMobile = dirMobile === "horizontal" ? toSelf(normalize(vM)) : "";
-              const selfTablet = dirTablet === "horizontal" ? toSelf(normalize(vT), "md:") : "";
-              const selfDesktop = dirDesktop === "horizontal" ? toSelf(normalize(vD), "lg:") : "";
-              return `${selfMobile} ${selfTablet} ${selfDesktop}`.trim();
-            })()}`.trim()}
-          >
-            {widget.type === "section" ? renderSection(widget, true) : renderArchiveWidget(widget)}
-          </div>
-        ))}
+        {items.map((widget: any) =>
+          renderWidgetWithSpacing(
+            widget,
+            widget.type === "section" ? renderSection(widget, true) : renderArchiveWidget(widget),
+            itemClass,
+            { mobile: dirMobile, tablet: dirTablet, desktop: dirDesktop }
+          )
+        )}
       </div>
     ));
 
@@ -358,11 +557,23 @@ export default function PranalaArchive({
       style={{
         backgroundColor: 'var(--bg-color)',
         '--accent': accent,
+        '--border': borderColor,
+        '--bg-surface': surfaceColor,
+        '--bg-elevated': elevatedColor,
+        '--muted-text': mutedTextColor,
         '--heading-color': headingColor,
         '--home-widget-title-color': widgetTitleColor,
         '--home-widget-title-size': widgetTitleSize,
         '--home-widget-title-weight': widgetTitleWeight,
+        '--home-widget-title-line-height': widgetTitleLineHeight,
         '--home-widget-title-font': widgetTitleFont,
+        '--home-widget-title-synthesis': widgetTitleSynthesis,
+        '--archive-widget-title-color': widgetTitleColor,
+        '--archive-widget-title-size': widgetTitleSize,
+        '--archive-widget-title-weight': widgetTitleWeight,
+        '--archive-widget-title-line-height': widgetTitleLineHeight,
+        '--archive-widget-title-font': widgetTitleFont,
+        '--archive-widget-title-synthesis': widgetTitleSynthesis,
         '--home-news-title-color': newsTitleColor,
         '--home-meta-color': metaColor,
         '--home-excerpt-color': excerptColor,
@@ -371,21 +582,48 @@ export default function PranalaArchive({
         '--archive-title-size': archiveTitleSize,
         '--archive-title-weight': archiveTitleWeight,
         '--archive-title-font': archiveTitleFont,
-        '--archive-excerpt-size': archiveExcerptSize,
-        '--archive-excerpt-weight': archiveExcerptWeight,
-        '--archive-excerpt-font': archiveExcerptFont,
-        '--archive-meta-size': archiveMetaSize,
-        '--archive-meta-weight': archiveMetaWeight,
-        '--archive-meta-font': archiveMetaFont,
+        '--archive-title-synthesis': archiveTitleSynthesis,
+        '--archive-header-description-default-size': archiveExcerptSize,
+        '--archive-header-description-default-weight': archiveExcerptWeight,
+        '--archive-header-description-default-font': archiveExcerptFont,
+        '--archive-header-description-default-synthesis': archiveExcerptSynthesis,
+        '--archive-header-meta-default-size': archiveMetaSize,
+        '--archive-header-meta-default-weight': archiveMetaWeight,
+        '--archive-header-meta-default-font': archiveMetaFont,
+        '--archive-header-meta-default-synthesis': archiveMetaSynthesis,
         '--home-news-title-size': newsTitleSize,
         '--home-news-title-weight': newsTitleWeight,
+        '--home-news-title-line-height': newsTitleLineHeight,
         '--home-news-title-font': newsTitleFont,
+        '--home-news-title-synthesis': newsTitleSynthesis,
+        '--archive-news-title-color': newsTitleColor,
+        '--archive-news-title-size': newsTitleSize,
+        '--archive-news-title-weight': newsTitleWeight,
+        '--archive-news-title-line-height': newsTitleLineHeight,
+        '--archive-news-title-font': newsTitleFont,
+        '--archive-news-title-synthesis': newsTitleSynthesis,
         '--home-excerpt-size': excerptSize,
         '--home-excerpt-weight': excerptWeight,
+        '--home-excerpt-line-height': excerptLineHeight,
         '--home-excerpt-font': excerptFont,
+        '--home-excerpt-synthesis': excerptSynthesis,
+        '--archive-excerpt-color': excerptColor,
+        '--archive-excerpt-size': excerptSize,
+        '--archive-excerpt-weight': excerptWeight,
+        '--archive-excerpt-line-height': excerptLineHeight,
+        '--archive-excerpt-font': excerptFont,
+        '--archive-excerpt-synthesis': excerptSynthesis,
         '--home-meta-size': metaSize,
         '--home-meta-weight': metaWeight,
+        '--home-meta-line-height': metaLineHeight,
         '--home-meta-font': metaFont,
+        '--home-meta-synthesis': metaSynthesis,
+        '--archive-meta-color': metaColor,
+        '--archive-meta-size': metaSize,
+        '--archive-meta-weight': metaWeight,
+        '--archive-meta-line-height': metaLineHeight,
+        '--archive-meta-font': metaFont,
+        '--archive-meta-synthesis': metaSynthesis,
         '--global-bg-color': setting?.globalBackgroundColor || setting?.backgroundColor || 'transparent',
         '--box-bg': 'transparent',
         '--box-radius': '0',
@@ -403,133 +641,6 @@ export default function PranalaArchive({
         mobileMenu={menusByLocation?.MOBILE}
         headerConfig={headerConfig}
       />
-      <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-        .theme-widget-title {
-          color: var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color))) !important;
-          font-size: var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size))) !important;
-          font-weight: var(--widget-title-weight, var(--home-widget-title-weight)) !important;
-          font-family: var(--widget-title-font, var(--home-widget-title-font), sans-serif) !important;
-        }
-        .widget-title-bar {
-          background-color: var(--widget-title-border-color-mobile, var(--widget-title-border-color, var(--accent))) !important;
-        }
-        .theme-news-title {
-          color: var(--home-news-title-color) !important;
-          font-size: var(--home-news-title-size);
-          font-weight: var(--home-news-title-weight);
-          font-family: var(--home-news-title-font), sans-serif;
-          transition: color 0.2s ease;
-        }
-        .theme-news-title:hover { color: var(--home-hover-color) !important; }
-        .news-list-title,
-        .news-grid-title,
-        .hsl-title,
-        .hs-hero-title-link,
-        .hs-mini-title-link,
-        .popular-title,
-        .headline-big-title a,
-        .bullet-list-link {
-          color: var(--home-news-title-color);
-          font-size: var(--home-news-title-size);
-          font-weight: var(--home-news-title-weight);
-          font-family: var(--home-news-title-font), sans-serif;
-        }
-        .news-list-title:hover,
-        .news-grid-title:hover,
-        .hsl-title:hover,
-        .hs-hero-title-link:hover,
-        .hs-mini-title-link:hover,
-        .popular-title:hover,
-        .headline-big-title a:hover,
-        .bullet-list-link:hover {
-          color: var(--home-hover-color);
-        }
-        .theme-excerpt {
-          color: var(--home-excerpt-color);
-          font-size: var(--home-excerpt-size);
-          font-weight: var(--home-excerpt-weight);
-          font-family: var(--home-excerpt-font), sans-serif;
-        }
-        .theme-excerpt-text {
-          color: var(--home-excerpt-color) !important;
-          font-size: var(--home-excerpt-size);
-          font-weight: var(--home-excerpt-weight);
-          font-family: var(--home-excerpt-font), sans-serif;
-        }
-        .news-list-excerpt,
-        .news-grid-excerpt,
-        .hsl-excerpt,
-        .headline-big-excerpt,
-        .hs-hero-excerpt,
-        .hs-mini-excerpt {
-          color: var(--home-excerpt-color);
-          font-size: var(--home-excerpt-size);
-          font-weight: var(--home-excerpt-weight);
-          font-family: var(--home-excerpt-font), sans-serif;
-        }
-        .theme-meta {
-          color: var(--home-meta-color);
-          font-size: var(--home-meta-size);
-          font-weight: var(--home-meta-weight);
-          font-family: var(--home-meta-font), sans-serif;
-        }
-        .theme-meta-text {
-          color: var(--home-meta-color) !important;
-          font-size: var(--home-meta-size);
-          font-weight: var(--home-meta-weight);
-          font-family: var(--home-meta-font), sans-serif;
-        }
-        .news-list-meta-info,
-        .news-grid-meta,
-        .hsl-meta,
-        .headline-big-meta,
-        .hs-hero-meta,
-        .hs-mini-meta,
-        .popular-meta {
-          color: var(--home-meta-color);
-          font-size: var(--home-meta-size);
-          font-weight: var(--home-meta-weight);
-          font-family: var(--home-meta-font), sans-serif;
-        }
-        .theme-meta a,
-        .news-list-meta-info a,
-        .news-grid-meta a,
-        .hsl-meta a,
-        .headline-big-meta a,
-        .hs-hero-meta a,
-        .hs-mini-meta a,
-        .popular-meta a {
-          color: var(--home-meta-color);
-        }
-        .theme-meta a:hover,
-        .news-list-meta-info a:hover,
-        .news-grid-meta a:hover,
-        .hsl-meta a:hover,
-        .headline-big-meta a:hover,
-        .hs-hero-meta a:hover,
-        .hs-mini-meta a:hover,
-        .popular-meta a:hover {
-          color: var(--home-hover-color);
-        }
-        @media (min-width: 768px) {
-          .theme-widget-title {
-            color: var(--widget-title-color-tablet, var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color)))) !important;
-            font-size: var(--widget-title-size-tablet, var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size)))) !important;
-          }
-          .widget-title-bar {
-            background-color: var(--widget-title-border-color-tablet, var(--widget-title-border-color-mobile, var(--widget-title-border-color, var(--accent)))) !important;
-          }
-        }
-        @media (min-width: 1025px) {
-          .theme-widget-title {
-            color: var(--widget-title-color-desktop, var(--widget-title-color-tablet, var(--widget-title-color-mobile, var(--widget-title-color, var(--home-widget-title-color))))) !important;
-            font-size: var(--widget-title-size-desktop, var(--widget-title-size-tablet, var(--widget-title-size-mobile, var(--widget-title-size, var(--home-widget-title-size))))) !important;
-          }
-          .widget-title-bar {
-            background-color: var(--widget-title-border-color-desktop, var(--widget-title-border-color-tablet, var(--widget-title-border-color-mobile, var(--widget-title-border-color, var(--accent))))) !important;
-          }
-        }
-      `) }} />
 
       <main className="flex-grow" data-archive-type={archiveType}>
         {visibleBlocks.length > 0 ? visibleBlocks.map(renderBlock) : (
@@ -549,7 +660,7 @@ export default function PranalaArchive({
         )}
       </main>
 
-      <Footer siteName={siteName} logoUrl={setting?.logoUrl} categories={categories} footerConfig={footerConfig} menusByLocation={menusByLocation} />
+      <Footer siteName={siteName} logoUrl={setting?.logoUrl} categories={categories} footerConfig={footerConfig} menusByLocation={menusByLocation} setting={setting} />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { getThemeDefaultArchiveBlocks } from "@/lib/archive-builder-theme-registry";
+import { themeSupports } from "@/lib/theme-registry";
 import { unstable_cache } from "next/cache";
 
 export async function getArchiveBuilderBlocks(activeTheme: string) {
@@ -25,7 +26,7 @@ export async function getArchiveBuilderBlocks(activeTheme: string) {
 }
 
 export function isArchiveBuilderTheme(themeName: string) {
-  return themeName === "pranala";
+  return themeSupports(themeName, "supportsArchiveBuilder");
 }
 
 export function getArchivePageSize(blocks: any[], fallback = 12) {

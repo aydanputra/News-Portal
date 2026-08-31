@@ -1,5 +1,4 @@
 import React from "react";
-import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface ArchiveHeaderProps {
   block: any;
@@ -18,14 +17,13 @@ const toPx = (value: unknown, fallback: string) => {
 
 export default function ArchiveHeader({ block, title, description, totalPosts }: ArchiveHeaderProps) {
   const config = block?.config || {};
-  const rootId = `archive-header-${String(block?.id || "default").replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const showDescription = config.showDescription !== false;
   const showPostCount = config.showPostCount !== false;
   const textAlign = config.textAlign === "center" || config.textAlign === "right" ? config.textAlign : "left";
   const headerStyle = config.headerStyle === "card" || config.headerStyle === "spotlight" ? config.headerStyle : "minimal";
   const titleColorDesktop = typeof config.titleColor === "string" && config.titleColor.trim() !== ""
     ? config.titleColor
-    : "var(--home-widget-title-color, var(--heading-color, #111827))";
+    : "var(--archive-widget-title-color, var(--home-widget-title-color, var(--heading-color, #111827)))";
   const titleColorTablet = typeof config.tabletTitleColor === "string" && config.tabletTitleColor.trim() !== ""
     ? config.tabletTitleColor
     : titleColorDesktop;
@@ -34,7 +32,7 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
     : titleColorDesktop;
   const descriptionColorDesktop = typeof config.descriptionColor === "string" && config.descriptionColor.trim() !== ""
     ? config.descriptionColor
-    : "var(--home-excerpt-color, #6b7280)";
+    : "var(--archive-excerpt-color, var(--home-excerpt-color, #6b7280))";
   const descriptionColorTablet = typeof config.tabletDescriptionColor === "string" && config.tabletDescriptionColor.trim() !== ""
     ? config.tabletDescriptionColor
     : descriptionColorDesktop;
@@ -43,7 +41,7 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
     : descriptionColorDesktop;
   const metaColorDesktop = typeof config.metaColor === "string" && config.metaColor.trim() !== ""
     ? config.metaColor
-    : "var(--home-meta-color, #94a3b8)";
+    : "var(--archive-meta-color, var(--home-meta-color, #94a3b8))";
   const metaColorTablet = typeof config.tabletMetaColor === "string" && config.tabletMetaColor.trim() !== ""
     ? config.tabletMetaColor
     : metaColorDesktop;
@@ -53,30 +51,30 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
   const titleSizeDesktop = toPx(config.titleFontSize, "var(--archive-title-size, 2.25rem)");
   const titleSizeTablet = toPx(config.tabletTitleFontSize, titleSizeDesktop);
   const titleSizeMobile = toPx(config.mobileTitleFontSize, titleSizeDesktop);
-  const descriptionSizeDesktop = toPx(config.descriptionFontSize, "var(--archive-excerpt-size, 1rem)");
+  const descriptionSizeDesktop = toPx(config.descriptionFontSize, "var(--archive-header-description-default-size, 1rem)");
   const descriptionSizeTablet = toPx(config.tabletDescriptionFontSize, descriptionSizeDesktop);
   const descriptionSizeMobile = toPx(config.mobileDescriptionFontSize, descriptionSizeDesktop);
-  const countSizeDesktop = toPx(config.metaFontSize, "var(--archive-meta-size, 0.8125rem)");
+  const countSizeDesktop = toPx(config.metaFontSize, "var(--archive-header-meta-default-size, 0.8125rem)");
   const countSizeTablet = toPx(config.tabletMetaFontSize, countSizeDesktop);
   const countSizeMobile = toPx(config.mobileMetaFontSize, countSizeDesktop);
   const titleWeight = typeof config.titleFontWeight === "string" && config.titleFontWeight.trim() !== ""
     ? config.titleFontWeight
-    : "var(--home-widget-title-weight, 700)";
+    : "var(--archive-widget-title-weight, var(--home-widget-title-weight, 700))";
   const titleFont = typeof config.titleFontFamily === "string" && config.titleFontFamily.trim() !== ""
     ? config.titleFontFamily
-    : "var(--home-widget-title-font, inherit)";
+    : "var(--archive-widget-title-font, var(--home-widget-title-font, inherit))";
   const descriptionWeight = typeof config.descriptionFontWeight === "string" && config.descriptionFontWeight.trim() !== ""
     ? config.descriptionFontWeight
-    : "var(--archive-excerpt-weight, 400)";
+    : "var(--archive-header-description-default-weight, 400)";
   const descriptionFont = typeof config.descriptionFontFamily === "string" && config.descriptionFontFamily.trim() !== ""
     ? config.descriptionFontFamily
-    : "var(--archive-excerpt-font, inherit)";
+    : "var(--archive-header-description-default-font, inherit)";
   const metaWeight = typeof config.metaFontWeight === "string" && config.metaFontWeight.trim() !== ""
     ? config.metaFontWeight
-    : "var(--archive-meta-weight, 500)";
+    : "var(--archive-header-meta-default-weight, 500)";
   const metaFont = typeof config.metaFontFamily === "string" && config.metaFontFamily.trim() !== ""
     ? config.metaFontFamily
-    : "var(--archive-meta-font, inherit)";
+    : "var(--archive-header-meta-default-font, inherit)";
   const accentColorDesktop = typeof config.accentColor === "string" && config.accentColor.trim() !== ""
     ? config.accentColor
     : "var(--accent, #2563eb)";
@@ -107,26 +105,28 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
   const sharedTitleStyle: React.CSSProperties = {
     color: "var(--archive-header-title-color)",
     fontSize: "var(--archive-header-title-size)",
-    fontWeight: "var(--widget-title-weight, var(--home-widget-title-weight))" as React.CSSProperties["fontWeight"],
-    fontFamily: "var(--widget-title-font, var(--home-widget-title-font), sans-serif)",
-    lineHeight: 1.2,
+    fontWeight: "var(--widget-title-weight, var(--archive-widget-title-weight, var(--home-widget-title-weight)))" as React.CSSProperties["fontWeight"],
+    fontFamily: "var(--widget-title-font, var(--archive-widget-title-font, var(--home-widget-title-font)), sans-serif)",
+    lineHeight: "var(--archive-widget-title-line-height, 1.2)",
     letterSpacing: "normal"
   };
   const sharedDescriptionStyle: React.CSSProperties = {
     color: "var(--archive-header-description-color)",
     fontSize: "var(--archive-header-description-size)",
     fontWeight: descriptionWeight as React.CSSProperties["fontWeight"],
-    fontFamily: descriptionFont
+    fontFamily: descriptionFont,
+    lineHeight: "var(--archive-excerpt-line-height, 1.6)"
   };
   const sharedMetaStyle: React.CSSProperties = {
     color: "var(--archive-header-meta-color)",
     fontSize: "var(--archive-header-meta-size)",
     fontWeight: metaWeight as React.CSSProperties["fontWeight"],
-    fontFamily: metaFont
+    fontFamily: metaFont,
+    lineHeight: "var(--archive-meta-line-height, 1.4)"
   };
   const containerRadius = "calc(var(--home-main-box-radius,0.75rem) + 0.15rem)";
   const headerTextClassName = textAlign === "center" ? "text-center" : textAlign === "right" ? "text-right" : "text-left";
-  const widgetHeadingClassName = `font-bold mb-4 border-b border-gray-100 pb-3 flex items-center theme-widget-title ${
+  const widgetHeadingClassName = `font-bold mb-4 border-b border-[color:var(--border,#e5e7eb)] pb-3 flex items-center theme-widget-title ${
     textAlign === "center" ? "justify-center" : textAlign === "right" ? "justify-end" : ""
   }`;
   const widgetHeadingStyle = {
@@ -142,53 +142,41 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
   } as React.CSSProperties;
   const widgetHeading = (
     <h2 className={widgetHeadingClassName} style={widgetHeadingStyle}>
-      <span className="widget-title-bar w-1 h-5 mr-3 shrink-0" style={{ backgroundColor: "var(--archive-header-accent)", borderRadius: "var(--home-main-box-radius, 0.75rem)" }} />
+      <span className="widget-title-bar shrink-0" style={{ backgroundColor: "var(--archive-header-accent)", borderRadius: "var(--home-main-box-radius, 0.75rem)" }} />
       <span>{title}</span>
     </h2>
   );
 
   return (
-    <div id={rootId}>
-      <style
-        dangerouslySetInnerHTML={{
-          __html: safeStyleTagCss(`
-            #${rootId} {
-              --archive-header-title-color: ${titleColorMobile};
-              --archive-header-description-color: ${descriptionColorMobile};
-              --archive-header-meta-color: ${metaColorMobile};
-              --archive-header-title-size: ${titleSizeMobile};
-              --archive-header-description-size: ${descriptionSizeMobile};
-              --archive-header-meta-size: ${countSizeMobile};
-              --archive-header-accent: ${accentColorMobile};
-              --archive-header-panel-border: ${panelBorderMobile};
-            }
-            @media (min-width: 768px) {
-              #${rootId} {
-                --archive-header-title-color: ${titleColorTablet};
-                --archive-header-description-color: ${descriptionColorTablet};
-                --archive-header-meta-color: ${metaColorTablet};
-                --archive-header-title-size: ${titleSizeTablet};
-                --archive-header-description-size: ${descriptionSizeTablet};
-                --archive-header-meta-size: ${countSizeTablet};
-                --archive-header-accent: ${accentColorTablet};
-                --archive-header-panel-border: ${panelBorderTablet};
-              }
-            }
-            @media (min-width: 1025px) {
-              #${rootId} {
-                --archive-header-title-color: ${titleColorDesktop};
-                --archive-header-description-color: ${descriptionColorDesktop};
-                --archive-header-meta-color: ${metaColorDesktop};
-                --archive-header-title-size: ${titleSizeDesktop};
-                --archive-header-description-size: ${descriptionSizeDesktop};
-                --archive-header-meta-size: ${countSizeDesktop};
-                --archive-header-accent: ${accentColorDesktop};
-                --archive-header-panel-border: ${panelBorderDesktop};
-              }
-            }
-          `)
-        }}
-      />
+    <div
+      className="public-theme archive-header-block"
+      style={{
+        "--archive-header-title-color-mobile": titleColorMobile,
+        "--archive-header-title-color-tablet": titleColorTablet,
+        "--archive-header-title-color-desktop": titleColorDesktop,
+        "--archive-header-description-color-mobile": descriptionColorMobile,
+        "--archive-header-description-color-tablet": descriptionColorTablet,
+        "--archive-header-description-color-desktop": descriptionColorDesktop,
+        "--archive-header-meta-color-mobile": metaColorMobile,
+        "--archive-header-meta-color-tablet": metaColorTablet,
+        "--archive-header-meta-color-desktop": metaColorDesktop,
+        "--archive-header-title-size-mobile": titleSizeMobile,
+        "--archive-header-title-size-tablet": titleSizeTablet,
+        "--archive-header-title-size-desktop": titleSizeDesktop,
+        "--archive-header-description-size-mobile": descriptionSizeMobile,
+        "--archive-header-description-size-tablet": descriptionSizeTablet,
+        "--archive-header-description-size-desktop": descriptionSizeDesktop,
+        "--archive-header-meta-size-mobile": countSizeMobile,
+        "--archive-header-meta-size-tablet": countSizeTablet,
+        "--archive-header-meta-size-desktop": countSizeDesktop,
+        "--archive-header-accent-mobile": accentColorMobile,
+        "--archive-header-accent-tablet": accentColorTablet,
+        "--archive-header-accent-desktop": accentColorDesktop,
+        "--archive-header-panel-border-mobile": panelBorderMobile,
+        "--archive-header-panel-border-tablet": panelBorderTablet,
+        "--archive-header-panel-border-desktop": panelBorderDesktop,
+      } as React.CSSProperties}
+    >
       <>
       {headerStyle === "minimal" && (
         <div className={`w-full ${headerTextClassName}`}>

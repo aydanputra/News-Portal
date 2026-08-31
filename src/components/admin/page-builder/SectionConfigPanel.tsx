@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Image from "next/image";
-import { Layout, Palette, X, Image as ImageIcon } from "lucide-react";
+import { Layout, Palette } from "lucide-react";
 import { ColorPickerWithOpacity } from "./ColorPickerWithOpacity";
 import { Block } from "./types";
 import { ConfigValue, createConfigReadersByKey } from "@/lib/page-builder-config";
@@ -20,6 +20,12 @@ interface SectionConfigPanelProps {
     getSectionConfigValue: (key: string) => unknown;
 }
 
+const getSectionNumericDisplayDefault = (key: string): string | undefined => {
+    if (/^(margin|padding)(Top|Right|Bottom|Left)$/.test(key)) return "0";
+    if (/^border(Top|Right|Bottom|Left)Width$/.test(key)) return "0";
+    return undefined;
+};
+
 export default function SectionConfigPanel({
     builderLocation,
     uiContext: _uiContext,
@@ -32,8 +38,14 @@ export default function SectionConfigPanel({
     getSectionConfigValue
 }: SectionConfigPanelProps) {
     const [showMediaModal, setShowMediaModal] = useState(false);
-    const { getConfigString, getConfigNumber, getConfigBool } = createConfigReadersByKey(getSectionConfigValue);
+    const { getConfigString: getBaseConfigString, getConfigNumber, getConfigBool } = createConfigReadersByKey(getSectionConfigValue);
+    const getConfigString = (key: string, fallback = ""): string => {
+        const resolved = getBaseConfigString(key, fallback);
+        if (resolved !== "" || fallback !== "") return resolved;
+        return getSectionNumericDisplayDefault(key) ?? resolved;
+    };
     const sectionDeviceLabel = activeSectionDeviceTab.toUpperCase();
+    const SECTION_CONTROL_CLASS = "w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none";
     const currentLayout = getConfigString("layout", "100");
     const supportsSidebarSync = getSidebarColumnIndex(currentLayout) !== null;
     const sidebarSourceOptions = getSidebarSourceOptions(builderLocation);
@@ -48,6 +60,289 @@ export default function SectionConfigPanel({
             default: return ['w-full'];
         }
     };
+    const renderSectionVisibilitySettings = () => (
+        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-1">
+                <h4 className="text-sm font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                    <div className="w-1 h-4 bg-[var(--accent)] rounded-full"></div>
+                    Responsivitas
+                </h4>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+                {["Desktop", "Tablet", "Mobile"].map((device) => (
+                    <label
+                        key={device}
+                        className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-base)] px-3 py-2 cursor-pointer"
+                    >
+                        <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
+                            checked={getConfigBool(`hideOn${device}`, false)}
+                            onChange={(e) => updateSectionConfig(`hideOn${device}`, e.target.checked)}
+                        />
+                        <span className="text-[11px] font-medium text-[var(--fg-primary)]">{device}</span>
+                    </label>
+                ))}
+            </div>
+        </div>
+    );
+    const SECTION_SPACING_SIDES = [
+        { key: "Top", label: "Atas", short: "A" },
+        { key: "Right", label: "Kanan", short: "Kn" },
+        { key: "Bottom", label: "Bawah", short: "B" },
+        { key: "Left", label: "Kiri", short: "Kr" },
+    ] as const;
+    const renderSectionSpacingSettings = () => (
+        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-1">
+                <h4 className="text-sm font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                    <div className="w-1 h-4 bg-[var(--accent)] rounded-full"></div>
+                    Spacing Section
+                    <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-subtle)] border border-[var(--border)] px-2 py-0.5 rounded-md">
+                        {sectionDeviceLabel}
+                    </span>
+                </h4>
+            </div>
+            <div className="space-y-3">
+                <div>
+                    <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Margin Wadah Section</label>
+                    <div className="grid grid-cols-4 gap-2">
+                        {SECTION_SPACING_SIDES.map((side) => {
+                            const value = getConfigString(`margin${side.key}`);
+                            const displayValue = value === "0" ? "" : value;
+                            return (
+                            <div key={`section-margin-${side.key}`} className="space-y-1">
+                                <div className={`relative ${SECTION_CONTROL_CLASS}`}>
+                                    <span className={`pointer-events-none absolute inset-0 z-[2] flex items-center justify-center text-center text-[10px] font-medium text-[var(--fg-secondary)] transition-opacity ${displayValue !== "" ? "opacity-0" : "opacity-40"}`}>
+                                        {side.label}
+                                    </span>
+                                    <input
+                                        type="number"
+                                        className="relative z-[1] h-full w-full bg-transparent px-2 text-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none"
+                                        value={displayValue}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            updateSectionResponsiveConfig(`margin${side.key}`, isNaN(val) ? undefined : val);
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        )})}
+                    </div>
+                </div>
+                <div>
+                    <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Padding Wadah Section</label>
+                    <div className="grid grid-cols-4 gap-2">
+                        {SECTION_SPACING_SIDES.map((side) => {
+                            const value = getConfigString(`padding${side.key}`);
+                            const displayValue = value === "0" ? "" : value;
+                            return (
+                            <div key={`section-padding-${side.key}`} className="space-y-1">
+                                <div className={`relative ${SECTION_CONTROL_CLASS}`}>
+                                    <span className={`pointer-events-none absolute inset-0 z-[2] flex items-center justify-center text-center text-[10px] font-medium text-[var(--fg-secondary)] transition-opacity ${displayValue !== "" ? "opacity-0" : "opacity-40"}`}>
+                                        {side.label}
+                                    </span>
+                                    <input
+                                        type="number"
+                                        className="relative z-[1] h-full w-full bg-transparent px-2 text-center outline-none focus:outline-none focus:ring-0 focus-visible:outline-none"
+                                        value={displayValue}
+                                        onChange={(e) => {
+                                            const val = parseInt(e.target.value, 10);
+                                            updateSectionResponsiveConfig(`padding${side.key}`, isNaN(val) ? undefined : val);
+                                        }}
+                                    />
+                                </div>
+                            </div>
+                        )})}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+    const renderSectionBackgroundSettings = () => (
+        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-1">
+                <h4 className="text-sm font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                    <div className="w-1 h-4 bg-[var(--accent)] rounded-full"></div>
+                    Background
+                    <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-subtle)] border border-[var(--border)] px-2 py-0.5 rounded-md">
+                        {sectionDeviceLabel}
+                    </span>
+                </h4>
+            </div>
+            <div className="flex items-center justify-between">
+                <span className="text-[10px] text-[var(--fg-secondary)]">Aktifkan</span>
+                <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={getConfigBool("useBox", false)}
+                        onChange={(e) => updateSectionResponsiveConfig("useBox", e.target.checked)}
+                    />
+                    <div className="w-9 h-5 bg-[var(--bg-base)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[color:var(--accent)/0.2] rounded-full peer border border-[var(--border)] peer-checked:bg-[var(--accent)] peer-checked:border-[var(--accent)] peer-checked:after:translate-x-full peer-checked:after:border-[var(--bg-base)] after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--bg-base)] after:border-[var(--border)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                </label>
+            </div>
+            {getConfigBool("useBox", false) && (
+                <div className="grid grid-cols-2 gap-2">
+                    <div className="col-span-2">
+                        <ColorPickerWithOpacity
+                            value={getConfigString("backgroundColor", "#ffffff")}
+                            onChange={(c) => updateSectionResponsiveConfig("backgroundColor", c)}
+                            label="Warna"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Radius Box Latar</label>
+                        <select
+                            className={SECTION_CONTROL_CLASS}
+                            value={getConfigString("borderRadius", "none")}
+                            onChange={(e) => updateSectionResponsiveConfig("borderRadius", e.target.value)}
+                        >
+                            <option value="none">Kotak</option>
+                            <option value="sm">Kecil</option>
+                            <option value="md">Sedang</option>
+                            <option value="lg">Besar</option>
+                            <option value="xl">XL</option>
+                            <option value="2xl">2XL</option>
+                            <option value="full">Pill</option>
+                        </select>
+                    </div>
+                    <div className="col-span-2">
+                        <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Gambar Latar</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                placeholder="https://..."
+                                className={`${SECTION_CONTROL_CLASS} flex-1`}
+                                value={getConfigString("backgroundImage")}
+                                onChange={(e) => updateSectionResponsiveConfig("backgroundImage", e.target.value)}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowMediaModal(true)}
+                                className="px-3 py-2 rounded-lg bg-[var(--accent)] text-white text-xs font-semibold hover:opacity-90"
+                            >
+                                Pilih
+                            </button>
+                        </div>
+                    </div>
+                    {getConfigString("backgroundImage") && (
+                        <div className="col-span-2 rounded-lg border border-[var(--border)] bg-[var(--bg-elevated)] p-2">
+                            <div className="flex items-center gap-3">
+                                <div className="h-14 w-20 overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg-surface)] shrink-0">
+                                    <Image
+                                        src={getConfigString("backgroundImage")}
+                                        alt="Preview background"
+                                        width={80}
+                                        height={56}
+                                        unoptimized
+                                        className="h-full w-full object-cover"
+                                    />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <div className="text-[10px] font-medium text-[var(--fg-primary)] mb-1">Preview</div>
+                                    <div className="text-[10px] text-[var(--fg-secondary)] truncate">
+                                        {getConfigString("backgroundImage")}
+                                    </div>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => updateSectionResponsiveConfig("backgroundImage", "")}
+                                    className="shrink-0 text-[10px] text-[var(--danger,#dc2626)] hover:opacity-80"
+                                >
+                                    Hapus
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    {getConfigString("backgroundImage") && (
+                        <div className="col-span-2 grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Size</label>
+                                <select
+                                    className={SECTION_CONTROL_CLASS}
+                                    value={getConfigString("backgroundSize", "cover")}
+                                    onChange={(e) => updateSectionResponsiveConfig("backgroundSize", e.target.value)}
+                                >
+                                    <option value="cover">Cover</option>
+                                    <option value="contain">Contain</option>
+                                    <option value="auto">Auto</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Position</label>
+                                <select
+                                    className={SECTION_CONTROL_CLASS}
+                                    value={getConfigString("backgroundPosition", "center")}
+                                    onChange={(e) => updateSectionResponsiveConfig("backgroundPosition", e.target.value)}
+                                >
+                                    <option value="center">Center</option>
+                                    <option value="top">Top</option>
+                                    <option value="bottom">Bottom</option>
+                                    <option value="left">Left</option>
+                                    <option value="right">Right</option>
+                                    <option value="top left">Top Left</option>
+                                    <option value="top right">Top Right</option>
+                                    <option value="bottom left">Bottom Left</option>
+                                    <option value="bottom right">Bottom Right</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Repeat</label>
+                                <select
+                                    className={SECTION_CONTROL_CLASS}
+                                    value={getConfigString("backgroundRepeat", "no-repeat")}
+                                    onChange={(e) => updateSectionResponsiveConfig("backgroundRepeat", e.target.value)}
+                                >
+                                    <option value="no-repeat">No Repeat</option>
+                                    <option value="repeat">Repeat</option>
+                                    <option value="repeat-x">Repeat X</option>
+                                    <option value="repeat-y">Repeat Y</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Attachment</label>
+                                <select
+                                    className={SECTION_CONTROL_CLASS}
+                                    value={getConfigString("backgroundAttachment", "scroll")}
+                                    onChange={(e) => updateSectionResponsiveConfig("backgroundAttachment", e.target.value)}
+                                >
+                                    <option value="scroll">Scroll</option>
+                                    <option value="fixed">Fixed</option>
+                                    <option value="local">Local</option>
+                                </select>
+                            </div>
+                            <div className="col-span-2">
+                                <ColorPickerWithOpacity
+                                    value={getConfigString("overlayColor", "rgba(0,0,0,0.5)")}
+                                    onChange={(c) => updateSectionResponsiveConfig("overlayColor", c)}
+                                    label="Overlay"
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <div className="col-span-2">
+                        <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Padding Box Latar</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {["Top", "Right", "Bottom", "Left"].map((side) => (
+                                <input
+                                    key={`section-box-padding-${side}`}
+                                    type="number"
+                                    placeholder={side}
+                                    className={`${SECTION_CONTROL_CLASS} px-0 text-center`}
+                                    value={getConfigString(`boxPadding${side}`)}
+                                    onChange={(e) => {
+                                        const val = parseInt(e.target.value, 10);
+                                        updateSectionResponsiveConfig(`boxPadding${side}`, isNaN(val) ? undefined : val);
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <>
@@ -75,16 +370,13 @@ export default function SectionConfigPanel({
                     className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${activeSectionTab === "style" ? "border-[var(--accent)] text-[var(--accent)] bg-[var(--accent-subtle)]" : "border-transparent text-[var(--fg-muted)] hover:text-[var(--fg-primary)]"}`}
                 >
                     <Palette size={16} className="inline mr-2" />
-                    Visual
+                    Gaya
                 </button>
             </div>
 
             <div className="p-6 overflow-y-auto space-y-6 flex-1">
                 {activeSectionTab === "layout" ? (
                     <div className="space-y-6">
-                        <div className="rounded-lg border border-[color:var(--accent)/0.2] bg-[color:var(--accent)/0.06] px-3 py-2 text-[11px] text-[var(--fg-secondary)]">
-                            Anda sedang mengedit `Inner Section` untuk device ` {sectionDeviceLabel} `. Semua pengaturan layout, gap, box, dan background di bagian ini akan tersimpan terpisah untuk Desktop, Tablet, dan Mobile.
-                        </div>
                         <div>
                             <label className="text-xs font-bold text-[var(--fg-primary)] uppercase tracking-wider block mb-3">Struktur Kolom - {sectionDeviceLabel}</label>
                             <div className="grid grid-cols-3 gap-3">
@@ -105,49 +397,33 @@ export default function SectionConfigPanel({
                             </div>
                         </div>
 
-                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm">
-                            <label className="text-xs font-bold text-[var(--fg-primary)] uppercase tracking-wider block mb-2">Arah Elemen Dalam Kolom</label>
-                            <select
-                                value={getConfigString("childrenDirection", "vertical")}
-                                onChange={(e) => updateSectionResponsiveConfig("childrenDirection", e.target.value)}
-                                className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                            >
-                                <option value="vertical">Vertikal (Atas ke Bawah)</option>
-                                <option value="horizontal">Horizontal (Kiri ke Kanan)</option>
-                            </select>
-                        </div>
-
                         <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm space-y-3">
+                            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-1">
+                                <h4 className="text-sm font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-[var(--accent)] rounded-full"></div>
+                                    Arah dan Ukuran Elemen
+                                    <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-subtle)] border border-[var(--border)] px-2 py-0.5 rounded-md">
+                                        {sectionDeviceLabel}
+                                    </span>
+                                </h4>
+                            </div>
                             <div>
-                                <label className="text-xs font-bold text-[var(--fg-primary)] uppercase tracking-wider block mb-2">Perataan Elemen</label>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Arah Elemen Dalam Kolom</label>
                                 <select
-                                    value={getConfigString("childrenAlign", "left")}
-                                    onChange={(e) => updateSectionResponsiveConfig("childrenAlign", e.target.value)}
-                                    className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
+                                    value={getConfigString("childrenDirection", "vertical")}
+                                    onChange={(e) => updateSectionResponsiveConfig("childrenDirection", e.target.value)}
+                                    className={SECTION_CONTROL_CLASS}
                                 >
-                                    <option value="left">Kiri</option>
-                                    <option value="center">Tengah</option>
-                                    <option value="right">Kanan</option>
+                                    <option value="vertical">Vertikal (Atas ke Bawah)</option>
+                                    <option value="horizontal">Horizontal (Kiri ke Kanan)</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-[var(--fg-primary)] uppercase tracking-wider block mb-2">Posisi Vertikal Elemen</label>
-                                <select
-                                    value={getConfigString("childrenVerticalAlign", "top")}
-                                    onChange={(e) => updateSectionResponsiveConfig("childrenVerticalAlign", e.target.value)}
-                                    className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                >
-                                    <option value="top">Atas</option>
-                                    <option value="center">Tengah</option>
-                                    <option value="bottom">Bawah</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-[var(--fg-primary)] uppercase tracking-wider block mb-2">Ukuran Elemen</label>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Ukuran Elemen</label>
                                 <select
                                     value={getConfigString("childrenSizing", "auto")}
                                     onChange={(e) => updateSectionResponsiveConfig("childrenSizing", e.target.value)}
-                                    className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
+                                    className={SECTION_CONTROL_CLASS}
                                 >
                                     <option value="auto">Otomatis</option>
                                     <option value="grow">Grow (Penuhi Lebar)</option>
@@ -275,222 +551,61 @@ export default function SectionConfigPanel({
                             </div>
                         </div>
 
-                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm">
-                            <label className="text-xs font-bold text-[var(--fg-primary)] block mb-3">Background & Padding - {sectionDeviceLabel}</label>
-                            <div className="border-t border-[var(--border)] pt-4">
-                                <div className="flex items-center justify-between mb-3">
-                                    <div>
-                                        <label className="text-xs font-bold text-[var(--fg-primary)] block">Mode Box / Frame</label>
-                                        <p className="text-[10px] text-[var(--fg-muted)]">Bungkus konten section dalam kotak dengan background.</p>
-                                    </div>
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input type="checkbox" className="sr-only peer" checked={getConfigBool("useBox", false)} onChange={(e) => updateSectionResponsiveConfig("useBox", e.target.checked)} />
-                                        <div className="w-9 h-5 bg-[var(--bg-base)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[color:var(--accent)/0.2] rounded-full peer border border-[var(--border)] peer-checked:bg-[var(--accent)] peer-checked:border-[var(--accent)] peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
-                                    </label>
-                                </div>
-
-                                <div className="mb-4 animate-in fade-in slide-in-from-top-2">
-                                    <div className="mb-3">
-                                        <ColorPickerWithOpacity value={getConfigString("backgroundColor", "#ffffff")} onChange={(c) => updateSectionResponsiveConfig("backgroundColor", c)} label={getConfigBool("useBox", false) ? `Warna Background Box - ${sectionDeviceLabel}` : `Warna Background Section - ${sectionDeviceLabel}`} />
-                                    </div>
-                                </div>
-
-                                {getConfigBool("useBox", false) && (
-                                    <div className="animate-in fade-in slide-in-from-top-2 duration-200 bg-[var(--bg-base)] p-3 rounded-lg border border-[var(--border)] mb-4">
-                                        <div className="mb-3">
-                                            <label className="text-[10px] text-[var(--fg-primary)] block mb-1">Border Radius - {sectionDeviceLabel}</label>
-                                            <select className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded p-1.5 text-xs outline-none focus:border-[var(--accent)]" value={getConfigString("borderRadius", "none")} onChange={(e) => updateSectionResponsiveConfig("borderRadius", e.target.value)}>
-                                                <option value="none">None</option>
-                                                <option value="sm">Small</option>
-                                                <option value="md">Medium</option>
-                                                <option value="lg">Large</option>
-                                                <option value="xl">Extra Large</option>
-                                                <option value="2xl">2XL</option>
-                                                <option value="full">Full</option>
-                                            </select>
-                                        </div>
-                                        
-                                        <div>
-                                            <label className="text-[10px] text-[var(--fg-primary)] block mb-1">Padding Dalam Box - {sectionDeviceLabel}</label>
-                                            <div className="grid grid-cols-2 gap-2">
-                                                <input type="text" placeholder="Vertical (py-)" value={getConfigString("boxPaddingY")} onChange={(e) => updateSectionResponsiveConfig("boxPaddingY", e.target.value)} className="bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded p-1.5 text-xs outline-none focus:border-[var(--accent)]" />
-                                                <input type="text" placeholder="Horizontal (px-)" value={getConfigString("boxPaddingX")} onChange={(e) => updateSectionResponsiveConfig("boxPaddingX", e.target.value)} className="bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded p-1.5 text-xs outline-none focus:border-[var(--accent)]" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm space-y-3">
+                            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-1">
+                                <h4 className="text-sm font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-[var(--accent)] rounded-full"></div>
+                                    Tata letak Konten
+                                    <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-subtle)] border border-[var(--border)] px-2 py-0.5 rounded-md">
+                                        {sectionDeviceLabel}
+                                    </span>
+                                </h4>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Perataan Elemen</label>
+                                <select
+                                    value={getConfigString("childrenAlign", "left")}
+                                    onChange={(e) => updateSectionResponsiveConfig("childrenAlign", e.target.value)}
+                                    className={SECTION_CONTROL_CLASS}
+                                >
+                                    <option value="left">Kiri</option>
+                                    <option value="center">Tengah</option>
+                                    <option value="right">Kanan</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-[var(--fg-secondary)] block mb-1 font-medium">Posisi Vertikal Elemen</label>
+                                <select
+                                    value={getConfigString("childrenVerticalAlign", "top")}
+                                    onChange={(e) => updateSectionResponsiveConfig("childrenVerticalAlign", e.target.value)}
+                                    className={SECTION_CONTROL_CLASS}
+                                >
+                                    <option value="top">Atas</option>
+                                    <option value="center">Tengah</option>
+                                    <option value="bottom">Bawah</option>
+                                </select>
                             </div>
                         </div>
 
-
-                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm">
-                            <label className="text-xs font-bold text-[var(--fg-primary)] block mb-3">Background Image Section - {sectionDeviceLabel}</label>
-                            <div className="flex items-center gap-4">
-                                {getConfigString("backgroundImage") ? (
-                                    <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-[var(--border)] group">
-                                        <Image src={getConfigString("backgroundImage")} alt="Background" fill unoptimized className="w-full h-full object-cover" />
-                                        <button onClick={() => updateSectionResponsiveConfig("backgroundImage", "")} className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white">
-                                            <X size={16} />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="w-20 h-20 rounded-lg border-2 border-dashed border-[var(--border)] flex items-center justify-center bg-[var(--bg-base)] text-[var(--fg-muted)]">
-                                        <ImageIcon size={20} />
-                                    </div>
-                                )}
-                                
-                                <div className="flex-1">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowMediaModal(true)}
-                                        className="btn btn-sm btn-outline w-full flex justify-center"
-                                    >
-                                        {getConfigString("backgroundImage") ? "Ganti dari Galeri" : "Pilih dari Galeri"}
-                                    </button>
-                                    <p className="text-[10px] text-[var(--fg-muted)] mt-2">Pilih gambar dari Image Gallery (bisa upload dari modal gallery).</p>
-                                </div>
-                            </div>
-
-                            {getConfigString("backgroundImage") && (
-                                <div className="mt-4 grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="text-[10px] text-[var(--fg-primary)] block mb-1">Overlay Color - {sectionDeviceLabel}</label>
-                                        <ColorPickerWithOpacity value={getConfigString("overlayColor", "rgba(0,0,0,0.5)")} onChange={(c) => updateSectionResponsiveConfig("overlayColor", c)} label={`Overlay Color - ${sectionDeviceLabel}`} />
-                                    </div>
-                                    <div>
-                                        <label className="text-[10px] text-[var(--fg-primary)] block mb-1">Background Size - {sectionDeviceLabel}</label>
-                                        <select className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded p-1.5 text-xs outline-none focus:border-[var(--accent)]" value={getConfigString("backgroundSize", "cover")} onChange={(e) => updateSectionResponsiveConfig("backgroundSize", e.target.value)}>
-                                            <option value="cover">Cover (Full)</option>
-                                            <option value="contain">Contain (Fit)</option>
-                                            <option value="auto">Auto</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
                     </div>
                 ) : (
                     <div className="space-y-6">
-                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)]">
-                            <label className="text-xs font-bold text-[var(--fg-primary)] block mb-3">Jarak Luar (Margin) - {sectionDeviceLabel}</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Atas (Top)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('marginTop')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("marginTop", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Bawah (Bottom)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('marginBottom')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("marginBottom", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Kiri (Left)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('marginLeft')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("marginLeft", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Kanan (Right)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('marginRight')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("marginRight", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                        {renderSectionVisibilitySettings()}
 
-                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)]">
-                            <label className="text-xs font-bold text-[var(--fg-primary)] block mb-3">Jarak Dalam (Padding) - {sectionDeviceLabel}</label>
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Atas (Top)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('paddingTop')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("paddingTop", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Bawah (Bottom)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('paddingBottom')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("paddingBottom", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Kiri (Left)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('paddingLeft')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("paddingLeft", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Kanan (Right)</label>
-                                    <input 
-                                        type="number" 
-                                        placeholder="Default (px)"
-                                        className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none"
-                                        value={getConfigString('paddingRight')}
-                                        onChange={(e) => {
-                                            const val = parseInt(e.target.value);
-                                            updateSectionResponsiveConfig("paddingRight", isNaN(val) ? undefined : val);
-                                        }}
-                                    />
-                                </div>
-                            </div>
-                        </div>
+                        {renderSectionBackgroundSettings()}
+                        {renderSectionSpacingSettings()}
 
-                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)]">
-                            <label className="text-xs font-bold text-[var(--fg-primary)] block mb-3">Border (Garis Batas) - {sectionDeviceLabel}</label>
-                            <div className="grid grid-cols-2 gap-3 mb-4">
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm space-y-3">
+                            <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-1">
+                                <h4 className="text-sm font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-[var(--accent)] rounded-full"></div>
+                                    Border
+                                    <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-subtle)] border border-[var(--border)] px-2 py-0.5 rounded-md">
+                                        {sectionDeviceLabel}
+                                    </span>
+                                </h4>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
                                 <div>
                                      <label className="text-[10px] text-[var(--fg-muted)] block mb-1">Style</label>
                                      <select className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none" value={getConfigString('borderStyle', 'none')} onChange={(e) => updateSectionResponsiveConfig("borderStyle", e.target.value)}>
@@ -542,8 +657,16 @@ export default function SectionConfigPanel({
                             </div>
                         </div>
 
-                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] mb-6">
-                             <label className="text-xs font-bold text-[var(--fg-primary)] block mb-3">Bayangan (Shadow) - {sectionDeviceLabel}</label>
+                        <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border)] shadow-sm mb-6 space-y-3">
+                             <div className="flex items-center justify-between border-b border-[var(--border)] pb-2 mb-1">
+                                <h4 className="text-sm font-bold text-[var(--fg-primary)] flex items-center gap-2">
+                                    <div className="w-1 h-4 bg-[var(--accent)] rounded-full"></div>
+                                    Bayangan
+                                    <span className="text-[10px] font-semibold text-[var(--accent)] bg-[var(--accent-subtle)] border border-[var(--border)] px-2 py-0.5 rounded-md">
+                                        {sectionDeviceLabel}
+                                    </span>
+                                </h4>
+                            </div>
                              <select className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] text-[var(--fg-primary)] rounded-lg p-2.5 text-sm focus:border-[var(--accent)] outline-none" value={getConfigString('boxShadow', 'none')} onChange={(e) => updateSectionResponsiveConfig("boxShadow", e.target.value)}>
                                 <option value="none">Tidak Ada</option>
                                 <option value="sm">Tipis (Small)</option>
@@ -555,29 +678,10 @@ export default function SectionConfigPanel({
                              </select>
                         </div>
 
-                        <div className="pt-4 border-t border-[var(--border)]">
-                            <h4 className="text-xs font-bold text-[var(--fg-primary)] uppercase tracking-wider mb-4">Tampilan Lanjutan</h4>
-
-                            <div className="mb-5">
-                                <label className="text-xs font-bold text-[var(--fg-primary)] block mb-2">Responsivitas (Sembunyikan di:)</label>
-                                <div className="flex flex-col gap-2">
-                                    {["Desktop", "Tablet", "Mobile"].map((device) => (
-                                        <label key={device} className="flex items-center gap-2 cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                className="w-4 h-4 rounded border-[var(--border)] text-[var(--accent)] focus:ring-[var(--accent)]"
-                                                checked={getConfigBool(`hideOn${device}`, false)}
-                                                onChange={(e) => updateSectionConfig(`hideOn${device}`, e.target.checked)}
-                                            />
-                                            <span className="text-sm text-[var(--fg-primary)]">{device}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 )}
             </div>
         </>
     );
 }
+ 

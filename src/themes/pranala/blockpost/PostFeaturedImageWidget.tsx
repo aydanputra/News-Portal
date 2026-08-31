@@ -3,8 +3,9 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Search, X } from "lucide-react";
 import { WidgetRenderContext } from "./types";
-import { getAllImagesFromContent, getFirstImageFromContent, getPostImageUrl, normalizeImageUrl, parseAspectRatio, toPxValue } from "./helpers";
+import { getAllImagesFromContent, getFirstImageFromContent, getPostImageUrl, normalizeImageUrl, parseAspectRatio, toFontWeight, toPxValue } from "./helpers";
 import { getYouTubeEmbedUrl } from "@/lib/utils";
+import { buildPostWatermarkedImageUrl } from "@/lib/post-image-watermark";
 
 export default function PostFeaturedImageWidget({
   post,
@@ -57,11 +58,9 @@ export default function PostFeaturedImageWidget({
     }
 
     const featured = normalizeImageUrl(imageUrl);
-    const fromContent = getAllImagesFromContent(post?.content).map((src) => ({ src, caption: "" }));
     const merged = [
       ...(featured ? [{ src: featured, caption: typeof post?.imageCaption === "string" ? post.imageCaption.trim() : "" }] : []),
       ...fromGalleryField,
-      ...fromContent,
     ];
     return merged.filter((item, index, array) => array.findIndex((entry) => entry.src === item.src) === index);
   }, [fromGalleryField, imageUrl, isGalleryPost, post?.content, post?.imageCaption]);
@@ -75,24 +74,25 @@ export default function PostFeaturedImageWidget({
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const activeGalleryCaption = galleryItems[currentGalleryIndex]?.caption || "";
+  const featuredImageAlt = typeof post?.featuredImageAlt === "string" && post.featuredImageAlt.trim() !== ""
+    ? post.featuredImageAlt.trim()
+    : post?.title || "Featured Image";
+  const watermarkEnabled = post?.postImageWatermarkEnabled === true;
+  const getRenderImageUrl = useCallback(
+    (src?: string) => buildPostWatermarkedImageUrl(src, setting, watermarkEnabled) || src || "",
+    [setting, watermarkEnabled],
+  );
   useEffect(() => {
     if (currentGalleryIndex > imageGallery.length - 1) setCurrentGalleryIndex(0);
   }, [currentGalleryIndex, imageGallery.length]);
   useEffect(() => {
-    if (!isGalleryPost || !galleryAutoPlay || imageGallery.length <= 1 || galleryLayout !== "slider") return;
-    if (isLightboxOpen) return;
+    if (!isGalleryPost || !galleryAutoPlay || imageGallery.length <= 1) return;
+    if (!isLightboxOpen && galleryLayout !== "slider") return;
     const timer = window.setInterval(() => {
       setCurrentGalleryIndex((prev) => (prev + 1) % imageGallery.length);
     }, 3500);
     return () => window.clearInterval(timer);
   }, [galleryAutoPlay, galleryLayout, imageGallery.length, isGalleryPost, isLightboxOpen]);
-  useEffect(() => {
-    if (!isGalleryPost || !galleryAutoPlay || imageGallery.length <= 1 || !isLightboxOpen) return;
-    const timer = window.setInterval(() => {
-      setCurrentGalleryIndex((prev) => (prev + 1) % imageGallery.length);
-    }, 3500);
-    return () => window.clearInterval(timer);
-  }, [galleryAutoPlay, imageGallery.length, isGalleryPost, isLightboxOpen]);
   const goPrevImage = useCallback(() => {
     if (imageGallery.length <= 1) return;
     setCurrentGalleryIndex((prev) => (prev - 1 + imageGallery.length) % imageGallery.length);
@@ -140,11 +140,28 @@ export default function PostFeaturedImageWidget({
   const objectFit = imageFit === "contain" || imageFit === "fill" ? imageFit : "cover";
   const imagePosition = String(getResponsiveConfig("imagePosition") || "center");
   const objectPosition = imagePosition === "top" || imagePosition === "bottom" || imagePosition === "left" || imagePosition === "right" ? imagePosition : "center";
-  const imageRadius = toPxValue(getResponsiveConfig("imageBorderRadius")) || "var(--home-main-box-radius, 0.75rem)";
+  const imageRadius = "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))";
   const minHeight = toPxValue(getResponsiveConfig("imageMinHeight")) || (preview ? "180px" : "320px");
   const showCaption = getConfigBool("showImageCaption", false);
   const captionText = typeof post?.imageCaption === "string" ? post.imageCaption.trim() : "";
-  const activeImage = isLightboxOpen ? (imageGallery[currentGalleryIndex] || imageUrl) : (imageGallery[currentGalleryIndex] || imageUrl);
+  const captionFontSize = toPxValue(getResponsiveConfig("imageCaptionFontSize")) || "12px";
+  const captionFontWeight = toFontWeight(getResponsiveConfig("imageCaptionFontWeight"), "400");
+  const rawCaptionLineHeight = getResponsiveConfig("imageCaptionLineHeight");
+  const captionLineHeight =
+    typeof rawCaptionLineHeight === "number"
+      ? rawCaptionLineHeight
+      : typeof rawCaptionLineHeight === "string" && rawCaptionLineHeight.trim() !== "" && !Number.isNaN(Number(rawCaptionLineHeight))
+        ? Number(rawCaptionLineHeight)
+        : 1.5;
+  const captionColorValue = getResponsiveConfig("imageCaptionColor");
+  const captionColor = typeof captionColorValue === "string" && captionColorValue.trim() !== "" ? captionColorValue : "var(--fg-secondary)";
+  const captionStyle = {
+    fontSize: captionFontSize,
+    fontWeight: captionFontWeight,
+    lineHeight: captionLineHeight,
+    color: captionColor
+  } as const;
+  const activeImage = imageGallery[currentGalleryIndex] || imageUrl;
   if (!imageUrl && !preview && !videoEmbedSrc) return null;
   const shouldShowGalleryLayout = isGalleryPost && imageGallery.length > 1;
 
@@ -164,7 +181,7 @@ export default function PostFeaturedImageWidget({
                 setIsLightboxOpen(true);
               }}
             >
-              <Image src={item.src} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
+              <Image src={getRenderImageUrl(item.src)} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
               {item.caption && <div className="absolute inset-x-0 bottom-0 bg-black/55 px-3 py-2 text-xs text-white">{item.caption}</div>}
             </button>
           ))}
@@ -183,7 +200,7 @@ export default function PostFeaturedImageWidget({
                   setIsLightboxOpen(true);
                 }}
               >
-                <Image src={item.src} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
+                <Image src={getRenderImageUrl(item.src)} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
               </button>
               {item.caption && <figcaption className="text-xs text-[var(--fg-secondary)]">{item.caption}</figcaption>}
             </figure>
@@ -202,7 +219,9 @@ export default function PostFeaturedImageWidget({
                 loading="lazy"
               />
             ) : activeImage ? (
-              <Image src={activeImage} alt={post?.title || "Featured Image"} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
+              <>
+                <Image src={getRenderImageUrl(activeImage)} alt={featuredImageAlt} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
+              </>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-sm" style={{ backgroundColor: isPublicDarkMode ? "rgba(15, 23, 42, 0.58)" : "rgb(243 244 246)", color: isPublicDarkMode ? "var(--fg-secondary)" : "rgb(107 114 128)" }}>Featured Image</div>
             )}
@@ -220,7 +239,7 @@ export default function PostFeaturedImageWidget({
                   key={`${item.src}-thumb-${index}`}
                   type="button"
                   className={`relative h-16 w-20 flex-shrink-0 overflow-hidden border ${currentGalleryIndex === index ? "border-[var(--accent)]" : "border-[var(--border)]"}`}
-                  style={{ borderRadius: "0.75rem" }}
+                  style={{ borderRadius: imageRadius }}
                   onClick={() => setCurrentGalleryIndex(index)}
                 >
                   <Image src={item.src} alt={`Thumbnail ${index + 1}`} fill sizes="80px" className="object-cover" unoptimized />
@@ -230,20 +249,31 @@ export default function PostFeaturedImageWidget({
           )}
         </>
       )}
-      {showCaption && (activeGalleryCaption || captionText) && <p className="mt-2 text-xs text-[var(--fg-secondary)]">{activeGalleryCaption || captionText}</p>}
+      {showCaption && (activeGalleryCaption || captionText) && (
+        <p className="mt-2" style={captionStyle}>
+          {activeGalleryCaption || captionText}
+        </p>
+      )}
       {isLightboxOpen && activeImage && galleryEnableLightbox && typeof window !== "undefined" && createPortal(
         <div className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4" onClick={() => setIsLightboxOpen(false)}>
           <button type="button" onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); }} className="absolute top-4 right-4 rounded-full bg-black/70 hover:bg-black/85 text-white inline-flex items-center justify-center gap-1 px-3 py-2 text-xs border border-white/30 z-[10000]" aria-label="Tutup"><X size={18} /><span>Tutup</span></button>
           {imageGallery.length > 1 && <button type="button" onClick={(e) => { e.stopPropagation(); goPrevImage(); }} className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/70 hover:bg-black/85 text-white inline-flex items-center justify-center z-[10000]" aria-label="Gambar sebelumnya"><ChevronLeft size={20} /></button>}
           <div className="relative w-[min(92vw,1100px)] h-[min(72vh,760px)] md:h-[min(78vh,820px)]" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-            <Image src={activeImage} alt={post?.title || "Featured Image"} fill sizes="100vw" className="object-contain" unoptimized />
+            <Image src={getRenderImageUrl(activeImage)} alt={featuredImageAlt} fill sizes="100vw" className="object-contain" unoptimized />
           </div>
           {imageGallery.length > 1 && <button type="button" onClick={(e) => { e.stopPropagation(); goNextImage(); }} className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/70 hover:bg-black/85 text-white inline-flex items-center justify-center z-[10000]" aria-label="Gambar selanjutnya"><ChevronRight size={20} /></button>}
           {imageGallery.length > 1 && (
             <div className="absolute bottom-12 left-1/2 -translate-x-1/2 w-[min(92vw,720px)] overflow-x-auto">
               <div className="flex items-center gap-2 px-1 py-1 justify-center">
                 {imageGallery.map((src, idx) => (
-                  <button key={`${src}-${idx}`} type="button" onClick={(e) => { e.stopPropagation(); selectImage(idx); }} className={`relative h-12 w-16 rounded overflow-hidden border transition-opacity ${idx === currentGalleryIndex ? "border-white opacity-100" : "border-white/40 opacity-75 hover:opacity-100"}`} aria-label={`Pilih gambar ${idx + 1}`}>
+                  <button
+                    key={`${src}-${idx}`}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); selectImage(idx); }}
+                    className={`relative h-12 w-16 overflow-hidden border transition-opacity ${idx === currentGalleryIndex ? "border-white opacity-100" : "border-white/40 opacity-75 hover:opacity-100"}`}
+                    style={{ borderRadius: imageRadius }}
+                    aria-label={`Pilih gambar ${idx + 1}`}
+                  >
                     <Image src={src} alt={`Thumbnail ${idx + 1}`} fill sizes="64px" className="object-cover" unoptimized />
                   </button>
                 ))}

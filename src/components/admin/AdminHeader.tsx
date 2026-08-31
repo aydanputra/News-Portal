@@ -1,39 +1,110 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, LayoutDashboard, Eye } from "lucide-react";
 import ThemeToggle from "@/components/admin/ThemeToggle";
 import NotificationBell from "@/components/admin/NotificationBell";
+import { useAdminSession } from "@/components/admin/AdminSessionContext";
 
 export default function AdminHeader() {
+  const headerRef = useRef<HTMLElement | null>(null);
+  const { user } = useAdminSession();
   const [updateInfo, setUpdateInfo] = useState<{
     currentVersion: string;
     latestVersion: string | null;
     updateAvailable: boolean;
     changelogUrl: string | null;
   } | null>(null);
+  const canCheckUpdate = user?.role === "ADMIN" || user?.role === "SUPER_ADMIN";
 
   useEffect(() => {
+    if (!canCheckUpdate) return;
+
     let active = true;
-    fetch("/api/admin/version", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((json) => {
-        if (!active || !json) return;
-        setUpdateInfo({
-          currentVersion: String(json.currentVersion || "unknown"),
-          latestVersion: typeof json.latestVersion === "string" ? json.latestVersion : null,
-          updateAvailable: Boolean(json.updateAvailable),
-          changelogUrl: typeof json.changelogUrl === "string" ? json.changelogUrl : null,
-        });
-      })
-      .catch(() => null);
+    let idleCallbackId: number | null = null;
+    let timeoutId: number | null = null;
+    const loadUpdateInfo = () => {
+      fetch("/api/admin/version")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((json) => {
+          if (!active || !json) return;
+          setUpdateInfo({
+            currentVersion: String(json.currentVersion || "unknown"),
+            latestVersion: typeof json.latestVersion === "string" ? json.latestVersion : null,
+            updateAvailable: Boolean(json.updateAvailable),
+            changelogUrl: typeof json.changelogUrl === "string" ? json.changelogUrl : null,
+          });
+        })
+        .catch(() => null);
+    };
+
+    if (typeof window !== "undefined") {
+      const idleWindow = window as Window &
+        typeof globalThis & {
+          requestIdleCallback?: (
+            callback: IdleRequestCallback,
+            options?: IdleRequestOptions,
+          ) => number;
+          cancelIdleCallback?: (handle: number) => void;
+        };
+
+      if (typeof idleWindow.requestIdleCallback === "function") {
+        idleCallbackId = idleWindow.requestIdleCallback(loadUpdateInfo, { timeout: 1500 });
+      } else {
+        timeoutId = window.setTimeout(loadUpdateInfo, 400);
+      }
+    }
+
     return () => {
       active = false;
+      if (timeoutId !== null && typeof window !== "undefined") {
+        window.clearTimeout(timeoutId);
+      }
+      if (idleCallbackId !== null && typeof window !== "undefined") {
+        const idleWindow = window as Window &
+          typeof globalThis & {
+            cancelIdleCallback?: (handle: number) => void;
+          };
+        if (typeof idleWindow.cancelIdleCallback === "function") {
+          idleWindow.cancelIdleCallback(idleCallbackId);
+        }
+      }
     };
-  }, []);
+  }, [canCheckUpdate]);
+
+  useEffect(() => {
+    const updateHeaderHeight = () => {
+      const height = headerRef.current?.offsetHeight ?? 64;
+      document.documentElement.style.setProperty("--admin-header-height", `${height}px`);
+    };
+
+    updateHeaderHeight();
+
+    if (!headerRef.current || typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateHeaderHeight);
+      return () => {
+        window.removeEventListener("resize", updateHeaderHeight);
+      };
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateHeaderHeight();
+    });
+
+    observer.observe(headerRef.current);
+    window.addEventListener("resize", updateHeaderHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateHeaderHeight);
+    };
+  }, [updateInfo?.updateAvailable]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--border)] backdrop-blur-lg bg-[color:var(--bg-base)/0.8]">
+    <header
+      ref={headerRef}
+      className="sticky top-0 z-50 border-b border-[var(--border)] backdrop-blur-lg bg-[color:var(--bg-base)/0.8]"
+    >
       {updateInfo?.updateAvailable && (
         <div className="px-4 md:px-6 py-2 border-b border-[var(--border)] bg-[var(--bg-elevated)]">
           <div className="flex items-center justify-between gap-3">

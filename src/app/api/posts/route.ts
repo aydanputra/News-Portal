@@ -3,11 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
 import { getYouTubeThumbnailUrl, slugify } from "@/lib/utils";
 import { cookies } from "next/headers";
-import { PostType, PostStatus, Prisma } from "@prisma/client";
+import { PostType, PostStatus } from "@prisma/client";
 import { logActivity } from "@/lib/audit";
 import { resolvePostTransition } from "@/lib/post-workflow";
 import { sanitizeContent } from "@/lib/sanitizer";
 import { validatePost } from "@/lib/validators/postValidator";
+import { normalizePostTypeMedia } from "@/lib/post-type-media";
 import { revalidateTag } from "next/cache";
 
 function toPlain(html: string): string {
@@ -94,14 +95,27 @@ export async function GET(request: Request) {
       baseCountWhere.type = typeEnum;
     }
 
-    const [posts, total, allCount, publishedCount, draftCount, reviewCount, trashCount] = await Promise.all([
+    const [posts, total, statusGroups] = await Promise.all([
       prisma.post.findMany({
         where,
-        include: {
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          type: true,
+          published: true,
+          updatedAt: true,
+          publishedAt: true,
+          status: true,
+          image: true,
+          views: true,
+          viewsBase: true,
+          featuredImage: {
+            select: { fileUrl: true },
+          },
           category: { select: { id: true, name: true, slug: true } },
-          tags: true,
           author: {
-            select: { name: true, email: true },
+            select: { name: true },
           },
         },
         orderBy: { updatedAt: "desc" },
@@ -109,32 +123,24 @@ export async function GET(request: Request) {
         skip,
       }),
       prisma.post.count({ where }),
-      prisma.post.count({ where: { ...baseCountWhere, status: { not: PostStatus.ARCHIVED } } }),
-      prisma.post.count({ where: { ...baseCountWhere, status: PostStatus.PUBLISHED } }),
-      prisma.post.count({ where: { ...baseCountWhere, status: PostStatus.DRAFT } }),
-      prisma.post.count({ where: { ...baseCountWhere, status: PostStatus.IN_REVIEW } }),
-      prisma.post.count({ where: { ...baseCountWhere, status: PostStatus.ARCHIVED } }),
+      prisma.post.groupBy({
+        by: ["status"],
+        where: baseCountWhere,
+        _count: { _all: true },
+      }),
     ]);
 
-    let postsWithViewsBase: any[] = posts as any[];
-    try {
-      const ids = (posts as any[]).map((p) => p?.id).filter((v) => typeof v === "string" && v.trim() !== "");
-      if (ids.length > 0) {
-        const rows = await prisma.$queryRaw<{ id: string; viewsBase: number }[]>`
-          SELECT "id", "viewsBase" FROM "Post" WHERE "id" IN (${Prisma.join(ids)})
-        `;
-        const map = new Map(rows.map((r) => [r.id, r.viewsBase]));
-        postsWithViewsBase = (posts as any[]).map((p) => ({
-          ...(p as any),
-          viewsBase: typeof map.get(p.id) === "number" && Number.isFinite(map.get(p.id) as number) ? (map.get(p.id) as number) : 0,
-        }));
-      }
-    } catch (error) {
-      console.error("GET /api/posts viewsBase query error:", error);
-    }
+    const statusCounts = new Map(
+      statusGroups.map((entry) => [String(entry.status), entry._count._all || 0])
+    );
+    const allCount = (statusCounts.get(String(PostStatus.PUBLISHED)) || 0) + (statusCounts.get(String(PostStatus.DRAFT)) || 0) + (statusCounts.get(String(PostStatus.IN_REVIEW)) || 0) + (statusCounts.get(String(PostStatus.SCHEDULED)) || 0) + (statusCounts.get(String(PostStatus.REJECTED)) || 0);
+    const publishedCount = statusCounts.get(String(PostStatus.PUBLISHED)) || 0;
+    const draftCount = statusCounts.get(String(PostStatus.DRAFT)) || 0;
+    const reviewCount = statusCounts.get(String(PostStatus.IN_REVIEW)) || 0;
+    const trashCount = statusCounts.get(String(PostStatus.ARCHIVED)) || 0;
 
     return NextResponse.json({
-      data: postsWithViewsBase,
+      data: posts,
       pagination: {
         page,
         limit,
@@ -186,7 +192,33 @@ export async function POST(request: Request) {
     // The Zod validation guarantees the structure, so this is safe at runtime
     const validData = validation.data as any;
     
-    const { title, subtitle, content, categoryId, categoryIds, image, featuredImageId, imageCaption, publishedAt, tags, type, videoUrl, gallery, metaTitle, metaDesc, viewsBase, reviewEditorIds } = validData as any;
+    const {
+      title,
+      slug: requestedSlug,
+      subtitle,
+      content,
+      categoryId,
+      categoryIds,
+      image,
+      featuredImageId,
+      featuredImageAlt,
+      postImageWatermarkEnabled,
+      imageCaption,
+      publishedAt,
+      tags,
+      type,
+      videoUrl,
+      gallery,
+      focusKeyword,
+      canonicalUrl,
+      metaTitle,
+      metaDesc,
+      viewsBase,
+      reviewEditorIds,
+      authorId,
+      approvedById,
+    } = validData as any;
+    const normalizedMedia = normalizePostTypeMedia({ type, videoUrl, gallery });
 
     const normalizedCategoryIds = Array.isArray(categoryIds) ? categoryIds : [];
     const effectiveCategoryIds = Array.from(new Set([categoryId, ...normalizedCategoryIds].filter((v) => typeof v === "string" && v.trim() !== "")));
@@ -196,8 +228,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Kategori wajib dipilih" }, { status: 400 });
     }
 
-    // Generate Slug Unik
-    let slug = slugify(title);
+    // Generate slug unik, prioritaskan slug manual bila diisi user.
+    let slug = slugify(typeof requestedSlug === "string" ? requestedSlug : "") || slugify(title);
+    if (!slug) {
+      return NextResponse.json({ error: "Slug URL tidak valid" }, { status: 400 });
+    }
     // Cek apakah slug sudah ada
     const existingSlug = await prisma.post.findUnique({ where: { slug } });
     if (existingSlug) {
@@ -237,8 +272,8 @@ export async function POST(request: Request) {
       }
     }
 
-    if ((!finalImage || finalImage === "") && (type as PostType) === PostType.VIDEO && typeof videoUrl === "string" && videoUrl.trim() !== "") {
-      const thumbnail = getYouTubeThumbnailUrl(videoUrl, "hqdefault");
+    if ((!finalImage || finalImage === "") && (type as PostType) === PostType.VIDEO && typeof normalizedMedia.videoUrl === "string" && normalizedMedia.videoUrl.trim() !== "") {
+      const thumbnail = getYouTubeThumbnailUrl(normalizedMedia.videoUrl, "hqdefault");
       if (thumbnail) finalImage = thumbnail;
     }
 
@@ -263,6 +298,15 @@ export async function POST(request: Request) {
     const excerpt = makeExcerpt(toPlain(sanitizedContent), 180);
     const normalizedViewsBase =
       typeof viewsBase === "number" && Number.isFinite(viewsBase) ? Math.max(0, Math.floor(viewsBase)) : 0;
+    const canManageAttribution = user.role === "ADMIN" || user.role === "EDITOR" || user.role === "SUPER_ADMIN";
+    const selectedAuthorId =
+      canManageAttribution && typeof authorId === "string" && authorId.trim() !== ""
+        ? authorId.trim()
+        : user.id;
+    const selectedApprovedById =
+      canManageAttribution && typeof approvedById === "string" && approvedById.trim() !== ""
+        ? approvedById.trim()
+        : "";
     const postData: any = {
         title,
         subtitle,
@@ -270,22 +314,28 @@ export async function POST(request: Request) {
         content: sanitizedContent,
         excerpt,
         image: finalImage,
+        featuredImageAlt,
+        postImageWatermarkEnabled: postImageWatermarkEnabled === true,
         imageCaption,
         published: isPublished,
         status: newStatus,
         submittedForReviewAt: newStatus === "IN_REVIEW" ? new Date() : null,
         publishedAt: finalPublishedAt,
         views: 0,
-        author: { connect: { id: user.id } },
+        author: { connect: { id: selectedAuthorId } },
         category: { connect: { id: primaryCategoryId } },
         type: (type as PostType) || PostType.ARTICLE,
-        videoUrl,
-        gallery,
+        videoUrl: normalizedMedia.videoUrl,
+        gallery: normalizedMedia.gallery,
+        focusKeyword,
+        canonicalUrl: canonicalUrl || null,
         metaTitle,
         metaDesc
     };
 
-    if (newStatus === "PUBLISHED" && user.role !== "WRITER") {
+    if (selectedApprovedById) {
+      postData.approvedBy = { connect: { id: selectedApprovedById } };
+    } else if (newStatus === "PUBLISHED" && user.role !== "WRITER") {
       postData.approvedBy = { connect: { id: user.id } };
     }
 
@@ -429,6 +479,8 @@ export async function POST(request: Request) {
     if (isPublished) {
         revalidateTag("homepage");
         revalidateTag("posts");
+        revalidateTag(`article-${post.slug}`);
+        revalidateTag(`post-${post.slug}`);
         // Also revalidate specific category if needed, but homepage is critical
     }
 

@@ -91,7 +91,7 @@ export const ColorPickerWithOpacity = ({
                              <button 
                                 onClick={() => onChange("")} 
                                 className="p-1 text-[var(--fg-primary)] hover:text-[var(--fg-primary)] hover:bg-[var(--bg-elevated)] rounded shadow-sm border border-transparent hover:border-[var(--border)] transition-all"
-                                title="Reset to Default (Auto)"
+                                title="Reset ke Default (Otomatis)"
                             >
                                 <RotateCcw size={10} />
                             </button>

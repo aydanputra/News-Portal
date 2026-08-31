@@ -1,0 +1,5 @@
+ALTER TABLE "Post"
+ADD COLUMN IF NOT EXISTS "focusKeyword" TEXT;
+
+ALTER TABLE "Post"
+ADD COLUMN IF NOT EXISTS "canonicalUrl" TEXT;

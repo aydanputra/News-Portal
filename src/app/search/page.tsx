@@ -1,28 +1,49 @@
+import type { Metadata, ResolvingMetadata } from "next";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
-import ClassicArchive from "@/themes/classic/templates/Archive";
-import PranalaArchive from "@/themes/pranala/templates/Archive";
+import { getThemeArchiveComponent } from "@/lib/theme-registry.server";
 import { getArchiveBuilderBlocks, getArchivePageSize, isArchiveBuilderTheme } from "@/lib/archive-builder";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import { getCachedCategoriesList } from "@/lib/data";
+import { toPublicPostPreviewList } from "@/lib/post-preview";
+import TrackPublicPageView from "@/components/TrackPublicPageView";
+import {
+  applyCategoryFiltersToWhere,
+  applyTagFiltersToWhere,
+  getConfigCategoryExcludeSlugs,
+  getConfigCategoryIncludeSlugs,
+  getConfigTagExcludeSlugs,
+  getConfigTagIncludeSlugs,
+} from "@/lib/category-filters";
+import { buildCanonicalPath, buildPublicPageMetadata } from "@/lib/public-metadata";
 
 export const revalidate = 30;
 
 const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
   const cached = unstable_cache(
     async () => {
+      const publicBlockSelect = {
+        id: true,
+        type: true,
+        title: true,
+        order: true,
+        config: true,
+        isActive: true,
+      } as const;
       const [headerRows, footerRows] = await Promise.all([
         prisma.homepageBlock.findMany({
           where: { location: "header", isActive: true, themeId: activeTheme as any },
           orderBy: { order: "asc" },
+          select: publicBlockSelect,
         }),
         prisma.homepageBlock.findMany({
           where: { location: "footer", themeId: activeTheme as any },
           orderBy: { order: "asc" },
+          select: publicBlockSelect,
         }),
       ]);
       return { headerConfig: headerRows ?? null, footerConfig: footerRows ?? null };
@@ -49,77 +70,73 @@ const getTagCloud = cache(async (take: number) => {
   return cached();
 });
 
-const getCategoryIdBySlug = cache(async (slug: string) => {
-  const cached = unstable_cache(
-    async () => {
-      const row = await prisma.category.findUnique({ where: { slug }, select: { id: true } });
-      return row?.id || null;
-    },
-    [`category-id:${slug}`],
-    { tags: ["categories"], revalidate: 3600 },
-  );
-  return cached();
-});
-
-const getWidgetPosts = cache(async (opts: { limit: number; sort?: string; tagSlug?: string; categorySlug?: string }) => {
-  const limit = Math.max(1, Math.min(30, Number.isFinite(opts.limit) ? Math.floor(opts.limit) : 5));
+const getWidgetPosts = cache(async (opts: {
+  limit?: number | null;
+  sort?: string;
+  tagSlugs?: string[];
+  excludeTagSlugs?: string[];
+  categorySlugs?: string[];
+  excludeCategorySlugs?: string[];
+}) => {
+  const fetchAll = opts.limit === null || opts.limit === undefined || !Number.isFinite(opts.limit);
+  const limit = fetchAll ? null : Math.max(1, Math.floor(opts.limit as number));
   const sort = typeof opts.sort === "string" ? opts.sort : "latest";
-  const tagSlug = typeof opts.tagSlug === "string" ? opts.tagSlug.trim() : "";
-  const categorySlug = typeof opts.categorySlug === "string" ? opts.categorySlug.trim() : "";
-  const key = `archive-widget-posts:${limit}:${sort}:${tagSlug}:${categorySlug}`;
+  const tagSlugs = Array.isArray(opts.tagSlugs) ? opts.tagSlugs.filter(Boolean) : [];
+  const excludeTagSlugs = Array.isArray(opts.excludeTagSlugs) ? opts.excludeTagSlugs.filter(Boolean) : [];
+  const categorySlugs = Array.isArray(opts.categorySlugs) ? opts.categorySlugs.filter(Boolean) : [];
+  const excludeCategorySlugs = Array.isArray(opts.excludeCategorySlugs) ? opts.excludeCategorySlugs.filter(Boolean) : [];
+  const key = `archive-widget-posts:${fetchAll ? "all" : limit}:${sort}:${tagSlugs.slice().sort().join(",")}:${excludeTagSlugs.slice().sort().join(",")}:${categorySlugs.slice().sort().join(",")}:${excludeCategorySlugs.slice().sort().join(",")}`;
+
+  const runQuery = async () => {
+    const now = new Date();
+    const whereClause: any = {
+      published: true,
+      status: { not: "ARCHIVED" },
+      OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
+    };
+
+    if (tagSlugs.length > 0 || excludeTagSlugs.length > 0) {
+      applyTagFiltersToWhere(whereClause, tagSlugs, excludeTagSlugs);
+      applyCategoryFiltersToWhere(whereClause, [], excludeCategorySlugs);
+    } else {
+      applyCategoryFiltersToWhere(whereClause, categorySlugs, excludeCategorySlugs);
+    }
+
+    let orderBy: any = { publishedAt: "desc" };
+    if (sort === "oldest") orderBy = { publishedAt: "asc" };
+    else if (sort === "popular") orderBy = { views: "desc" };
+
+    return prisma.post.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        image: true,
+        publishedAt: true,
+        createdAt: true,
+        views: true,
+        category: { select: { name: true, slug: true } },
+        author: { select: { name: true, avatar: true } },
+        featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
+      },
+      orderBy,
+      ...(limit !== null ? { take: limit } : {}),
+    });
+  };
+
+  if (fetchAll) {
+    return toPublicPostPreviewList(await runQuery());
+  }
 
   const cached = unstable_cache(
-    async () => {
-      const now = new Date();
-      const whereClause: any = {
-        published: true,
-        status: { not: "ARCHIVED" },
-        OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
-      };
-
-      if (tagSlug) {
-        const tag = await prisma.tag.findUnique({ where: { slug: tagSlug }, select: { id: true } });
-        if (!tag) return [];
-        whereClause.tags = { some: { id: tag.id } };
-      } else if (categorySlug && categorySlug !== "all") {
-        const categoryId = await getCategoryIdBySlug(categorySlug);
-        if (!categoryId) return [];
-        whereClause.AND = [
-          ...(Array.isArray(whereClause.AND) ? whereClause.AND : []),
-          {
-            OR: [{ categoryId }, { postCategories: { some: { categoryId } } }],
-          },
-        ];
-      }
-
-      let orderBy: any = { publishedAt: "desc" };
-      if (sort === "oldest") orderBy = { publishedAt: "asc" };
-      else if (sort === "popular") orderBy = { views: "desc" };
-
-      return await prisma.post.findMany({
-        where: whereClause,
-        select: {
-          id: true,
-          title: true,
-          slug: true,
-          excerpt: true,
-          image: true,
-          publishedAt: true,
-          createdAt: true,
-          views: true,
-          category: { select: { name: true, slug: true } },
-          author: { select: { name: true, avatar: true } },
-          featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
-        },
-        orderBy,
-        take: limit,
-      });
-    },
+    runQuery,
     [key],
     { tags: ["posts"], revalidate: 300 },
   );
 
-  return cached();
+  return toPublicPostPreviewList(await cached());
 });
 
 async function getData(query: string, page: number) {
@@ -187,6 +204,7 @@ async function getData(query: string, page: number) {
   );
 
   const { posts, totalPosts, totalPages, currentPage } = await cachedSearch();
+  const normalizedPosts = toPublicPostPreviewList(posts);
 
   const blockData: Record<string, any[]> = {};
 
@@ -208,9 +226,17 @@ async function getData(query: string, page: number) {
   const processWidgetData = async (widget: any) => {
     const config = (widget.config as Record<string, any>) || {};
 
-    if (["news_grid", "news_list", "sidebar_widget", "tag_cloud"].includes(widget.type)) {
+    if (["classic_hero", "headline_2", "news_grid", "news_list", "news_list_highlight", "news_bullet_list", "news_grid_slider", "news_headline_big", "news_hero_slider", "news_hero_split_4", "hero", "news_slider", "sidebar_widget", "tag_cloud"].includes(widget.type)) {
       const baseLimit = Number(config.limit || config.count) || 5;
-      const limit = baseLimit;
+      const tabletLimit = Number(config.tabletLimit) || baseLimit;
+      const mobileLimit = Number(config.mobileLimit) || baseLimit;
+      const limit = Math.max(baseLimit, tabletLimit, mobileLimit);
+      const blockOffset =
+        ["news_grid", "news_list", "news_list_highlight", "news_bullet_list", "news_grid_slider", "news_hero_slider", "news_hero_split_4"].includes(widget.type)
+          ? Math.max(0, Number(config.offset) || 0)
+          : 0;
+      const paginationStyle = typeof config.paginationStyle === "string" ? config.paginationStyle : "none";
+      let takeLimit: number | null = limit;
 
       if (widget.type === "tag_cloud" || (widget.type === "sidebar_widget" && config.widgetType === "tag_cloud")) {
         blockData[widget.id] = await getTagCloud(limit * 2);
@@ -225,9 +251,16 @@ async function getData(query: string, page: number) {
       const sort =
         sortOrderRaw ||
         (widget.type === "sidebar_widget" && config.widgetType === "popular_posts" ? "popular" : "latest");
-      const tagSlug = config.filterType === "tag" && config.tagSlug ? String(config.tagSlug) : "";
-      const categorySlug = !tagSlug && config.categorySlug ? String(config.categorySlug) : "";
-      blockData[widget.id] = await getWidgetPosts({ limit, sort, tagSlug, categorySlug });
+      if ((widget.type === "news_list" || widget.type === "news_list_highlight") && paginationStyle !== "none") {
+        takeLimit = limit;
+      }
+      if (blockOffset > 0 && takeLimit !== null) takeLimit += blockOffset;
+      if (sort === "random" && takeLimit !== null) takeLimit = Math.max(20 + blockOffset, takeLimit);
+      const tagSlugs = config.filterType === "tag" ? getConfigTagIncludeSlugs(config) : [];
+      const excludeTagSlugs = getConfigTagExcludeSlugs(config);
+      const categorySlugs = tagSlugs.length > 0 ? [] : getConfigCategoryIncludeSlugs(config);
+      const excludeCategorySlugs = getConfigCategoryExcludeSlugs(config);
+      blockData[widget.id] = await getWidgetPosts({ limit: takeLimit, sort, tagSlugs, excludeTagSlugs, categorySlugs, excludeCategorySlugs });
     }
   };
 
@@ -251,7 +284,7 @@ async function getData(query: string, page: number) {
   await Promise.all(uniqueWidgets.map((widget) => processWidgetData(widget)));
 
   return {
-    posts,
+    posts: normalizedPosts,
     setting,
     activeTheme,
     headerConfig,
@@ -269,6 +302,33 @@ async function getData(query: string, page: number) {
   };
 }
 
+export async function generateMetadata(
+  props: { searchParams: Promise<{ [key: string]: string | string[] | undefined }> },
+  parent: ResolvingMetadata,
+): Promise<Metadata> {
+  const resolvedSearchParams = await props.searchParams;
+  const qRaw = resolvedSearchParams.q;
+  const q = Array.isArray(qRaw) ? qRaw[0] : qRaw;
+  const pageRaw = resolvedSearchParams.page;
+  const pageValue = Array.isArray(pageRaw) ? pageRaw[0] : pageRaw;
+  const page = Math.max(1, Number(pageValue) || 1);
+  const query = (q || "").trim();
+  const parentMetadata = await parent;
+  const title = query ? `Pencarian: ${query}` : "Pencarian";
+  const description = query ? `Hasil pencarian untuk "${query}" di portal berita.` : "Masukkan kata kunci untuk mencari artikel.";
+  const canonicalPath = buildCanonicalPath("/search", {
+    q: query || undefined,
+    page: page > 1 ? page : undefined,
+  });
+
+  return buildPublicPageMetadata({
+    title,
+    description,
+    canonicalPath,
+    parentMetadataBase: parentMetadata.metadataBase,
+  });
+}
+
 export default async function SearchPage({
   searchParams,
 }: {
@@ -283,30 +343,43 @@ export default async function SearchPage({
   const query = (q || "").trim();
 
   const [data, menusByLocation] = await Promise.all([getData(query, page), getPublicMenusByLocation()]);
-  const ArchiveComponent: any = data.activeTheme === "pranala" ? PranalaArchive : ClassicArchive;
+  const ArchiveComponent: any = await getThemeArchiveComponent(data.activeTheme);
 
   const title = "Pencarian";
   const description = query ? `Hasil pencarian untuk "${query}"` : "Masukkan kata kunci untuk mencari artikel.";
-  const basePath = query ? `/search?q=${encodeURIComponent(query)}` : "/search";
+  const basePath = buildCanonicalPath("/search", { q: query || undefined });
+  const trackingPath = buildCanonicalPath("/search", {
+    q: query || undefined,
+    page: page > 1 ? page : undefined,
+  });
+  const trackingKey = query ? `search:${query.toLowerCase()}:page:${page}` : `search:default:page:${page}`;
 
   return (
-    <ArchiveComponent
-      title={title}
-      description={description}
-      posts={data.posts}
-      setting={data.setting}
-      categories={data.categories}
-      blocks={data.archiveBlocks}
-      archiveType="search"
-      currentPage={data.currentPage}
-      totalPages={data.totalPages}
-      totalPosts={data.totalPosts}
-      archiveBasePath={basePath}
-      sourceBlocksByLocation={data.sourceBlocksByLocation}
-      blockData={data.blockData}
-      menusByLocation={menusByLocation}
-      headerConfig={data.headerConfig}
-      footerConfig={data.footerConfig}
-    />
+    <>
+      <TrackPublicPageView
+        pageKey={trackingKey}
+        path={trackingPath}
+        title={query ? `Pencarian: ${query}` : "Pencarian"}
+        pageType="search"
+      />
+      <ArchiveComponent
+        title={title}
+        description={description}
+        posts={data.posts}
+        setting={data.setting}
+        categories={data.categories}
+        blocks={data.archiveBlocks}
+        archiveType="search"
+        currentPage={data.currentPage}
+        totalPages={data.totalPages}
+        totalPosts={data.totalPosts}
+        archiveBasePath={basePath}
+        sourceBlocksByLocation={data.sourceBlocksByLocation}
+        blockData={data.blockData}
+        menusByLocation={menusByLocation}
+        headerConfig={data.headerConfig}
+        footerConfig={data.footerConfig}
+      />
+    </>
   );
 }

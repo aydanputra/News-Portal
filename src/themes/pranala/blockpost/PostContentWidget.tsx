@@ -1,7 +1,17 @@
 import React from "react";
+import {
+  resolveThemeFontFamily,
+  resolveThemeFontSynthesis,
+} from "@/lib/font-utils";
 import PranalaPostContent from "../components/PranalaPostContent";
 import { WidgetRenderContext } from "./types";
 import { toFontWeight, toPx } from "./helpers";
+
+const resolvePublicFont = (font: unknown, fallback = "inherit") => {
+  const value = typeof font === "string" ? font.trim() : "";
+  if (!value) return fallback;
+  return resolveThemeFontFamily(value, fallback);
+};
 
 export default function PostContentWidget({
   post,
@@ -23,6 +33,13 @@ export default function PostContentWidget({
   const contentFontSize = toPx(getResponsiveConfig("fontSize"));
   const contentFontWeight = toFontWeight(getResponsiveConfig("fontWeight"), "400");
   const contentLineHeight = getResponsiveConfig("lineHeight");
+  const contentFontValue = String(setting?.postContentFont || setting?.globalContentFont || setting?.bodyFont || "Inter");
+  const headingFontValue = String(setting?.postTitleFont || setting?.headingFont || "Inter");
+  const contentFontFamily = resolvePublicFont(contentFontValue, "Inter");
+  const contentFontSynthesis = resolveThemeFontSynthesis(contentFontValue);
+  const headingFontFamily = resolvePublicFont(headingFontValue, "Inter");
+  const headingFontSynthesis = resolveThemeFontSynthesis(headingFontValue);
+  const headingFontWeight = String(setting?.postTitleFontWeight || "700");
   const resolvedLineHeight: React.CSSProperties["lineHeight"] = (() => {
     if (typeof contentLineHeight === "number" && Number.isFinite(contentLineHeight)) return contentLineHeight;
     if (typeof contentLineHeight === "string") {
@@ -55,11 +72,19 @@ export default function PostContentWidget({
         color: resolvedContentColor,
         fontSize: contentFontSize,
         fontWeight: contentFontWeight,
+        fontFamily: contentFontFamily,
+        fontSynthesis: contentFontSynthesis,
         lineHeight: resolvedLineHeight,
         textAlign: contentTextAlign,
         fontStyle: isContentItalic ? "italic" : "normal",
         ["--post-content-widget-color" as keyof React.CSSProperties]: resolvedContentColor,
-        ["--post-content-widget-heading-color" as keyof React.CSSProperties]: resolvedHeadingColor
+        ["--post-content-widget-heading-color" as keyof React.CSSProperties]: resolvedHeadingColor,
+        ["--post-content-widget-font" as keyof React.CSSProperties]: contentFontFamily,
+        ["--post-content-widget-synthesis" as keyof React.CSSProperties]: contentFontSynthesis,
+        ["--post-content-widget-weight" as keyof React.CSSProperties]: contentFontWeight,
+        ["--post-content-widget-heading-font" as keyof React.CSSProperties]: headingFontFamily,
+        ["--post-content-widget-heading-synthesis" as keyof React.CSSProperties]: headingFontSynthesis,
+        ["--post-content-widget-heading-weight" as keyof React.CSSProperties]: headingFontWeight,
       }}
     >
       <PranalaPostContent
@@ -75,8 +100,13 @@ export default function PostContentWidget({
           gridColumns: Math.min(4, Math.max(1, Number.parseInt(String(setting?.postInlineRelatedGridColumns || "2"), 10) || 2)),
           cardColumns: Math.min(2, Math.max(1, Number.parseInt(String(setting?.postInlineRelatedCardColumns || "1"), 10) || 1)),
           titleFontSize: Number.parseInt(String(setting?.postInlineRelatedTitleFontSize || "16"), 10) || 16,
+          titleFont: String(setting?.postInlineRelatedTitleFont || setting?.postTitleFont || setting?.postWidgetTitleFont || "Inter"),
           titleFontWeight: String(setting?.postInlineRelatedTitleFontWeight || "700"),
           titleLineHeight: String(setting?.postInlineRelatedTitleLineHeight || "1.35"),
+          headingText: String(setting?.postInlineRelatedHeadingText || "Baca Juga"),
+          headingFont: String(setting?.postInlineRelatedHeadingFont || setting?.postInlineRelatedTitleFont || setting?.postTitleFont || "Inter"),
+          headingFontWeight: String(setting?.postInlineRelatedHeadingFontWeight || "700"),
+          headingLetterSpacing: String(setting?.postInlineRelatedHeadingLetterSpacing || "0"),
           fontSize: Number.parseInt(String(setting?.postInlineRelatedFontSize || "14"), 10) || 14,
           headingColor: String(setting?.postInlineRelatedTitleColor || "#1e293b"),
           textColor: String(setting?.postInlineRelatedTextColor || "#1f2937"),

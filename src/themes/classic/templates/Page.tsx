@@ -42,7 +42,10 @@ export default function ClassicPage({ page, setting, categories, footerConfig, m
       <main className={`flex-grow ${isFullWidth ? '' : containerClass} py-12`} style={isFullWidth ? {} : containerStyle}>
          {/* Featured Image (Hero) */}
          {page.featuredImage && (
-             <div className={`relative w-full ${isFullWidth ? 'h-[50vh] md:h-[60vh]' : 'h-64 md:h-96 rounded-xl overflow-hidden mb-8'}`}>
+             <div
+               className={`relative w-full ${isFullWidth ? 'h-[50vh] md:h-[60vh]' : 'h-64 md:h-96 overflow-hidden mb-8'}`}
+               style={!isFullWidth ? { borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" } : undefined}
+             >
                  <Image 
                     src={page.featuredImage} 
                     alt={page.title} 

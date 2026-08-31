@@ -50,6 +50,35 @@ export default function TagCloud({ block, posts, customTitle, accentColor }: Tag
   const title = customTitle || config?.title || "Tag Populer";
   const effectiveAccent = accentColor || 'var(--accent)';
   const showTitle = (config as any)?.showTitle !== false;
+  const [device, setDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
+  const toFontSize = (value: unknown, fallback: string) => {
+      if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
+      if (typeof value === "string" && value.trim() !== "") {
+          return /^\d+(\.\d+)?$/.test(value.trim()) ? `${value.trim()}px` : value.trim();
+      }
+      return fallback;
+  };
+  const limitDesktop = Math.max(1, Number(config?.limit) || 10);
+  const limitTablet = Math.max(1, Number((config as any)?.tabletLimit) || limitDesktop);
+  const limitMobile = Math.max(1, Number((config as any)?.mobileLimit) || limitDesktop);
+  const limit = device === "mobile" ? limitMobile : device === "tablet" ? limitTablet : limitDesktop;
+
+  React.useEffect(() => {
+    const updateDevice = () => {
+      if (window.innerWidth < 768) {
+        setDevice("mobile");
+        return;
+      }
+      if (window.innerWidth < 1024) {
+        setDevice("tablet");
+        return;
+      }
+      setDevice("desktop");
+    };
+    updateDevice();
+    window.addEventListener("resize", updateDevice);
+    return () => window.removeEventListener("resize", updateDevice);
+  }, []);
   
   // Style untuk Container Widget
   const containerStyle = {
@@ -65,7 +94,7 @@ export default function TagCloud({ block, posts, customTitle, accentColor }: Tag
   // Style untuk Judul Widget
   const titleStyle = {
       color: config?.blockTitleColor || 'var(--home-title-color)',
-      fontSize: config?.blockTitleFontSize ? `${config.blockTitleFontSize}px` : 'var(--home-title-size)',
+      fontSize: toFontSize(config?.blockTitleFontSize, 'var(--home-title-size)'),
       fontWeight: 'var(--home-title-weight, 700)',
       lineHeight: config?.blockTitleLineHeight || 1.4,
       borderColor: config?.blockTitleBorderColor || 'var(--accent)',
@@ -102,7 +131,7 @@ export default function TagCloud({ block, posts, customTitle, accentColor }: Tag
         </h3>
       )}
       <div className="flex flex-wrap gap-2">
-        {tags.map((tag) => (
+        {tags.slice(0, limit).map((tag) => (
           <Link 
             key={tag.name} 
             href={`/tag/${tag.name.toLowerCase().replace(/\s+/g, '-')}`} 

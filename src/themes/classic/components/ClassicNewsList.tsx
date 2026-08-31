@@ -33,7 +33,11 @@ export default function ClassicNewsList({ block, posts }: ClassicNewsListProps) 
         {posts.map((post) => (
           <article key={post.id} className="flex flex-col md:flex-row gap-6 pb-8 border-b border-gray-200 last:border-0">
             <div className="md:w-1/3">
-              <Link href={`/${post.category?.slug || 'berita'}/${post.slug}`} className="block relative aspect-[4/3] rounded-lg overflow-hidden bg-gray-100 group">
+              <Link
+                href={`/${post.category?.slug || 'berita'}/${post.slug}`}
+                className="block relative aspect-[4/3] overflow-hidden bg-gray-100 group"
+                style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
+              >
                 <Image
                   src={post.featuredImage?.fileUrl || post.image || "https://placehold.co/400x300"}
                   alt={post.title}

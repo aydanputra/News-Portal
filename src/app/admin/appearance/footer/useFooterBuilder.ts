@@ -4,41 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { Block, Category, Tag } from "../../homepage/types";
 import { ConfigValue } from "@/lib/page-builder-config";
 import { useRouter } from "next/navigation";
+import { getThemeDefaultFooterBlocks } from "@/lib/header-footer-builder-theme-registry";
 
 const MAX_HISTORY = 50;
-
-const DEFAULT_FOOTER_BLOCKS: Block[] = [
-  {
-    id: "section_footer_main",
-    type: "section",
-    title: "Footer Main",
-    order: 1,
-    isVisible: true,
-    placement: "main",
-    config: {
-      layout: "33-33-33",
-      children: [
-        { id: "footer_logo_1", type: "footer_logo", title: "Logo", order: 1, isVisible: true, config: { columnIndex: 0, textAlign: "left" } },
-        { id: "footer_menu_1", type: "footer_menu", title: "Menu Footer", order: 2, isVisible: true, config: { columnIndex: 1, textAlign: "left" } },
-        { id: "footer_social_1", type: "footer_social", title: "Social Links", order: 3, isVisible: true, config: { columnIndex: 2, textAlign: "left" } },
-      ],
-    },
-  },
-  {
-    id: "section_footer_bottom",
-    type: "section",
-    title: "Footer Bottom",
-    order: 2,
-    isVisible: true,
-    placement: "main",
-    config: {
-      layout: "100",
-      children: [
-        { id: "footer_copyright_1", type: "footer_copyright", title: "Copyright", order: 1, isVisible: true, config: { columnIndex: 0, textAlign: "center" } },
-      ],
-    },
-  },
-];
 
 const normalizeBlocksForApi = (blocks: Block[]) =>
   blocks.map((b, idx) => ({
@@ -65,10 +33,19 @@ export function useFooterBuilder() {
   const [activeTheme, setActiveTheme] = useState("classic");
   const [accentColor, setAccentColor] = useState("#f59e0b");
   const [backgroundColor, setBackgroundColor] = useState("#ffffff");
+  const [headingColor, setHeadingColor] = useState("#1e293b");
+  const [excerptColor, setExcerptColor] = useState("#64748b");
+  const [metaColor, setMetaColor] = useState("#94a3b8");
+  const [homeWidgetTitleColor, setHomeWidgetTitleColor] = useState("#1e293b");
+  const [homeNewsTitleColor, setHomeNewsTitleColor] = useState("#111827");
+  const [homeHoverColor, setHomeHoverColor] = useState("#2563eb");
+  const [homeExcerptColor, setHomeExcerptColor] = useState("#4b5563");
+  const [homeMetaColor, setHomeMetaColor] = useState("#9ca3af");
+  const [globalBorderRadius, setGlobalBorderRadius] = useState("0.5rem");
 
   const [activeDeviceTab, _setActiveDeviceTab] = useState<"desktop" | "tablet" | "mobile">("desktop");
   const [editingChild, setEditingChild] = useState<{ parentIndex: number; childId: string } | null>(null);
-  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual">("content");
+  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual" | "advanced">("content");
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
   const [activeSectionTab, setActiveSectionTab] = useState<"layout" | "style">("layout");
   const [activeSectionDeviceTab, _setActiveSectionDeviceTab] = useState<"desktop" | "tablet" | "mobile">("desktop");
@@ -136,13 +113,22 @@ export function useFooterBuilder() {
         setActiveTheme(themeId);
         setAccentColor(globalData.accentColor || "#f59e0b");
         setBackgroundColor(globalData.backgroundColor || "#ffffff");
+        setHeadingColor(globalData.headingColor || "#1e293b");
+        setExcerptColor(globalData.excerptColor || "#64748b");
+        setMetaColor(globalData.metaColor || "#94a3b8");
+        setHomeWidgetTitleColor(globalData.homeWidgetTitleColor || globalData.headingColor || "#1e293b");
+        setHomeNewsTitleColor(globalData.homeNewsTitleColor || globalData.headingColor || "#111827");
+        setHomeHoverColor(globalData.homeHoverColor || globalData.globalAccentColor || globalData.accentColor || "#2563eb");
+        setHomeExcerptColor(globalData.homeExcerptColor || globalData.excerptColor || "#4b5563");
+        setHomeMetaColor(globalData.homeMetaColor || globalData.metaColor || "#9ca3af");
+        setGlobalBorderRadius(globalData.globalBorderRadius || "0.5rem");
 
         const resBlocks = await fetch(`/api/homepage?location=footer&themeId=${encodeURIComponent(themeId)}`);
         const blocksData = resBlocks.ok ? await resBlocks.json() : [];
-        const normalized = Array.isArray(blocksData) && blocksData.length > 0 ? (blocksData as Block[]) : DEFAULT_FOOTER_BLOCKS;
+        const normalized = Array.isArray(blocksData) && blocksData.length > 0 ? (blocksData as Block[]) : getThemeDefaultFooterBlocks(themeId);
         setBlocks(normalized);
       } catch (e: any) {
-        setBlocks(DEFAULT_FOOTER_BLOCKS);
+        setBlocks(getThemeDefaultFooterBlocks());
         setToast({ message: e?.message || "Gagal memuat Footer Builder", type: "error" });
       } finally {
         setLoading(false);
@@ -178,9 +164,9 @@ export function useFooterBuilder() {
   }, [activeTheme, blocks, router]);
 
   const resetAllSettings = useCallback(() => {
-    setBlocksWithHistory(DEFAULT_FOOTER_BLOCKS);
+    setBlocksWithHistory(getThemeDefaultFooterBlocks(activeTheme));
     setToast({ message: "Footer direset ke default", type: "success" });
-  }, [setBlocksWithHistory]);
+  }, [activeTheme, setBlocksWithHistory]);
 
   const getChildren = useCallback((block: Block) => {
     const children = (block.config as any)?.children;
@@ -209,9 +195,12 @@ export function useFooterBuilder() {
   const createChildBlock = useCallback((type: string, title: string, columnIndex: number, order: number): Block => {
     const baseConfig: Record<string, any> = { columnIndex, textAlign: "left" };
     const normalizedType = String(type || "");
+    const resolvedTitle = normalizedType === "section" ? "Inner Section" : title;
     const config =
       normalizedType === "footer_copyright"
         ? { ...baseConfig, textAlign: "center" }
+        : normalizedType === "image_widget"
+        ? { ...baseConfig, imageUrl: "", altText: title, linkUrl: "", openInNewTab: false, objectFit: "contain", imageWidth: "", imageHeight: "", borderRadius: "", showShadow: false, useBox: false }
         : normalizedType === "footer_social"
         ? {
             ...baseConfig,
@@ -229,7 +218,7 @@ export function useFooterBuilder() {
     return {
       id: `${type}_${Date.now()}${Math.random().toString(36).slice(2, 7)}`,
       type,
-      title,
+      title: resolvedTitle,
       order,
       isVisible: true,
       config,
@@ -814,6 +803,15 @@ export function useFooterBuilder() {
       activeTheme,
       accentColor,
       backgroundColor,
+      headingColor,
+      excerptColor,
+      metaColor,
+      homeWidgetTitleColor,
+      homeNewsTitleColor,
+      homeHoverColor,
+      homeExcerptColor,
+      homeMetaColor,
+      globalBorderRadius,
       activeDeviceTab,
       editingChild,
       activeEditTab,

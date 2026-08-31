@@ -2,12 +2,190 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Block, Category, Tag } from "@/components/admin/page-builder/types";
 import { ConfigValue } from "@/lib/page-builder-config";
-import { buildPageChildConfig } from "@/lib/page-builder-child-presets";
+import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import { normalizeBlockTree } from "@/lib/homepage-block-migrations";
+import { buildHomepageChildConfig, buildPageChildConfig, getSidebarWidgetDefaultTitle } from "@/lib/page-builder-child-presets";
 import { getThemeDefaultPostBlocks } from "@/lib/post-builder-theme-registry";
 
 export type PageLocation = "home" | "post";
 
 const MAX_HISTORY = 50;
+
+const hasConfigValue = (value: unknown) => {
+  if (value === undefined || value === null) return false;
+  if (typeof value === "string") return value.trim() !== "";
+  return true;
+};
+
+const mergeMissingConfigDefaults = (
+  config: Record<string, unknown>,
+  defaults: Record<string, unknown>,
+): Record<string, unknown> => {
+  const merged = { ...config };
+  for (const [key, value] of Object.entries(defaults)) {
+    if (key === "children" || key === "columnIndex") continue;
+    if (!hasConfigValue(merged[key])) {
+      merged[key] = value;
+    }
+  }
+  return merged;
+};
+
+const cloneBlockConfig = (value: Block["config"]): Block["config"] => {
+  if (!value || typeof value !== "object") return {};
+  return JSON.parse(JSON.stringify(value)) as Block["config"];
+};
+
+const findHomepageTemplateConfigInBlocks = (
+  sourceBlocks: Block[],
+  targetType: string,
+  targetWidgetType?: string,
+  preferredTitle?: string,
+): Block["config"] | undefined => {
+  const visit = (blocksToVisit: Block[]): Block["config"] | undefined => {
+    let firstTypeMatch: Block["config"] | undefined;
+    let firstWidgetTypeMatch: Block["config"] | undefined;
+
+    for (const block of blocksToVisit) {
+      const normalizedType = resolveBlockTypeAlias(String(block.type || ""));
+      if (normalizedType === targetType) {
+        const clonedConfig = cloneBlockConfig(block.config);
+        if (!targetWidgetType || targetType !== "sidebar_widget") {
+          return clonedConfig;
+        }
+
+        if (!firstTypeMatch) firstTypeMatch = clonedConfig;
+
+        const currentWidgetType =
+          clonedConfig &&
+          typeof clonedConfig === "object" &&
+          !Array.isArray(clonedConfig) &&
+          typeof clonedConfig.widgetType === "string"
+            ? clonedConfig.widgetType
+            : "";
+
+        if (currentWidgetType === targetWidgetType) {
+          if (!firstWidgetTypeMatch) firstWidgetTypeMatch = clonedConfig;
+
+          const currentTitle =
+            typeof block.title === "string" && block.title.trim() !== ""
+              ? block.title.trim()
+              : clonedConfig &&
+                  typeof clonedConfig === "object" &&
+                  !Array.isArray(clonedConfig) &&
+                  typeof clonedConfig.title === "string"
+                ? clonedConfig.title.trim()
+                : "";
+
+          if (!preferredTitle || currentTitle === preferredTitle) {
+            return clonedConfig;
+          }
+        }
+      }
+
+      const children = Array.isArray(block.config?.children) ? (block.config.children as Block[]) : [];
+      if (children.length > 0) {
+        const nested = visit(children);
+        if (nested) return nested;
+      }
+    }
+
+    if (firstWidgetTypeMatch) return firstWidgetTypeMatch;
+    return firstTypeMatch;
+  };
+
+  return visit(sourceBlocks);
+};
+
+const buildHomepageSidebarAuxiliaryConfigFromTemplateBlocks = (
+  homepageTemplateBlocks: Block[],
+  normalizedType: string,
+  title: string,
+  columnIndex: number,
+  widgetTypeOverride?: string,
+): Block["config"] => {
+  const preferredTitle =
+    normalizedType === "sidebar_widget"
+      ? getSidebarWidgetDefaultTitle(widgetTypeOverride || "popular_posts", title)
+      : title;
+  const templateConfig = findHomepageTemplateConfigInBlocks(
+    homepageTemplateBlocks,
+    normalizedType,
+    widgetTypeOverride,
+    preferredTitle,
+  );
+  const templateWidgetType =
+    normalizedType === "sidebar_widget" && typeof templateConfig?.widgetType === "string"
+      ? templateConfig.widgetType
+      : widgetTypeOverride || "popular_posts";
+  const resolvedTitle =
+    normalizedType === "sidebar_widget"
+      ? getSidebarWidgetDefaultTitle(templateWidgetType, title)
+      : title;
+  const fallbackConfig = buildHomepageChildConfig(normalizedType, resolvedTitle, columnIndex) as Record<string, unknown>;
+
+  if (templateConfig && typeof templateConfig === "object" && !Array.isArray(templateConfig)) {
+    return {
+      ...templateConfig,
+      columnIndex,
+      ...(normalizedType !== "ad_banner" ? { title: resolvedTitle } : {}),
+    } as Block["config"];
+  }
+
+  return fallbackConfig as Block["config"];
+};
+
+const hydratePostSidebarAuxiliaryDefaultsWithTemplates = (
+  sourceBlocks: Block[],
+  homepageTemplateBlocks: Block[],
+): Block[] => {
+  const hydrateBlock = (block: Block): Block => {
+    const normalizedBlock = normalizeBlockTree(block) as Block;
+    const normalizedType = resolveBlockTypeAlias(String(normalizedBlock.type || ""));
+    const rawConfig =
+      normalizedBlock.config && typeof normalizedBlock.config === "object" && !Array.isArray(normalizedBlock.config)
+        ? { ...(normalizedBlock.config as Record<string, unknown>) }
+        : {};
+
+    if (Array.isArray(rawConfig.children)) {
+      rawConfig.children = rawConfig.children.map((child) => hydrateBlock(child as Block));
+    }
+
+    if (!["sidebar_widget", "tag_cloud", "ad_banner"].includes(normalizedType)) {
+      return {
+        ...normalizedBlock,
+        config: rawConfig as Block["config"],
+      };
+    }
+
+    const columnIndex =
+      typeof rawConfig.columnIndex === "number" && Number.isFinite(rawConfig.columnIndex) ? rawConfig.columnIndex : 0;
+    const widgetType =
+      normalizedType === "sidebar_widget" && typeof rawConfig.widgetType === "string" && rawConfig.widgetType.trim() !== ""
+        ? rawConfig.widgetType.trim()
+        : undefined;
+    const resolvedTitle =
+      typeof normalizedBlock.title === "string" && normalizedBlock.title.trim() !== ""
+        ? normalizedBlock.title.trim()
+        : typeof rawConfig.title === "string" && rawConfig.title.trim() !== ""
+          ? rawConfig.title.trim()
+          : "";
+    const homepageDefaults = buildHomepageSidebarAuxiliaryConfigFromTemplateBlocks(
+      homepageTemplateBlocks,
+      normalizedType,
+      resolvedTitle,
+      columnIndex,
+      widgetType,
+    ) as Record<string, unknown>;
+
+    return {
+      ...normalizedBlock,
+      config: mergeMissingConfigDefaults(rawConfig, homepageDefaults) as Block["config"],
+    };
+  };
+
+  return sourceBlocks.map((block) => hydrateBlock(block));
+};
 
 export function usePageBuilder(location: PageLocation = "home") {
   const router = useRouter();
@@ -32,6 +210,7 @@ export function usePageBuilder(location: PageLocation = "home") {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [homepageTemplateBlocks, setHomepageTemplateBlocks] = useState<Block[]>([]);
   const [activeTheme, setActiveTheme] = useState("classic");
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
@@ -62,6 +241,16 @@ export function usePageBuilder(location: PageLocation = "home") {
   const [headingColor, setHeadingColor] = useState("#1e293b");
   const [excerptColor, setExcerptColor] = useState("#64748b");
   const [metaColor, setMetaColor] = useState("#94a3b8");
+  const [homeWidgetTitleColor, setHomeWidgetTitleColor] = useState("#1e293b");
+  const [homeNewsTitleColor, setHomeNewsTitleColor] = useState("#111827");
+  const [homeHoverColor, setHomeHoverColor] = useState("#2563eb");
+  const [homeExcerptColor, setHomeExcerptColor] = useState("#4b5563");
+  const [homeMetaColor, setHomeMetaColor] = useState("#9ca3af");
+  const [postWidgetTitleColor, setPostWidgetTitleColor] = useState("#1e293b");
+  const [postContentColor, setPostContentColor] = useState("#374151");
+  const [postMetaColor, setPostMetaColor] = useState("#94a3b8");
+  const [postLinkColor, setPostLinkColor] = useState("#2563eb");
+  const [postLinkHoverColor, setPostLinkHoverColor] = useState("#1d4ed8");
   const [headingFont, setHeadingFont] = useState("Inter");
   const [bodyFont, setBodyFont] = useState("Inter");
   const [globalBorderRadius, setGlobalBorderRadius] = useState("0.5rem");
@@ -81,7 +270,7 @@ export function usePageBuilder(location: PageLocation = "home") {
   
   // Editing Child State
   const [editingChild, setEditingChild] = useState<{ parentIndex: number, childId: string } | null>(null);
-  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual">("content");
+  const [activeEditTab, setActiveEditTab] = useState<"content" | "visual" | "advanced">("content");
   
   // Section Editing State
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null);
@@ -97,6 +286,25 @@ export function usePageBuilder(location: PageLocation = "home") {
     _setActiveSectionDeviceTab(device);
     _setActiveDeviceTab(device);
   }, []);
+
+  const buildHomepageSidebarAuxiliaryConfig = useCallback((
+    normalizedType: string,
+    title: string,
+    columnIndex: number,
+    widgetTypeOverride?: string,
+  ): Block["config"] => {
+    return buildHomepageSidebarAuxiliaryConfigFromTemplateBlocks(
+      homepageTemplateBlocks,
+      normalizedType,
+      title,
+      columnIndex,
+      widgetTypeOverride,
+    );
+  }, [homepageTemplateBlocks]);
+
+  const hydratePostSidebarAuxiliaryDefaults = useCallback((sourceBlocks: Block[]): Block[] => {
+    return hydratePostSidebarAuxiliaryDefaultsWithTemplates(sourceBlocks, homepageTemplateBlocks);
+  }, [homepageTemplateBlocks]);
 
   // Helper to update blocks (without history) - e.g. for initial load
   const setBlocks = useCallback((newBlocksOrFn: Block[] | ((prev: Block[]) => Block[])) => {
@@ -175,14 +383,20 @@ export function usePageBuilder(location: PageLocation = "home") {
         const currentTheme = globalData?.activeTheme || "classic";
         setActiveTheme(currentTheme);
 
-        const [resThemeConfig, resBlocks] = await Promise.all([
+        const [resThemeConfig, resBlocks, resHomepageTemplateBlocks] = await Promise.all([
           fetch(`/api/admin/settings?themeId=${currentTheme}`),
           fetch(`/api/homepage?location=${location}&themeId=${currentTheme}`),
+          location === "post"
+            ? fetch(`/api/homepage?location=home&themeId=${currentTheme}`)
+            : Promise.resolve(null),
         ]);
 
-        const [themeConfigData, blocksData] = await Promise.all([
+        const [themeConfigData, blocksData, homepageTemplateData] = await Promise.all([
           resThemeConfig.json(),
           resBlocks.ok ? resBlocks.json() : Promise.resolve([]),
+          resHomepageTemplateBlocks && "ok" in resHomepageTemplateBlocks && resHomepageTemplateBlocks.ok
+            ? resHomepageTemplateBlocks.json()
+            : Promise.resolve([]),
         ]);
 
         if (themeConfigData) {
@@ -201,9 +415,19 @@ export function usePageBuilder(location: PageLocation = "home") {
           setSecondaryColor(themeConfigData[`${prefix}SecondaryColor`] || "#64748b");
           setAccentColor(themeConfigData[`${prefix}AccentColor`] || "#f59e0b");
           setBackgroundColor(themeConfigData[`${prefix}BackgroundColor`] || "#f8fafc");
-          setHeadingColor(themeConfigData[`${prefix}HeadingColor`] || "#1e293b");
-          setExcerptColor(themeConfigData[`${prefix}ExcerptColor`] || "#64748b");
-          setMetaColor(themeConfigData[`${prefix}MetaColor`] || "#94a3b8");
+              setHeadingColor(themeConfigData[`${prefix}HeadingColor`] || "#1e293b");
+              setExcerptColor(themeConfigData[`${prefix}ExcerptColor`] || "#64748b");
+              setMetaColor(themeConfigData[`${prefix}MetaColor`] || "#94a3b8");
+          setHomeWidgetTitleColor(themeConfigData.homeWidgetTitleColor || themeConfigData.headingColor || "#1e293b");
+          setHomeNewsTitleColor(themeConfigData.homeNewsTitleColor || themeConfigData.headingColor || "#111827");
+          setHomeHoverColor(themeConfigData.homeHoverColor || themeConfigData.globalAccentColor || themeConfigData.accentColor || "#2563eb");
+          setHomeExcerptColor(themeConfigData.homeExcerptColor || themeConfigData.excerptColor || "#4b5563");
+          setHomeMetaColor(themeConfigData.homeMetaColor || themeConfigData.metaColor || "#9ca3af");
+          setPostWidgetTitleColor(themeConfigData.postWidgetTitleColor || themeConfigData.headingColor || "#1e293b");
+          setPostContentColor(themeConfigData.postContentColor || themeConfigData.headingColor || "#374151");
+          setPostMetaColor(themeConfigData.postMetaColor || themeConfigData.metaColor || "#94a3b8");
+          setPostLinkColor(themeConfigData.postLinkColor || themeConfigData.homeHoverColor || themeConfigData.globalAccentColor || "#2563eb");
+          setPostLinkHoverColor(themeConfigData.postLinkHoverColor || themeConfigData.postLinkColor || themeConfigData.homeHoverColor || themeConfigData.globalAccentColor || "#1d4ed8");
           setHeadingFont(themeConfigData[`${prefix}HeadingFont`] || "Inter");
           setBodyFont(themeConfigData[`${prefix}BodyFont`] || "Inter");
           setGlobalBorderRadius(themeConfigData[`${prefix}GlobalBorderRadius`] || "0.5rem");
@@ -216,9 +440,21 @@ export function usePageBuilder(location: PageLocation = "home") {
           setGlobalPaddingRight(themeConfigData[`${prefix}GlobalPaddingRight`] || "0");
         }
 
-        const normalizedBlocks = Array.isArray(blocksData) ? blocksData : [];
+        const normalizedHomepageTemplateBlocks = Array.isArray(homepageTemplateData) ? (homepageTemplateData as Block[]) : [];
+        setHomepageTemplateBlocks(normalizedHomepageTemplateBlocks);
+
+        const normalizedBlocks = Array.isArray(blocksData)
+          ? location === "post"
+            ? hydratePostSidebarAuxiliaryDefaultsWithTemplates(blocksData as Block[], normalizedHomepageTemplateBlocks)
+            : (blocksData as Block[])
+          : [];
         if (location === "post" && normalizedBlocks.length === 0) {
-          setBlocks(getThemeDefaultPostBlocks(currentTheme) as Block[]);
+          setBlocks(
+            hydratePostSidebarAuxiliaryDefaultsWithTemplates(
+              getThemeDefaultPostBlocks(currentTheme) as Block[],
+              normalizedHomepageTemplateBlocks,
+            ),
+          );
         } else {
           setBlocks(normalizedBlocks);
         }
@@ -252,16 +488,32 @@ export function usePageBuilder(location: PageLocation = "home") {
   }, []);
 
   const createChildBlock = useCallback((type: string, title: string, columnIndex: number, order: number): Block => {
-      const config = buildPageChildConfig(type, title, columnIndex) as Block["config"];
-      return {
-          id: "child_" + type + "_" + Date.now(),
-          type: type,
-          title: title,
+      const normalizedType = resolveBlockTypeAlias(type);
+      const currentWidgetType =
+          normalizedType === "sidebar_widget"
+              ? "popular_posts"
+              : undefined;
+      const resolvedTitle = normalizedType === "sidebar_widget"
+          ? getSidebarWidgetDefaultTitle(currentWidgetType || "popular_posts", title)
+          : normalizedType === "section"
+            ? "Inner Section"
+            : title;
+      const shouldUseHomepageSidebarDefaults =
+          location === "post" && ["sidebar_widget", "tag_cloud", "ad_banner"].includes(normalizedType);
+      const config = (
+          shouldUseHomepageSidebarDefaults
+              ? buildHomepageSidebarAuxiliaryConfig(normalizedType, resolvedTitle, columnIndex, currentWidgetType)
+              : buildPageChildConfig(normalizedType, resolvedTitle, columnIndex)
+      ) as Block["config"];
+      return normalizeBlockTree({
+          id: "child_" + normalizedType + "_" + Date.now(),
+          type: normalizedType,
+          title: resolvedTitle,
           order,
           isVisible: true,
           config
-      };
-  }, []);
+      }) as Block;
+  }, [buildHomepageSidebarAuxiliaryConfig, location]);
 
   const deepCloneBlock = useCallback((block: Block): Block => {
       const newId = block.type === "section" ? "section_" + Date.now() + Math.random().toString(36).substr(2, 5) : "child_" + block.type + "_" + Date.now() + Math.random().toString(36).substr(2, 5);
@@ -281,7 +533,7 @@ export function usePageBuilder(location: PageLocation = "home") {
           };
       }
       
-      return clonedBlock;
+      return normalizeBlockTree(clonedBlock);
   }, [getChildren]);
 
   const findBlockRecursive = useCallback((blocks: Block[], targetId: string): Block | null => {
@@ -798,6 +1050,16 @@ export function usePageBuilder(location: PageLocation = "home") {
               setHeadingColor("#1e293b");
               setExcerptColor("#64748b");
               setMetaColor("#94a3b8");
+              setHomeWidgetTitleColor("#1e293b");
+              setHomeNewsTitleColor("#111827");
+              setHomeHoverColor("#2563eb");
+              setHomeExcerptColor("#4b5563");
+              setHomeMetaColor("#9ca3af");
+              setPostWidgetTitleColor("#1e293b");
+              setPostContentColor("#374151");
+              setPostMetaColor("#94a3b8");
+              setPostLinkColor("#2563eb");
+              setPostLinkHoverColor("#1d4ed8");
               setHeadingFont("Inter");
               setBodyFont("Inter");
               setGlobalBorderRadius("0.5rem");
@@ -1030,6 +1292,16 @@ export function usePageBuilder(location: PageLocation = "home") {
       headingColor,
       excerptColor,
       metaColor,
+      homeWidgetTitleColor,
+      homeNewsTitleColor,
+      homeHoverColor,
+      homeExcerptColor,
+      homeMetaColor,
+      postWidgetTitleColor,
+      postContentColor,
+      postMetaColor,
+      postLinkColor,
+      postLinkHoverColor,
       headingFont,
       bodyFont,
       globalBorderRadius,

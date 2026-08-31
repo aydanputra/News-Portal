@@ -1,6 +1,7 @@
 import { CLASSIC_POST_WIDGET_GROUPS } from "@/themes/classic/blockpost/registry";
 import { PRANALA_POST_WIDGET_GROUPS } from "@/themes/pranala/blockpost/registry";
 import { DEFAULT_PRANALA_POST_BLOCKS } from "@/themes/pranala/blockpost/defaults";
+import { getResolvedThemeId } from "@/lib/theme-registry";
 
 type PostWidgetDefinition = {
   type: string;
@@ -21,11 +22,18 @@ const THEME_POST_WIDGET_GROUPS: Record<string, PostWidgetGroups> = {
   pranala: PRANALA_POST_WIDGET_GROUPS
 };
 
+const THEME_DEFAULT_POST_BLOCKS: Record<string, any[]> = {
+  classic: [],
+  skeleton: [],
+  pranala: DEFAULT_PRANALA_POST_BLOCKS,
+};
+
 export function getThemePostWidgetGroups(themeName: string = "classic"): PostWidgetGroups {
-  return THEME_POST_WIDGET_GROUPS[themeName] || THEME_POST_WIDGET_GROUPS.classic;
+  const resolvedThemeId = getResolvedThemeId(themeName);
+  return THEME_POST_WIDGET_GROUPS[resolvedThemeId] || THEME_POST_WIDGET_GROUPS.classic;
 }
 
 export function getThemeDefaultPostBlocks(themeName: string) {
-  if (themeName === "pranala") return DEFAULT_PRANALA_POST_BLOCKS;
-  return [];
+  const resolvedThemeId = getResolvedThemeId(themeName);
+  return THEME_DEFAULT_POST_BLOCKS[resolvedThemeId] || [];
 }

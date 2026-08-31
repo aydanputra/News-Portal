@@ -51,7 +51,7 @@ export default function Header({ siteName, logoUrl, categories }: HeaderProps) {
             <Search size={20} />
           </button>
           {/* Example CTA */}
-          <Link href="/login" className="hidden sm:inline-flex px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-full hover:bg-gray-800 transition-colors">
+          <Link href="/admin/login" className="hidden sm:inline-flex px-4 py-2 text-sm font-medium text-white bg-gray-900 rounded-full hover:bg-gray-800 transition-colors">
             Masuk
           </Link>
         </div>

@@ -9,15 +9,15 @@ interface Post {
   title: string;
   status: string;
   published: boolean;
-  publishedAt: string | null;
-  updatedAt: string;
+  publishedAt: string | Date | null;
+  updatedAt: string | Date;
   type?: string | null;
   author: {
-    name: string;
-  };
+    name: string | null;
+  } | null;
   category: {
     name: string;
-  };
+  } | null;
   image?: string | null;
   featuredImage?: {
     fileUrl: string;
@@ -105,12 +105,12 @@ export default function DashboardRecentTable({
                         <Link href={`/admin/posts/${post.id}/edit`} className="font-semibold text-[var(--fg-primary)] hover:text-[var(--accent)] line-clamp-1 leading-snug text-sm transition-colors">
                           {post.title}
                         </Link>
-                        <span className="text-xs text-[var(--fg-muted)] font-medium">{post.author.name}</span>
+                        <span className="text-xs text-[var(--fg-muted)] font-medium">{post.author?.name || "-"}</span>
                     </div>
                   </td>
                   <td className="px-4 py-3.5 whitespace-nowrap">
                     <span className="text-xs font-semibold text-[var(--fg-secondary)] bg-[var(--bg-surface)] px-2 py-1 rounded-md border border-[var(--border)]">
-                        {post.category.name}
+                        {post.category?.name || "-"}
                     </span>
                   </td>
                   <td className="px-4 py-3.5 whitespace-nowrap">

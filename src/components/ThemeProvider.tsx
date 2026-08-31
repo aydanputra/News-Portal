@@ -1,6 +1,11 @@
 "use client";
 
 import React from "react";
+import {
+  getThemeFontLoadFamilies,
+  resolveThemeFontSynthesis,
+  resolveThemeFontFamily,
+} from "@/lib/font-utils";
 import { safeStyleTagCss } from "@/lib/sanitizer";
 
 interface ThemeProviderProps {
@@ -24,11 +29,19 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
   // 1. Generate Google Fonts URL
   const headingFont = settings.headingFont || "Inter";
   const bodyFont = settings.bodyFont || "Inter";
+  const resolvedHeadingFont = resolveThemeFontFamily(headingFont);
+  const resolvedBodyFont = resolveThemeFontFamily(bodyFont);
+  const headingSizeAdjust = "none";
+  const bodySizeAdjust = "none";
+  const headingFontSynthesis = resolveThemeFontSynthesis(headingFont);
+  const bodyFontSynthesis = resolveThemeFontSynthesis(bodyFont);
 
   // Collect ALL font fields to load
   const fontsToLoad = new Set<string>();
   const addFont = (font?: string) => {
-      if (font && font !== "Inter") fontsToLoad.add(font);
+      for (const family of getThemeFontLoadFamilies(font)) {
+        if (family !== "Inter") fontsToLoad.add(family);
+      }
   };
 
   // Base Fonts
@@ -46,6 +59,8 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
   addFont(settings.postSubtitleFont);
   addFont(settings.postContentFont);
   addFont(settings.postWidgetTitleFont);
+  addFont(settings.postInlineRelatedTitleFont);
+  addFont(settings.postInlineRelatedHeadingFont);
 
   // Archive & Global Fonts
   addFont(settings.archiveTitleFont);
@@ -102,10 +117,18 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
       --home-meta-color: var(--meta-color);
       --home-excerpt-color: var(--excerpt-color);
       
-      --font-heading: '${headingFont}', sans-serif;
-      --font-body: '${bodyFont}', sans-serif;
+      --font-heading: ${resolvedHeadingFont};
+      --font-body: ${resolvedBodyFont};
+      --font-heading-size-adjust: ${headingSizeAdjust};
+      --font-body-size-adjust: ${bodySizeAdjust};
+      --font-heading-synthesis: ${headingFontSynthesis};
+      --font-body-synthesis: ${bodyFontSynthesis};
       
       --radius-global: ${settings.globalBorderRadius || '0.5rem'};
+      --global-image-radius: ${settings.globalBorderRadius || '0.5rem'};
+      --home-main-box-radius: ${settings.globalBorderRadius || '0.5rem'};
+      --main-box-radius: ${settings.globalBorderRadius || '0.5rem'};
+      --sidebar-box-radius: ${settings.globalBorderRadius || '0.5rem'};
       
       /* Container Widths */
       --container-global: ${settings.globalContainerWidth === 'custom' ? (settings.globalCustomContainerWidth + 'px') : (settings.globalContainerWidth === 'full' ? '100%' : '1250px')};
@@ -148,6 +171,8 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
     /* Use html body to increase specificity over Tailwind base */
      html body {
        font-family: var(--font-body);
+       font-synthesis: var(--font-body-synthesis);
+       font-size-adjust: var(--font-body-size-adjust);
        color: var(--heading-color);
        background-color: var(--bg-color);
        background-image: var(--bg-image);
@@ -164,6 +189,8 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
 
      h1, h2, h3, h4, h5, h6 {
        font-family: var(--font-heading);
+       font-synthesis: var(--font-heading-synthesis);
+       font-size-adjust: var(--font-heading-size-adjust);
        color: var(--heading-color);
      }
    `;

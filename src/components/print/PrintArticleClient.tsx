@@ -3,15 +3,15 @@
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Printer, SlidersHorizontal, X } from "lucide-react";
+import { Printer, X } from "lucide-react";
 import { sanitizeContent } from "@/lib/sanitizer";
+import { normalizeGalleryItems, resolveInfographicHeaderImageUrl } from "@/lib/post-type-media";
 
 type PrintDefaults = {
   showFeaturedImage: boolean;
   showImages: boolean;
   showExcerpt: boolean;
   showAuthor: boolean;
-  showEditor: boolean;
   showCategory: boolean;
   showTags: boolean;
   showDate: boolean;
@@ -62,12 +62,12 @@ export default function PrintArticleClient({
   inlineAdsConfig?: InlineAdsConfig;
 }) {
   const defaults = settings?.defaults;
-  const [open, setOpen] = useState(true);
   const [showImages, setShowImages] = useState(Boolean(defaults?.showImages));
   const [showFeaturedImage, setShowFeaturedImage] = useState(Boolean(defaults?.showFeaturedImage));
+  const [showPrintHeader, setShowPrintHeader] = useState((settings?.header?.mode || "site") !== "none");
+  const [showInlineRelated, setShowInlineRelated] = useState(true);
   const [showExcerpt, setShowExcerpt] = useState(Boolean(defaults?.showExcerpt));
   const [showAuthor, setShowAuthor] = useState(Boolean(defaults?.showAuthor));
-  const [showEditor, setShowEditor] = useState(Boolean(defaults?.showEditor));
   const [showCategory, setShowCategory] = useState(Boolean(defaults?.showCategory));
   const [showTags, setShowTags] = useState(Boolean(defaults?.showTags));
   const [showDate, setShowDate] = useState(Boolean(defaults?.showDate));
@@ -77,10 +77,15 @@ export default function PrintArticleClient({
   const [lineHeight, setLineHeight] = useState(Number(defaults?.lineHeight || 1.65));
   const [contentWidthPx, setContentWidthPx] = useState(Number(defaults?.contentWidthPx || 820));
   const [pageMarginMm, setPageMarginMm] = useState(Number(defaults?.pageMarginMm || 12));
-  const [featuredImageMaxHeightPx, setFeaturedImageMaxHeightPx] = useState(Number((defaults as any)?.featuredImageMaxHeightPx || 360));
+  const [featuredImageScalePercent, setFeaturedImageScalePercent] = useState(100);
   const [contentHtml, setContentHtml] = useState<string>(String(post?.content || ""));
   const sanitizedContentHtml = useMemo(() => sanitizeContent(contentHtml), [contentHtml]);
   const [customAds, setCustomAds] = useState<Array<{ id: string; label: string; enabled: boolean }>>([]);
+  const featuredImageMaxHeightPx = featuredImageScalePercent;
+  const setFeaturedImageMaxHeightPx = (value: number) => setFeaturedImageScalePercent(value);
+  const showEditor = false;
+  const setShowEditor = (_value: boolean) => undefined;
+  const setOpen = (_value: boolean) => undefined;
 
   const headerText = useMemo(() => {
     const mode = settings?.header?.mode || "site";
@@ -99,9 +104,16 @@ export default function PrintArticleClient({
 
   const imageUrl = useMemo(() => {
     const isInfographicPost = String(post?.type || "").toUpperCase() === "INFOGRAPHIC";
-    const base = isInfographicPost ? (post?.featuredImage?.fileUrl || post?.image) : (post?.image || post?.featuredImage?.fileUrl);
+    const isGalleryPost = String(post?.type || "").toUpperCase() === "GALLERY";
+    const galleryItems = normalizeGalleryItems(post?.gallery);
+    const infographicHeaderImageUrl = isInfographicPost ? resolveInfographicHeaderImageUrl(post) : undefined;
+    const base = isGalleryPost
+      ? (galleryItems[0]?.url || post?.image || post?.featuredImage?.fileUrl)
+      : isInfographicPost
+        ? (infographicHeaderImageUrl || post?.image)
+        : (post?.image || post?.featuredImage?.fileUrl);
     return typeof base === "string" && base.trim() !== "" ? base : null;
-  }, [post?.featuredImage?.fileUrl, post?.image, post?.type]);
+  }, [post]);
 
   useEffect(() => {
     const raw = String(post?.content || "");
@@ -229,7 +241,20 @@ export default function PrintArticleClient({
         return { id, label: item.label, imgSrc: item.imgSrc, width: item.width, height: item.height };
       });
 
-      return { doc, items };
+      const inlineRelatedImageNodes = Array.from(
+        doc.body.querySelectorAll(
+          ".inline-related-root img, [data-inline-related] img, [data-inline-related-slot] img, [class*='inline-related'] img"
+        )
+      ) as HTMLImageElement[];
+
+      if (inlineRelatedImageNodes.length > 0) {
+        for (const img of inlineRelatedImageNodes) {
+          img.setAttribute("data-print-ad-id", "inline_related_images");
+          img.setAttribute("data-print-custom-ad", "1");
+        }
+      }
+
+      return { doc, items, hasInlineRelatedImages: inlineRelatedImageNodes.length > 0 };
     };
 
     let cancelled = false;
@@ -359,8 +384,17 @@ export default function PrintArticleClient({
           label: it.label,
           enabled: enabledById.get(it.id) ?? true,
         }));
+        const inlineRelatedImages = result.hasInlineRelatedImages
+          ? [
+              {
+                id: "inline_related_images",
+                label: "Gambar Inline Related Post",
+                enabled: enabledById.get("inline_related_images") ?? true,
+              },
+            ]
+          : [];
         const detected = filteredDetected.map((a) => ({ id: a.id, label: a.label, enabled: enabledById.get(a.id) ?? true }));
-        return [...inline, ...detected];
+        return [...inline, ...inlineRelatedImages, ...detected];
       });
     };
 
@@ -379,16 +413,22 @@ export default function PrintArticleClient({
     ["--print-page-margin" as any]: `${pageMarginMm}mm`,
   } as React.CSSProperties;
 
-  const contentClass = showImages ? "print-content" : "print-content print-hide-images";
+  const contentClass = [
+    "print-content",
+    showImages ? "" : "print-hide-images",
+    showInlineRelated ? "" : "print-hide-inline-related",
+  ].filter(Boolean).join(" ");
 
   const canUseControls = Boolean(settings?.enabled);
 
-  const featuredHeightPx = useMemo(() => {
-    const ratio = 16 / 9;
-    const base = Math.round(contentWidthPx / ratio);
-    const cap = Math.max(180, Math.min(720, Math.floor(featuredImageMaxHeightPx || 360)));
-    return Math.max(180, Math.min(cap, base));
-  }, [contentWidthPx, featuredImageMaxHeightPx]);
+  const featuredImageWidth = Number(post?.featuredImage?.width || post?.featuredImage?.metadata?.width || 1600);
+  const featuredImageHeight = Number(post?.featuredImage?.height || post?.featuredImage?.metadata?.height || 900);
+  const featuredFigureStyle: React.CSSProperties = {
+    width: `${featuredImageScalePercent}%`,
+    maxWidth: "100%",
+    margin: "0 auto",
+  };
+  const featuredImageScaleLabel = `${featuredImageScalePercent}%`;
 
   const hiddenAdsCss = useMemo(() => {
     const rules = customAds
@@ -396,6 +436,208 @@ export default function PrintArticleClient({
       .map((a) => `[data-print-ad-id="${a.id}"]{display:none !important;}`);
     return rules.join("\n");
   }, [customAds]);
+
+  const printControlPanel =
+    canUseControls ? (
+      <aside className="pf-sidebar">
+        <div className="pf-panel">
+          <div className="pf-card">
+            <div className="text-sm font-black">Pengaturan Print</div>
+
+            <div className="pf-grid">
+              <label className="pf-row">
+                <div>
+                  <span>Gambar</span>
+                  <small>Sembunyikan semua gambar di konten</small>
+                </div>
+                <input type="checkbox" checked={showImages} onChange={(e) => setShowImages(e.target.checked)} />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Featured Image</span>
+                  <small>Gambar utama di atas konten</small>
+                </div>
+                <input type="checkbox" checked={showFeaturedImage} onChange={(e) => setShowFeaturedImage(e.target.checked)} />
+              </label>
+              {(settings?.header?.mode || "site") !== "none" && (
+                <label className="pf-row">
+                  <div>
+                    <span>Custom Header</span>
+                    <small>Sembunyikan header print di atas artikel</small>
+                  </div>
+                  <input type="checkbox" checked={showPrintHeader} onChange={(e) => setShowPrintHeader(e.target.checked)} />
+                </label>
+              )}
+              <div className="pf-row pf-row-slider">
+                <div className="pf-slider-head">
+                  <span>Ukuran Featured</span>
+                  <span className="pf-slider-value">{featuredImageScaleLabel}</span>
+                </div>
+                <div className="pf-slider-wrap">
+                  <input
+                    className="pf-range"
+                    type="range"
+                    min={40}
+                    max={140}
+                    step={1}
+                    value={featuredImageScalePercent}
+                    onChange={(e) => setFeaturedImageScalePercent(Number(e.target.value || 100))}
+                  />
+                </div>
+              </div>
+              <label className="pf-row">
+                <div>
+                  <span>Inline Related Post</span>
+                  <small>Sembunyikan blok baca juga di dalam artikel</small>
+                </div>
+                <input type="checkbox" checked={showInlineRelated} onChange={(e) => setShowInlineRelated(e.target.checked)} />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Ringkasan</span>
+                  <small>Excerpt</small>
+                </div>
+                <input type="checkbox" checked={showExcerpt} onChange={(e) => setShowExcerpt(e.target.checked)} />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Penulis</span>
+                  <small>Nama penulis</small>
+                </div>
+                <input type="checkbox" checked={showAuthor} onChange={(e) => setShowAuthor(e.target.checked)} />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Tanggal</span>
+                  <small>Publish date</small>
+                </div>
+                <input type="checkbox" checked={showDate} onChange={(e) => setShowDate(e.target.checked)} />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Kategori</span>
+                  <small>Nama kategori</small>
+                </div>
+                <input type="checkbox" checked={showCategory} onChange={(e) => setShowCategory(e.target.checked)} />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Tag</span>
+                  <small>Topik terkait</small>
+                </div>
+                <input type="checkbox" checked={showTags} onChange={(e) => setShowTags(e.target.checked)} />
+              </label>
+            </div>
+
+            <div className="pf-grid">
+              <label className="pf-row">
+                <div>
+                  <span>Ukuran Font</span>
+                  <small>12-26</small>
+                </div>
+                <input
+                  className="pf-input"
+                  type="number"
+                  min={12}
+                  max={26}
+                  value={fontSizePx}
+                  onChange={(e) => setFontSizePx(Number(e.target.value || 16))}
+                />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Ukuran Judul</span>
+                  <small>18-44</small>
+                </div>
+                <input
+                  className="pf-input"
+                  type="number"
+                  min={18}
+                  max={44}
+                  value={titleFontSizePx}
+                  onChange={(e) => setTitleFontSizePx(Number(e.target.value || 28))}
+                />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Line Height</span>
+                  <small>1.2-2.2</small>
+                </div>
+                <input
+                  className="pf-input"
+                  type="number"
+                  step="0.05"
+                  min={1.2}
+                  max={2.2}
+                  value={lineHeight}
+                  onChange={(e) => setLineHeight(Number(e.target.value || 1.65))}
+                />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Lebar Konten</span>
+                  <small>px</small>
+                </div>
+                <input
+                  className="pf-input"
+                  type="number"
+                  min={560}
+                  max={1040}
+                  value={contentWidthPx}
+                  onChange={(e) => setContentWidthPx(Number(e.target.value || 820))}
+                />
+              </label>
+              <label className="pf-row">
+                <div>
+                  <span>Margin Kertas</span>
+                  <small>mm</small>
+                </div>
+                <input
+                  className="pf-input"
+                  type="number"
+                  min={6}
+                  max={25}
+                  value={pageMarginMm}
+                  onChange={(e) => setPageMarginMm(Number(e.target.value || 12))}
+                />
+              </label>
+            </div>
+
+            <div>
+              <div className="text-xs font-black mb-2">Font family</div>
+              <input className="pf-input" value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} />
+            </div>
+
+            <div>
+              <div className="text-xs font-black mb-2">Iklan Dalam Artikel</div>
+              {customAds.length === 0 ? (
+                <div className="text-xs opacity-70">Tidak ada banner iklan custom yang terdeteksi pada konten artikel ini.</div>
+              ) : (
+                <div className="pf-grid">
+                  {customAds.map((ad) => (
+                    <label key={ad.id} className="pf-row">
+                      <div>
+                        <span>{ad.id.replace("_", " ").toUpperCase()}</span>
+                        <small>{ad.label}</small>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={ad.enabled}
+                        onChange={(e) =>
+                          setCustomAds((prev) =>
+                            prev.map((item) => (item.id === ad.id ? { ...item, enabled: e.target.checked } : item))
+                          )
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </aside>
+    ) : null;
 
   return (
     <div className="min-h-screen bg-white text-black" style={rootStyle}>
@@ -431,15 +673,26 @@ export default function PrintArticleClient({
               display: block;
             }
             .print-header-image-wrap {
-              position: relative;
-              height: 120px;
               width: 100%;
+              display: flex;
+              align-items: center;
+              justify-content: flex-start;
+            }
+            .print-header-image {
+              display: block;
+              width: 100%;
+              max-width: 100%;
+              max-height: 140px;
+              height: auto;
+              object-fit: contain;
+              object-position: left center;
             }
             .print-title {
               font-weight: 800;
               line-height: 1.2;
               font-size: var(--print-title-size);
               margin: 0;
+              color: #000000 !important;
             }
             .print-meta {
               display: flex;
@@ -479,6 +732,12 @@ export default function PrintArticleClient({
               page-break-inside: avoid;
             }
             .print-hide-images img {
+              display: none !important;
+            }
+            .print-hide-inline-related .inline-related-root,
+            .print-hide-inline-related [class*="inline-related"],
+            .print-hide-inline-related [data-inline-related],
+            .print-hide-inline-related [data-inline-related-slot] {
               display: none !important;
             }
             .print-inline-ad {
@@ -577,9 +836,7 @@ export default function PrintArticleClient({
               font-size: 12px;
             }
             .pf-panel {
-              max-width: var(--print-content-width);
-              margin: 0 auto;
-              padding: 0 16px 12px 16px;
+              width: 100%;
               font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
             }
             .pf-card {
@@ -614,6 +871,71 @@ export default function PrintArticleClient({
             .pf-row span { font-weight: 700; }
             .pf-row small { font-weight: 600; color: #6b7280; display: block; margin-top: 2px; }
             .pf-row input[type="checkbox"] { width: 18px; height: 18px; }
+            .pf-row-slider {
+              display: grid;
+              grid-template-columns: 1fr;
+              align-items: stretch;
+              justify-content: stretch;
+              gap: 10px;
+            }
+            .pf-slider-head {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 12px;
+            }
+            .pf-slider-wrap {
+              width: 100%;
+              display: block;
+              padding: 0 4px 2px 4px;
+            }
+            .pf-slider-value {
+              min-width: 44px;
+              text-align: right;
+              font-size: 12px;
+              font-weight: 800;
+              color: #111827;
+            }
+            .pf-range {
+              width: 100%;
+              appearance: none;
+              -webkit-appearance: none;
+              background: transparent;
+              margin: 0;
+              padding: 0 8px;
+            }
+            .pf-range::-webkit-slider-runnable-track {
+              height: 8px;
+              border-radius: 9999px;
+              background: linear-gradient(90deg, #d1d5db 0%, #3b82f6 100%);
+            }
+            .pf-range::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 20px;
+              height: 20px;
+              margin-top: -6px;
+              border-radius: 9999px;
+              border: 2px solid #ffffff;
+              background: #2563eb;
+              box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35);
+              cursor: pointer;
+            }
+            .pf-range::-moz-range-track {
+              height: 8px;
+              border: none;
+              border-radius: 9999px;
+              background: linear-gradient(90deg, #d1d5db 0%, #3b82f6 100%);
+            }
+            .pf-range::-moz-range-thumb {
+              width: 20px;
+              height: 20px;
+              border: 2px solid #ffffff;
+              border-radius: 9999px;
+              background: #2563eb;
+              box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35);
+              cursor: pointer;
+            }
             .pf-input {
               width: 100%;
               border: 1px solid #e5e7eb;
@@ -621,9 +943,35 @@ export default function PrintArticleClient({
               padding: 8px 10px;
               font-size: 12px;
             }
+            .print-workspace {
+              max-width: calc(var(--print-content-width) + 420px);
+              margin: 0 auto;
+              padding: 14px 16px 32px 16px;
+              display: grid;
+              grid-template-columns: 1fr;
+              gap: 18px;
+              align-items: start;
+            }
+            .pf-sidebar {
+              display: block;
+            }
+            .print-main {
+              min-width: 0;
+            }
+            @media (min-width: 1200px) {
+              .print-workspace--with-sidebar {
+                grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+              }
+              .pf-sidebar {
+                position: sticky;
+                top: 78px;
+              }
+            }
             @media print {
               @page { margin: var(--print-page-margin); }
-              .print-toolbar, .pf-panel { display: none !important; }
+              .print-toolbar, .pf-panel, .pf-sidebar { display: none !important; }
+              .print-workspace { display: block !important; max-width: none !important; padding: 0 !important; }
+              .print-main { display: block !important; }
               .print-shell { padding: 0 !important; max-width: 100% !important; }
               a[href]::after { content: ""; }
             }
@@ -640,17 +988,13 @@ export default function PrintArticleClient({
                 <Printer size={16} />
                 Print
               </button>
-              <button type="button" className="pf-btn-ghost" onClick={() => setOpen((v) => !v)}>
-                <SlidersHorizontal size={16} />
-                Sesuaikan
-              </button>
             </div>
             <Link href={`/${post?.category?.slug || "berita"}/${post?.slug || ""}`} className="pf-btn-ghost">
               Kembali
             </Link>
           </div>
 
-          {open && (
+          {false && (
             <div className="pf-panel">
               <div className="pf-card">
                 <div className="flex items-center justify-between gap-3">
@@ -851,14 +1195,17 @@ export default function PrintArticleClient({
         </div>
       )}
 
-      <main className="print-shell">
-        {(settings?.header?.mode || "site") !== "none" && (
+      <div className={`print-workspace ${canUseControls ? "print-workspace--with-sidebar" : ""}`}>
+        {printControlPanel}
+        <main className="print-main">
+          <div className="print-shell">
+        {showPrintHeader && (settings?.header?.mode || "site") !== "none" && (
           <header className={`print-header ${settings?.header?.mode === "image" ? "print-header--image" : ""}`}>
             {settings?.header?.mode === "image" ? (
               <div className="min-w-0">
                 {headerImageUrl ? (
                   <div className="print-header-image-wrap">
-                    <Image src={headerImageUrl} alt={site.siteName} fill className="object-cover" unoptimized />
+                    <img src={headerImageUrl} alt={site.siteName} className="print-header-image" />
                   </div>
                 ) : (
                   <div className="text-sm font-black truncate">{site.siteName}</div>
@@ -885,7 +1232,6 @@ export default function PrintArticleClient({
           <h1 className="print-title">{post?.title || ""}</h1>
           <div className="print-meta">
             {showAuthor && post?.author?.name && <span>Penulis: {post.author.name}</span>}
-            {showEditor && post?.approvedBy?.name && <span>Editor: {post.approvedBy.name}</span>}
             {showDate && post?.publishedAt && (
               <span>
                 Tanggal:{" "}
@@ -901,8 +1247,15 @@ export default function PrintArticleClient({
 
           {showFeaturedImage && imageUrl && (
             <figure className="print-featured">
-              <div className="relative w-full" style={{ height: `${featuredHeightPx}px` }}>
-                <Image src={imageUrl} alt={post?.title || ""} fill className="object-cover rounded-xl" unoptimized />
+              <div style={featuredFigureStyle}>
+                <Image
+                  src={imageUrl}
+                  alt={post?.title || ""}
+                  width={featuredImageWidth}
+                  height={featuredImageHeight}
+                  className="w-full h-auto rounded-xl object-contain"
+                  unoptimized
+                />
               </div>
               {post?.featuredImage?.caption && <figcaption>{post.featuredImage.caption}</figcaption>}
             </figure>
@@ -923,7 +1276,9 @@ export default function PrintArticleClient({
             </div>
           )}
         </article>
-      </main>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

@@ -1,24 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { getResponsiveBoolValues, getResponsiveValues } from "./responsive";
-import { safeStyleTagCss } from "@/lib/sanitizer";
+import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues } from "./responsive";
 
 interface HeroProps {
   block: any;
   posts: any[];
   accentColor?: string;
   borderRadius?: string;
+  customTitle?: string;
 }
-
-const toSize = (val: unknown, fallback: string) => {
-  if (val === undefined || val === null) return fallback;
-  if (typeof val === "number" && Number.isFinite(val)) return `${val}px`;
-  if (typeof val === "string" && val.trim() !== "") return /^\d+(\.\d+)?$/.test(val.trim()) ? `${val.trim()}px` : val;
-  return fallback;
-};
 
 const resolveRadiusValue = (value: unknown, fallback: string) => {
   if (value === undefined || value === null) return fallback;
@@ -60,13 +53,14 @@ const formatLongDateId = (value?: string | Date | null) => {
   }).format(date);
 };
 
-export default function Hero({ block, posts, accentColor, borderRadius }: HeroProps) {
+export default function Hero({ block, posts, accentColor, borderRadius, customTitle }: HeroProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
   
   // Ambil post pertama sebagai hero
   const heroPost = posts && posts.length > 0 ? posts[0] : null;
   const effectiveAccent = accentColor || 'var(--accent)';
-  const effectiveRadius = borderRadius ? borderRadius : 'var(--home-main-box-radius, 0.75rem)';
+  const effectiveRadius = 'var(--global-image-radius, var(--home-main-box-radius, 0.75rem))';
   const config = block.config || {};
   const configRecord = config as Record<string, unknown>;
 
@@ -75,22 +69,18 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const showCategoryDesktop = showCategoryValues.desktop;
   const showCategoryTablet = showCategoryValues.tablet;
   const showCategoryMobile = showCategoryValues.mobile;
-  const showCategoryAny = showCategoryDesktop || showCategoryTablet || showCategoryMobile;
-  const showMetaInfoValues = getResponsiveBoolValues(configRecord, "showMetaInfo", true);
-  const showMetaInfoDesktop = showMetaInfoValues.desktop;
-  const showMetaInfoTablet = showMetaInfoValues.tablet;
-  const showMetaInfoMobile = showMetaInfoValues.mobile;
+  const showMetaInfoDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", getResponsiveBool(configRecord, "showMeta", "desktop", true));
+  const showMetaInfoTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", getResponsiveBool(configRecord, "showMeta", "tablet", true));
+  const showMetaInfoMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", getResponsiveBool(configRecord, "showMeta", "mobile", true));
   const showMetaInfoAny = showMetaInfoDesktop || showMetaInfoTablet || showMetaInfoMobile;
   const showAuthorValues = getResponsiveBoolValues(configRecord, "showAuthor", true);
   const showAuthorDesktop = showAuthorValues.desktop;
   const showAuthorTablet = showAuthorValues.tablet;
   const showAuthorMobile = showAuthorValues.mobile;
-  const showAuthorAny = showAuthorDesktop || showAuthorTablet || showAuthorMobile;
   const showDateValues = getResponsiveBoolValues(configRecord, "showDate", true);
   const showDateDesktop = showDateValues.desktop;
   const showDateTablet = showDateValues.tablet;
   const showDateMobile = showDateValues.mobile;
-  const showDateAny = showDateDesktop || showDateTablet || showDateMobile;
   const showExcerptValues = getResponsiveBoolValues(configRecord, "showExcerpt", true);
   const showExcerptDesktop = showExcerptValues.desktop;
   const showExcerptTablet = showExcerptValues.tablet;
@@ -103,9 +93,49 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const useBoxTablet = useBoxValues.tablet;
   const useBoxMobile = useBoxValues.mobile;
   const boxColorValues = getResponsiveValues<string>(configRecord, "boxColor");
-  const boxColorDesktop = boxColorValues.desktop || '#ffffff';
+  const boxColorDesktop = boxColorValues.desktop || 'transparent';
   const boxColorTablet = boxColorValues.tablet || boxColorDesktop;
   const boxColorMobile = boxColorValues.mobile || boxColorDesktop;
+  const boxBgImageDesktop = typeof (config as any).backgroundImage === "string" ? (config as any).backgroundImage : "";
+  const boxBgImageTablet = typeof (config as any).tabletBackgroundImage === "string" && (config as any).tabletBackgroundImage.trim() !== "" ? (config as any).tabletBackgroundImage : boxBgImageDesktop;
+  const boxBgImageMobile = typeof (config as any).mobileBackgroundImage === "string" && (config as any).mobileBackgroundImage.trim() !== "" ? (config as any).mobileBackgroundImage : boxBgImageDesktop;
+  const boxBgSizeDesktop = typeof (config as any).backgroundSize === "string" && (config as any).backgroundSize.trim() !== "" ? (config as any).backgroundSize : "cover";
+  const boxBgSizeTablet = typeof (config as any).tabletBackgroundSize === "string" && (config as any).tabletBackgroundSize.trim() !== "" ? (config as any).tabletBackgroundSize : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof (config as any).mobileBackgroundSize === "string" && (config as any).mobileBackgroundSize.trim() !== "" ? (config as any).mobileBackgroundSize : boxBgSizeDesktop;
+  const boxBgPositionDesktop = typeof (config as any).backgroundPosition === "string" && (config as any).backgroundPosition.trim() !== "" ? (config as any).backgroundPosition : "center";
+  const boxBgPositionTablet = typeof (config as any).tabletBackgroundPosition === "string" && (config as any).tabletBackgroundPosition.trim() !== "" ? (config as any).tabletBackgroundPosition : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof (config as any).mobileBackgroundPosition === "string" && (config as any).mobileBackgroundPosition.trim() !== "" ? (config as any).mobileBackgroundPosition : boxBgPositionDesktop;
+  const boxBgRepeatDesktop = typeof (config as any).backgroundRepeat === "string" && (config as any).backgroundRepeat.trim() !== "" ? (config as any).backgroundRepeat : "no-repeat";
+  const boxBgRepeatTablet = typeof (config as any).tabletBackgroundRepeat === "string" && (config as any).tabletBackgroundRepeat.trim() !== "" ? (config as any).tabletBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof (config as any).mobileBackgroundRepeat === "string" && (config as any).mobileBackgroundRepeat.trim() !== "" ? (config as any).mobileBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgAttachmentDesktop = typeof (config as any).backgroundAttachment === "string" && (config as any).backgroundAttachment.trim() !== "" ? (config as any).backgroundAttachment : "scroll";
+  const boxBgAttachmentTablet = typeof (config as any).tabletBackgroundAttachment === "string" && (config as any).tabletBackgroundAttachment.trim() !== "" ? (config as any).tabletBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof (config as any).mobileBackgroundAttachment === "string" && (config as any).mobileBackgroundAttachment.trim() !== "" ? (config as any).mobileBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxOverlayColorDesktop = typeof (config as any).backgroundOverlayColor === "string" ? (config as any).backgroundOverlayColor : "transparent";
+  const boxOverlayColorTablet = typeof (config as any).tabletBackgroundOverlayColor === "string" && (config as any).tabletBackgroundOverlayColor.trim() !== "" ? (config as any).tabletBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof (config as any).mobileBackgroundOverlayColor === "string" && (config as any).mobileBackgroundOverlayColor.trim() !== "" ? (config as any).mobileBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number((config as any).backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number((config as any).tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number((config as any).mobileBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxRadiusDesktop = resolveRadiusValue(config.boxBorderRadius, effectiveRadius);
+  const boxRadiusTablet = resolveRadiusValue(config.tabletBoxBorderRadius ?? config.boxBorderRadius, boxRadiusDesktop);
+  const boxRadiusMobile = resolveRadiusValue(config.mobileBoxBorderRadius ?? config.boxBorderRadius, boxRadiusDesktop);
+  const boxPtBase = config.boxPaddingTop !== undefined ? `${config.boxPaddingTop}px` : '0px';
+  const boxPrBase = config.boxPaddingRight !== undefined ? `${config.boxPaddingRight}px` : '0px';
+  const boxPbBase = config.boxPaddingBottom !== undefined ? `${config.boxPaddingBottom}px` : '0px';
+  const boxPlBase = config.boxPaddingLeft !== undefined ? `${config.boxPaddingLeft}px` : '0px';
+  const boxPtMobile = config.mobileBoxPaddingTop !== undefined ? `${config.mobileBoxPaddingTop}px` : boxPtBase;
+  const boxPrMobile = config.mobileBoxPaddingRight !== undefined ? `${config.mobileBoxPaddingRight}px` : boxPrBase;
+  const boxPbMobile = config.mobileBoxPaddingBottom !== undefined ? `${config.mobileBoxPaddingBottom}px` : boxPbBase;
+  const boxPlMobile = config.mobileBoxPaddingLeft !== undefined ? `${config.mobileBoxPaddingLeft}px` : boxPlBase;
+  const boxPtTablet = config.tabletBoxPaddingTop !== undefined ? `${config.tabletBoxPaddingTop}px` : boxPtBase;
+  const boxPrTablet = config.tabletBoxPaddingRight !== undefined ? `${config.tabletBoxPaddingRight}px` : boxPrBase;
+  const boxPbTablet = config.tabletBoxPaddingBottom !== undefined ? `${config.tabletBoxPaddingBottom}px` : boxPbBase;
+  const boxPlTablet = config.tabletBoxPaddingLeft !== undefined ? `${config.tabletBoxPaddingLeft}px` : boxPlBase;
+  const boxPtDesktop = boxPtBase;
+  const boxPrDesktop = boxPrBase;
+  const boxPbDesktop = boxPbBase;
+  const boxPlDesktop = boxPlBase;
 
   // Colors
   const titleColorDesktop = config.newsTitleColor || 'var(--home-news-title-color, #111827)';
@@ -114,6 +144,24 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const hoverColorDesktop = config.newsTitleHoverColor || 'var(--home-hover-color, var(--accent))';
   const hoverColorTablet = config.tabletNewsTitleHoverColor || hoverColorDesktop;
   const hoverColorMobile = config.mobileNewsTitleHoverColor || hoverColorDesktop;
+  const blockTitleColorDesktop = config.blockTitleColor || 'var(--home-widget-title-color, var(--heading-color, #1e293b))';
+  const blockTitleColorTablet = config.tabletBlockTitleColor || blockTitleColorDesktop;
+  const blockTitleColorMobile = config.mobileBlockTitleColor || blockTitleColorDesktop;
+  const blockTitleBorderDesktop = config.blockTitleBorderColor || effectiveAccent;
+  const blockTitleBorderTablet = config.tabletBlockTitleBorderColor || blockTitleBorderDesktop;
+  const blockTitleBorderMobile = config.mobileBlockTitleBorderColor || blockTitleBorderDesktop;
+  const blockTitleFsDesktop = config.blockTitleFontSize !== undefined ? `${config.blockTitleFontSize}px` : 'var(--home-widget-title-size, 24px)';
+  const blockTitleFsTablet = config.tabletBlockTitleFontSize !== undefined ? `${config.tabletBlockTitleFontSize}px` : (config.blockTitleFontSize !== undefined ? `${config.blockTitleFontSize}px` : '22px');
+  const blockTitleFsMobile = config.mobileBlockTitleFontSize !== undefined ? `${config.mobileBlockTitleFontSize}px` : (config.blockTitleFontSize !== undefined ? `${config.blockTitleFontSize}px` : 'var(--home-widget-title-size, 20px)');
+  const blockTitleLhDesktop = config.blockTitleLineHeight !== undefined ? String(config.blockTitleLineHeight) : '1.2';
+  const blockTitleLhTablet = config.tabletBlockTitleLineHeight !== undefined ? String(config.tabletBlockTitleLineHeight) : (config.blockTitleLineHeight !== undefined ? String(config.blockTitleLineHeight) : '1.2');
+  const blockTitleLhMobile = config.mobileBlockTitleLineHeight !== undefined ? String(config.mobileBlockTitleLineHeight) : (config.blockTitleLineHeight !== undefined ? String(config.blockTitleLineHeight) : '1.2');
+  const blockTitleMbDesktop = config.blockTitleMarginBottom !== undefined ? `${config.blockTitleMarginBottom}px` : '12px';
+  const blockTitleMbTablet = config.tabletBlockTitleMarginBottom !== undefined ? `${config.tabletBlockTitleMarginBottom}px` : (config.blockTitleMarginBottom !== undefined ? `${config.blockTitleMarginBottom}px` : '12px');
+  const blockTitleMbMobile = config.mobileBlockTitleMarginBottom !== undefined ? `${config.mobileBlockTitleMarginBottom}px` : (config.blockTitleMarginBottom !== undefined ? `${config.blockTitleMarginBottom}px` : '12px');
+  const blockTitlePbDesktop = config.blockTitlePaddingBottom !== undefined ? `${config.blockTitlePaddingBottom}px` : '12px';
+  const blockTitlePbTablet = config.tabletBlockTitlePaddingBottom !== undefined ? `${config.tabletBlockTitlePaddingBottom}px` : (config.blockTitlePaddingBottom !== undefined ? `${config.blockTitlePaddingBottom}px` : '12px');
+  const blockTitlePbMobile = config.mobileBlockTitlePaddingBottom !== undefined ? `${config.mobileBlockTitlePaddingBottom}px` : (config.blockTitlePaddingBottom !== undefined ? `${config.blockTitlePaddingBottom}px` : '12px');
 
   // Typography (Responsive)
   const fsDesktop = config.newsTitleFontSize ? `${config.newsTitleFontSize}px` : 'var(--home-news-title-size, 18px)'; 
@@ -123,6 +171,9 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const lhDesktop = config.newsTitleLineHeight || '1.2';
   const lhTablet = config.tabletNewsTitleLineHeight || '1.2';
   const lhMobile = config.mobileNewsTitleLineHeight || '1.2';
+  const fwDesktop = config.newsTitleFontWeight || '700';
+  const fwTablet = config.tabletNewsTitleFontWeight || fwDesktop;
+  const fwMobile = config.mobileNewsTitleFontWeight || fwDesktop;
 
   // --- NEW: Category Label Style ---
   const catFsDesktop = config.categoryLabelFontSize ? `${config.categoryLabelFontSize}px` : '0.75rem';
@@ -133,9 +184,9 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const catLhTablet = config.tabletCategoryLabelLineHeight || '1.4';
   const catLhMobile = config.mobileCategoryLabelLineHeight || '1.4';
 
-  const catColorDesktop = config.categoryLabelColor || '#ffffff';
-  const catColorTablet = config.tabletCategoryLabelColor || catColorDesktop;
-  const catColorMobile = config.mobileCategoryLabelColor || catColorDesktop;
+  const catColorDesktop = config.categoryLabelTextColor || config.categoryTextColor || config.categoryLabelColor || '#ffffff';
+  const catColorTablet = config.tabletCategoryLabelTextColor || config.tabletCategoryTextColor || config.tabletCategoryLabelColor || catColorDesktop;
+  const catColorMobile = config.mobileCategoryLabelTextColor || config.mobileCategoryTextColor || config.mobileCategoryLabelColor || catColorDesktop;
 
   const catBgDesktop = config.categoryLabelBgColor || effectiveAccent;
   const catBgTablet = config.tabletCategoryLabelBgColor || catBgDesktop;
@@ -153,46 +204,36 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const catRadiusMobile = resolveRadiusValue(config.mobileCategoryLabelBorderRadius ?? config.mobileCategoryBorderRadius ?? config.categoryLabelBorderRadius ?? config.categoryBorderRadius, catRadiusDesktop);
 
   // --- NEW: Meta Info Style ---
-  const metaFsDesktop = config.metaFontSize ? `${config.metaFontSize}px` : '0.875rem';
-  const metaFsTablet = config.tabletMetaFontSize ? `${config.tabletMetaFontSize}px` : '0.75rem';
-  const metaFsMobile = config.mobileMetaFontSize ? `${config.mobileMetaFontSize}px` : '0.75rem';
+  const metaFsDesktop = config.metaFontSize ? `${config.metaFontSize}px` : 'var(--home-meta-size, 0.75rem)';
+  const metaFsTablet = config.tabletMetaFontSize ? `${config.tabletMetaFontSize}px` : metaFsDesktop;
+  const metaFsMobile = config.mobileMetaFontSize ? `${config.mobileMetaFontSize}px` : metaFsDesktop;
 
   const metaLhDesktop = config.metaLineHeight || '1.4';
   const metaLhTablet = config.tabletMetaLineHeight || '1.4';
   const metaLhMobile = config.mobileMetaLineHeight || '1.4';
+  const metaFwDesktop = config.metaFontWeight || '500';
+  const metaFwTablet = config.tabletMetaFontWeight || metaFwDesktop;
+  const metaFwMobile = config.mobileMetaFontWeight || metaFwDesktop;
 
-  const metaColorDesktop = config.metaColor || 'var(--home-meta-color, #e5e7eb)';
+  const metaColorDesktop = config.metaColor || 'var(--home-meta-color, #9ca3af)';
   const metaColorTablet = config.tabletMetaColor || metaColorDesktop;
   const metaColorMobile = config.mobileMetaColor || metaColorDesktop;
 
   // --- Excerpt Style ---
-  const excerptFsDesktop = config.excerptFontSize ? `${config.excerptFontSize}px` : '0.95rem';
+  const excerptFsDesktop = config.excerptFontSize ? `${config.excerptFontSize}px` : 'var(--home-excerpt-size, 0.875rem)';
   const excerptFsTablet = config.tabletExcerptFontSize ? `${config.tabletExcerptFontSize}px` : excerptFsDesktop;
   const excerptFsMobile = config.mobileExcerptFontSize ? `${config.mobileExcerptFontSize}px` : excerptFsDesktop;
 
   const excerptLhDesktop = config.excerptLineHeight || '1.6';
   const excerptLhTablet = config.tabletExcerptLineHeight || excerptLhDesktop;
   const excerptLhMobile = config.mobileExcerptLineHeight || excerptLhDesktop;
+  const excerptFwDesktop = config.excerptFontWeight || '400';
+  const excerptFwTablet = config.tabletExcerptFontWeight || excerptFwDesktop;
+  const excerptFwMobile = config.mobileExcerptFontWeight || excerptFwDesktop;
 
-  const excerptColorDesktop = config.excerptColor || 'var(--home-excerpt-color, #e5e7eb)';
+  const excerptColorDesktop = config.excerptColor || 'var(--home-excerpt-color, #4b5563)';
   const excerptColorTablet = config.tabletExcerptColor || excerptColorDesktop;
   const excerptColorMobile = config.mobileExcerptColor || excerptColorDesktop;
-  const blockTitleColorMobile = config.mobileBlockTitleColor || config.blockTitleColor || "var(--home-widget-title-color, var(--heading-color, #1e293b))";
-  const blockTitleColorTablet = config.tabletBlockTitleColor || blockTitleColorMobile;
-  const blockTitleColorDesktop = config.blockTitleColor || blockTitleColorTablet;
-  const blockTitleBorderMobile = config.mobileBlockTitleBorderColor || config.blockTitleBorderColor || "var(--accent)";
-  const blockTitleBorderTablet = config.tabletBlockTitleBorderColor || blockTitleBorderMobile;
-  const blockTitleBorderDesktop = config.blockTitleBorderColor || blockTitleBorderTablet;
-  const blockTitleFsMobile = toSize(config.mobileBlockTitleFontSize ?? config.blockTitleFontSize, "20px");
-  const blockTitleFsTablet = toSize(config.tabletBlockTitleFontSize ?? config.blockTitleFontSize, "22px");
-  const blockTitleFsDesktop = toSize(config.blockTitleFontSize, "24px");
-  const blockTitleMbMobile = toSize(config.mobileBlockTitleMarginBottom ?? config.blockTitleMarginBottom, "12px");
-  const blockTitleMbTablet = toSize(config.tabletBlockTitleMarginBottom ?? config.blockTitleMarginBottom, blockTitleMbMobile);
-  const blockTitleMbDesktop = toSize(config.blockTitleMarginBottom, blockTitleMbTablet);
-  const blockTitlePbMobile = toSize(config.mobileBlockTitlePaddingBottom ?? config.blockTitlePaddingBottom, "12px");
-  const blockTitlePbTablet = toSize(config.tabletBlockTitlePaddingBottom ?? config.blockTitlePaddingBottom, blockTitlePbMobile);
-  const blockTitlePbDesktop = toSize(config.blockTitlePaddingBottom, blockTitlePbTablet);
-
   // --- NEW: Content Padding (Internal) ---
   // Defaults: px-4 (16px), pb-6 (24px). Desktop pb-8 (32px).
   const cpTopMobile = config.mobileContentPaddingTop !== undefined ? `${config.mobileContentPaddingTop}px` : '0px';
@@ -262,11 +303,11 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const metaMbMobile = config.mobileMetaMarginBottom !== undefined ? `${config.mobileMetaMarginBottom}px` : (config.metaMarginBottom !== undefined ? `${config.metaMarginBottom}px` : '0px');
 
   const parseExcerptLength = (value: unknown, fallback: number) => {
-    if (typeof value === 'number' && Number.isFinite(value)) return Math.max(20, value);
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
     const parsed = parseInt(String(value ?? ''), 10);
-    return Number.isNaN(parsed) ? fallback : Math.max(20, parsed);
+    return Number.isNaN(parsed) ? fallback : parsed;
   };
-  const excerptLengthDesktop = parseExcerptLength(config.excerptLength, 200);
+  const excerptLengthDesktop = parseExcerptLength(config.excerptLength, 120);
   const excerptLengthTablet = parseExcerptLength(config.tabletExcerptLength, excerptLengthDesktop);
   const excerptLengthMobile = parseExcerptLength(config.mobileExcerptLength, excerptLengthDesktop);
 
@@ -301,19 +342,31 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
       }
   }
 
-  // Handle Box Border Radius issue
+  // Box wrapper may use its own responsive radius; keep inner shell slightly tighter.
   const hasAnyBox = useBoxDesktop || useBoxTablet || useBoxMobile;
-  const innerRadius = hasAnyBox ? `calc(${effectiveRadius} - 4px)` : effectiveRadius;
 
-  // Responsive Styles Hook or Logic
-  // We use inline styles for dynamic values but we need media queries.
-  // Since we can't use media queries in inline styles easily without a library,
-  // we will inject a <style> tag for this specific component instance.
-  // This is a common pattern in Next.js for dynamic user-configured styles.
+  useEffect(() => {
+    const updateDevice = () => {
+      const width = window.innerWidth;
+      if (width >= 1025) {
+        setDevice("desktop");
+        return;
+      }
+      if (width >= 768) {
+        setDevice("tablet");
+        return;
+      }
+      setDevice("mobile");
+    };
+
+    updateDevice();
+    window.addEventListener("resize", updateDevice);
+    return () => window.removeEventListener("resize", updateDevice);
+  }, []);
 
   if (!heroPost) {
     return (
-      <div className="w-full h-96 bg-gray-100 flex items-center justify-center text-gray-400">
+      <div className="w-full h-96 bg-[color:var(--bg-surface,#f9fafb)] flex items-center justify-center [color:var(--muted-text,var(--home-meta-color,#9ca3af))]">
         Belum ada berita untuk ditampilkan di Hero.
       </div>
     );
@@ -321,7 +374,6 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
 
   const imageUrl = heroPost.image || heroPost.featuredImage?.fileUrl || '/placeholder.jpg';
   const isVideo = String((heroPost as any)?.type || "").toUpperCase() === "VIDEO";
-  const finalTitleColor = isHovered ? 'var(--hero-title-hover-color)' : 'var(--hero-title-color)';
   const normalizeAvatarUrl = (value: unknown) => {
     if (typeof value !== 'string') return '';
     const trimmed = value.trim();
@@ -381,279 +433,143 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
   const heroExcerptMobile = clampExcerpt(heroExcerptSourceForLength(excerptLengthMobile), excerptLengthMobile);
   const hasAnyExcerptContent = !!(heroExcerptDesktop || heroExcerptTablet || heroExcerptMobile);
   const hasAnyPostTitleContent = showMetaInfoAny || (showExcerptAny && hasAnyExcerptContent);
+
+  const currentTitleColor = device === "mobile" ? titleColorMobile : device === "tablet" ? titleColorTablet : titleColorDesktop;
+  const currentHoverColor = device === "mobile" ? hoverColorMobile : device === "tablet" ? hoverColorTablet : hoverColorDesktop;
+  const currentBlockTitleColor = device === "mobile" ? blockTitleColorMobile : device === "tablet" ? blockTitleColorTablet : blockTitleColorDesktop;
+  const currentBlockTitleBorder = device === "mobile" ? blockTitleBorderMobile : device === "tablet" ? blockTitleBorderTablet : blockTitleBorderDesktop;
+  const currentBlockTitleFs = device === "mobile" ? blockTitleFsMobile : device === "tablet" ? blockTitleFsTablet : blockTitleFsDesktop;
+  const currentBlockTitleLh = device === "mobile" ? blockTitleLhMobile : device === "tablet" ? blockTitleLhTablet : blockTitleLhDesktop;
+  const currentBlockTitleMb = device === "mobile" ? blockTitleMbMobile : device === "tablet" ? blockTitleMbTablet : blockTitleMbDesktop;
+  const currentBlockTitlePb = device === "mobile" ? blockTitlePbMobile : device === "tablet" ? blockTitlePbTablet : blockTitlePbDesktop;
+  const currentFs = device === "mobile" ? fsMobile : device === "tablet" ? fsTablet : fsDesktop;
+  const currentLh = device === "mobile" ? lhMobile : device === "tablet" ? lhTablet : lhDesktop;
+  const currentFw = device === "mobile" ? fwMobile : device === "tablet" ? fwTablet : fwDesktop;
+  const currentShowCategory = device === "mobile" ? showCategoryMobile : device === "tablet" ? showCategoryTablet : showCategoryDesktop;
+  const currentShowMetaInfo = device === "mobile" ? showMetaInfoMobile : device === "tablet" ? showMetaInfoTablet : showMetaInfoDesktop;
+  const currentShowAuthor = device === "mobile" ? showAuthorMobile : device === "tablet" ? showAuthorTablet : showAuthorDesktop;
+  const currentShowDate = device === "mobile" ? showDateMobile : device === "tablet" ? showDateTablet : showDateDesktop;
+  const currentShowExcerpt = device === "mobile" ? showExcerptMobile : device === "tablet" ? showExcerptTablet : showExcerptDesktop;
+  const currentCatFs = device === "mobile" ? catFsMobile : device === "tablet" ? catFsTablet : catFsDesktop;
+  const currentCatLh = device === "mobile" ? catLhMobile : device === "tablet" ? catLhTablet : catLhDesktop;
+  const currentCatColor = device === "mobile" ? catColorMobile : device === "tablet" ? catColorTablet : catColorDesktop;
+  const currentCatBg = device === "mobile" ? catBgMobile : device === "tablet" ? catBgTablet : catBgDesktop;
+  const currentCatPy = device === "mobile" ? catPyMobile : device === "tablet" ? catPyTablet : catPyDesktop;
+  const currentCatPx = device === "mobile" ? catPxMobile : device === "tablet" ? catPxTablet : catPxDesktop;
+  const currentCatRadius = device === "mobile" ? catRadiusMobile : device === "tablet" ? catRadiusTablet : catRadiusDesktop;
+  const currentCatMb = device === "mobile" ? catMbMobile : device === "tablet" ? catMbTablet : catMbDesktop;
+  const currentMetaFs = device === "mobile" ? metaFsMobile : device === "tablet" ? metaFsTablet : metaFsDesktop;
+  const currentMetaLh = device === "mobile" ? metaLhMobile : device === "tablet" ? metaLhTablet : metaLhDesktop;
+  const currentMetaFw = device === "mobile" ? metaFwMobile : device === "tablet" ? metaFwTablet : metaFwDesktop;
+  const currentMetaColor = device === "mobile" ? metaColorMobile : device === "tablet" ? metaColorTablet : metaColorDesktop;
+  const currentMetaMb = device === "mobile" ? metaMbMobile : device === "tablet" ? metaMbTablet : metaMbDesktop;
+  const currentExcerpt = device === "mobile" ? heroExcerptMobile : device === "tablet" ? heroExcerptTablet : heroExcerptDesktop;
+  const currentExcerptFs = device === "mobile" ? excerptFsMobile : device === "tablet" ? excerptFsTablet : excerptFsDesktop;
+  const currentExcerptLh = device === "mobile" ? excerptLhMobile : device === "tablet" ? excerptLhTablet : excerptLhDesktop;
+  const currentExcerptFw = device === "mobile" ? excerptFwMobile : device === "tablet" ? excerptFwTablet : excerptFwDesktop;
+  const currentExcerptColor = device === "mobile" ? excerptColorMobile : device === "tablet" ? excerptColorTablet : excerptColorDesktop;
+  const currentTitleMb = device === "mobile" ? titleMbMobile : device === "tablet" ? titleMbTablet : titleMbDesktop;
+  const currentShellHeight = device === "mobile" ? shellHeightMobile : device === "tablet" ? shellHeightTablet : shellHeightDesktop;
+  const currentUseBox = device === "mobile" ? useBoxMobile : device === "tablet" ? useBoxTablet : useBoxDesktop;
+  const currentBoxColor = device === "mobile" ? boxColorMobile : device === "tablet" ? boxColorTablet : boxColorDesktop;
+  const currentBoxBgImage = device === "mobile" ? boxBgImageMobile : device === "tablet" ? boxBgImageTablet : boxBgImageDesktop;
+  const currentBoxBgSize = device === "mobile" ? boxBgSizeMobile : device === "tablet" ? boxBgSizeTablet : boxBgSizeDesktop;
+  const currentBoxBgPosition = device === "mobile" ? boxBgPositionMobile : device === "tablet" ? boxBgPositionTablet : boxBgPositionDesktop;
+  const currentBoxBgRepeat = device === "mobile" ? boxBgRepeatMobile : device === "tablet" ? boxBgRepeatTablet : boxBgRepeatDesktop;
+  const currentBoxBgAttachment = device === "mobile" ? boxBgAttachmentMobile : device === "tablet" ? boxBgAttachmentTablet : boxBgAttachmentDesktop;
+  const currentBoxOverlayColor = device === "mobile" ? boxOverlayColorMobile : device === "tablet" ? boxOverlayColorTablet : boxOverlayColorDesktop;
+  const currentBoxOverlayOpacity = device === "mobile" ? boxOverlayOpacityMobile : device === "tablet" ? boxOverlayOpacityTablet : boxOverlayOpacityDesktop;
+  const hasCurrentBoxOverlay = currentBoxOverlayOpacity > 0 && typeof currentBoxOverlayColor === "string" && currentBoxOverlayColor.trim() !== "" && currentBoxOverlayColor !== "transparent";
+  const currentBoxOverlayFill = hasCurrentBoxOverlay ? `color-mix(in srgb, ${currentBoxOverlayColor} ${currentBoxOverlayOpacity}%, transparent)` : "transparent";
+  const currentBoxBackgroundImage = currentUseBox && currentBoxBgImage
+    ? (hasCurrentBoxOverlay
+      ? `linear-gradient(${currentBoxOverlayFill}, ${currentBoxOverlayFill}), url("${currentBoxBgImage}")`
+      : `url("${currentBoxBgImage}")`)
+    : "none";
+  const currentBoxRadius = device === "mobile" ? boxRadiusMobile : device === "tablet" ? boxRadiusTablet : boxRadiusDesktop;
+  const currentBoxPt = device === "mobile" ? boxPtMobile : device === "tablet" ? boxPtTablet : boxPtDesktop;
+  const currentBoxPr = device === "mobile" ? boxPrMobile : device === "tablet" ? boxPrTablet : boxPrDesktop;
+  const currentBoxPb = device === "mobile" ? boxPbMobile : device === "tablet" ? boxPbTablet : boxPbDesktop;
+  const currentBoxPl = device === "mobile" ? boxPlMobile : device === "tablet" ? boxPlTablet : boxPlDesktop;
+  const currentInnerRadius = currentUseBox
+    ? (currentBoxRadius === "0" ? "0" : `calc(${currentBoxRadius} - 4px)`)
+    : effectiveRadius;
+  const finalTitleColor = isHovered ? currentHoverColor : currentTitleColor;
+  const shouldShowMetaRow = currentShowMetaInfo && ((currentShowAuthor && !!heroAuthorName) || currentShowDate);
+  const widgetTitle = (typeof customTitle === "string" && customTitle.trim() !== "")
+    ? customTitle.trim()
+    : (typeof block?.title === "string" && block.title.trim() !== "")
+      ? block.title.trim()
+      : (typeof config.title === "string" && config.title.trim() !== "")
+        ? config.title.trim()
+        : "Classic Hero";
   
   return (
-    <>
-    {/* Explicit Style Tag Injection to bypass styled-jsx limitations */}
-    <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(`
-        /* Mobile First (Base) */
-        #hero-title-${block.id} {
-            display: block !important;
-            font-size: ${fsMobile} !important;
-            line-height: ${lhMobile} !important;
-            margin-bottom: 0 !important;
-        }
-        #hero-title-link-${block.id} {
-            --hero-title-color: ${titleColorMobile};
-            --hero-title-hover-color: ${hoverColorMobile};
-        }
-        #hero-after-title-${block.id} {
-            margin-top: ${titleMbMobile} !important;
-        }
-        #hero-cat-${block.id} {
-            display: ${showCategoryMobile ? 'inline-block' : 'none'} !important;
-            font-size: ${catFsMobile} !important;
-            line-height: ${catLhMobile} !important;
-            color: ${catColorMobile} !important;
-            background-color: ${catBgMobile} !important;
-            border-radius: ${catRadiusMobile} !important;
-            margin-bottom: ${catMbMobile} !important;
-            padding-top: ${catPyMobile} !important;
-            padding-bottom: ${catPyMobile} !important;
-            padding-left: ${catPxMobile} !important;
-            padding-right: ${catPxMobile} !important;
-        }
-        #hero-meta-${block.id} {
-            display: ${showMetaInfoMobile ? 'flex' : 'none'} !important;
-            font-size: ${metaFsMobile} !important;
-            line-height: ${metaLhMobile} !important;
-            color: ${metaColorMobile} !important;
-            margin-bottom: ${metaMbMobile} !important;
-        }
-        #hero-author-${block.id} {
-            display: ${showAuthorMobile ? 'flex' : 'none'} !important;
-        }
-        #hero-date-separator-${block.id} {
-            display: ${showAuthorMobile && showDateMobile ? 'block' : 'none'} !important;
-        }
-        #hero-date-${block.id} {
-            display: ${showDateMobile ? 'flex' : 'none'} !important;
-        }
-        #hero-shell-${block.id} {
-            height: ${shellHeightMobile} !important;
-        }
-        .hero-excerpt-${block.id} {
-            font-size: ${excerptFsMobile} !important;
-            line-height: ${excerptLhMobile} !important;
-            color: ${excerptColorMobile} !important;
-        }
-        #hero-excerpt-mobile-${block.id} {
-            display: ${showExcerptMobile ? 'block' : 'none'} !important;
-        }
-        #hero-excerpt-tablet-${block.id},
-        #hero-excerpt-desktop-${block.id} {
-            display: none !important;
-        }
-        #hero-root-${block.id} .theme-widget-title { margin-bottom: ${blockTitleMbMobile}; padding-bottom: ${blockTitlePbMobile}; }
-        #hero-root-${block.id} .theme-widget-title span { color: ${blockTitleColorMobile}; font-size: ${blockTitleFsMobile}; }
-        #hero-root-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderMobile}; }
-        #hero-content-${block.id} {
-            padding-top: ${cpTopMobile} !important;
-            padding-right: ${cpRightMobile} !important;
-            padding-bottom: ${cpBottomMobile} !important;
-            padding-left: ${cpLeftMobile} !important;
-        }
-        #hero-root-${block.id} {
-            margin-top: ${mTopMobile} !important;
-            margin-right: ${mRightMobile} !important;
-            margin-bottom: ${mBottomMobile} !important;
-            margin-left: ${mLeftMobile} !important;
-            padding-top: ${pTopMobile} !important;
-            padding-right: ${pRightMobile} !important;
-            padding-bottom: ${pBottomMobile} !important;
-            padding-left: ${pLeftMobile} !important;
-            background-color: ${useBoxMobile ? boxColorMobile : 'transparent'} !important;
-            box-shadow: ${useBoxMobile ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none'} !important;
-        }
-
-        /* Tablet */
-        @media (min-width: 768px) {
-            #hero-title-${block.id} {
-                font-size: ${fsTablet} !important;
-                line-height: ${lhTablet} !important;
-                margin-bottom: 0 !important;
-            }
-            #hero-title-link-${block.id} {
-                --hero-title-color: ${titleColorTablet};
-                --hero-title-hover-color: ${hoverColorTablet};
-            }
-            #hero-after-title-${block.id} {
-                margin-top: ${titleMbTablet} !important;
-            }
-            #hero-cat-${block.id} {
-                display: ${showCategoryTablet ? 'inline-block' : 'none'} !important;
-                font-size: ${catFsTablet} !important;
-                line-height: ${catLhTablet} !important;
-                color: ${catColorTablet} !important;
-                background-color: ${catBgTablet} !important;
-                border-radius: ${catRadiusTablet} !important;
-                margin-bottom: ${catMbTablet} !important;
-                padding-top: ${catPyTablet} !important;
-                padding-bottom: ${catPyTablet} !important;
-                padding-left: ${catPxTablet} !important;
-                padding-right: ${catPxTablet} !important;
-            }
-            #hero-meta-${block.id} {
-                display: ${showMetaInfoTablet ? 'flex' : 'none'} !important;
-                font-size: ${metaFsTablet} !important;
-                line-height: ${metaLhTablet} !important;
-                color: ${metaColorTablet} !important;
-                margin-bottom: ${metaMbTablet} !important;
-            }
-            #hero-author-${block.id} {
-                display: ${showAuthorTablet ? 'flex' : 'none'} !important;
-            }
-            #hero-date-separator-${block.id} {
-                display: ${showAuthorTablet && showDateTablet ? 'block' : 'none'} !important;
-            }
-            #hero-date-${block.id} {
-                display: ${showDateTablet ? 'flex' : 'none'} !important;
-            }
-            #hero-shell-${block.id} {
-                height: ${shellHeightTablet} !important;
-            }
-            .hero-excerpt-${block.id} {
-                font-size: ${excerptFsTablet} !important;
-                line-height: ${excerptLhTablet} !important;
-                color: ${excerptColorTablet} !important;
-            }
-            #hero-excerpt-mobile-${block.id},
-            #hero-excerpt-desktop-${block.id} {
-                display: none !important;
-            }
-            #hero-excerpt-tablet-${block.id} {
-                display: ${showExcerptTablet ? 'block' : 'none'} !important;
-            }
-            #hero-root-${block.id} .theme-widget-title { margin-bottom: ${blockTitleMbTablet}; padding-bottom: ${blockTitlePbTablet}; }
-            #hero-root-${block.id} .theme-widget-title span { color: ${blockTitleColorTablet}; font-size: ${blockTitleFsTablet}; }
-            #hero-root-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderTablet}; }
-            #hero-content-${block.id} {
-                padding-top: ${cpTopTablet} !important;
-                padding-right: ${cpRightTablet} !important;
-                padding-bottom: ${cpBottomTablet} !important;
-                padding-left: ${cpLeftTablet} !important;
-            }
-            #hero-root-${block.id} {
-                margin-top: ${mTopTablet} !important;
-                margin-right: ${mRightTablet} !important;
-                margin-bottom: ${mBottomTablet} !important;
-                margin-left: ${mLeftTablet} !important;
-                padding-top: ${pTopTablet} !important;
-                padding-right: ${pRightTablet} !important;
-                padding-bottom: ${pBottomTablet} !important;
-                padding-left: ${pLeftTablet} !important;
-                background-color: ${useBoxTablet ? boxColorTablet : 'transparent'} !important;
-                box-shadow: ${useBoxTablet ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none'} !important;
-            }
-        }
-
-        /* Desktop */
-        @media (min-width: 1025px) {
-            #hero-title-${block.id} {
-                font-size: ${fsDesktop} !important;
-                line-height: ${lhDesktop} !important;
-                margin-bottom: 0 !important;
-            }
-            #hero-title-link-${block.id} {
-                --hero-title-color: ${titleColorDesktop};
-                --hero-title-hover-color: ${hoverColorDesktop};
-            }
-            #hero-after-title-${block.id} {
-                margin-top: ${titleMbDesktop} !important;
-            }
-            #hero-cat-${block.id} {
-                display: ${showCategoryDesktop ? 'inline-block' : 'none'} !important;
-                font-size: ${catFsDesktop} !important;
-                line-height: ${catLhDesktop} !important;
-                color: ${catColorDesktop} !important;
-                background-color: ${catBgDesktop} !important;
-                border-radius: ${catRadiusDesktop} !important;
-                margin-bottom: ${catMbDesktop} !important;
-                padding-top: ${catPyDesktop} !important;
-                padding-bottom: ${catPyDesktop} !important;
-                padding-left: ${catPxDesktop} !important;
-                padding-right: ${catPxDesktop} !important;
-            }
-            #hero-meta-${block.id} {
-                display: ${showMetaInfoDesktop ? 'flex' : 'none'} !important;
-                font-size: ${metaFsDesktop} !important;
-                line-height: ${metaLhDesktop} !important;
-                color: ${metaColorDesktop} !important;
-                margin-bottom: ${metaMbDesktop} !important;
-            }
-            #hero-author-${block.id} {
-                display: ${showAuthorDesktop ? 'flex' : 'none'} !important;
-            }
-            #hero-date-separator-${block.id} {
-                display: ${showAuthorDesktop && showDateDesktop ? 'block' : 'none'} !important;
-            }
-            #hero-date-${block.id} {
-                display: ${showDateDesktop ? 'flex' : 'none'} !important;
-            }
-            #hero-shell-${block.id} {
-                height: ${shellHeightDesktop} !important;
-            }
-            .hero-excerpt-${block.id} {
-                font-size: ${excerptFsDesktop} !important;
-                line-height: ${excerptLhDesktop} !important;
-                color: ${excerptColorDesktop} !important;
-            }
-            #hero-excerpt-mobile-${block.id},
-            #hero-excerpt-tablet-${block.id} {
-                display: none !important;
-            }
-            #hero-excerpt-desktop-${block.id} {
-                display: ${showExcerptDesktop ? 'block' : 'none'} !important;
-            }
-            #hero-root-${block.id} .theme-widget-title { margin-bottom: ${blockTitleMbDesktop}; padding-bottom: ${blockTitlePbDesktop}; }
-            #hero-root-${block.id} .theme-widget-title span { color: ${blockTitleColorDesktop}; font-size: ${blockTitleFsDesktop}; }
-            #hero-root-${block.id} .theme-widget-title .widget-title-bar { background-color: ${blockTitleBorderDesktop}; }
-            #hero-content-${block.id} {
-                padding-top: ${cpTopDesktop} !important;
-                padding-right: ${cpRightDesktop} !important;
-                padding-bottom: ${cpBottomDesktop} !important;
-                padding-left: ${cpLeftDesktop} !important;
-            }
-            #hero-root-${block.id} {
-                margin-top: ${mTopDesktop} !important;
-                margin-right: ${mRightDesktop} !important;
-                margin-bottom: ${mBottomDesktop} !important;
-                margin-left: ${mLeftDesktop} !important;
-                padding-top: ${pTopDesktop} !important;
-                padding-right: ${pRightDesktop} !important;
-                padding-bottom: ${pBottomDesktop} !important;
-                padding-left: ${pLeftDesktop} !important;
-                background-color: ${useBoxDesktop ? boxColorDesktop : 'transparent'} !important;
-                box-shadow: ${useBoxDesktop ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none'} !important;
-            }
-        }
-    `) }} />
-
     <div 
         id={`hero-root-${block.id}`}
-        className="w-full relative"
+        className="relative max-w-full responsive-block-frame"
         style={{
-            borderRadius: effectiveRadius,
-            backgroundColor: 'transparent',
-            boxShadow: 'none',
+            '--rb-mt-mobile': mTopMobile,
+            '--rb-mr-mobile': mRightMobile,
+            '--rb-mb-mobile': mBottomMobile,
+            '--rb-ml-mobile': mLeftMobile,
+            '--rb-pt-mobile': pTopMobile,
+            '--rb-pr-mobile': pRightMobile,
+            '--rb-pb-mobile': pBottomMobile,
+            '--rb-pl-mobile': pLeftMobile,
+            '--rb-mt-tablet': mTopTablet,
+            '--rb-mr-tablet': mRightTablet,
+            '--rb-mb-tablet': mBottomTablet,
+            '--rb-ml-tablet': mLeftTablet,
+            '--rb-pt-tablet': pTopTablet,
+            '--rb-pr-tablet': pRightTablet,
+            '--rb-pb-tablet': pBottomTablet,
+            '--rb-pl-tablet': pLeftTablet,
+            '--rb-mt-desktop': mTopDesktop,
+            '--rb-mr-desktop': mRightDesktop,
+            '--rb-mb-desktop': mBottomDesktop,
+            '--rb-ml-desktop': mLeftDesktop,
+            '--rb-pt-desktop': pTopDesktop,
+            '--rb-pr-desktop': pRightDesktop,
+            '--rb-pb-desktop': pBottomDesktop,
+            '--rb-pl-desktop': pLeftDesktop,
             '--accent': effectiveAccent,
-            '--widget-title-color-mobile': blockTitleColorMobile,
-            '--widget-title-color-tablet': blockTitleColorTablet,
-            '--widget-title-color-desktop': blockTitleColorDesktop,
-            '--widget-title-size-mobile': blockTitleFsMobile,
-            '--widget-title-size-tablet': blockTitleFsTablet,
-            '--widget-title-size-desktop': blockTitleFsDesktop,
-            '--widget-title-border-color-mobile': blockTitleBorderMobile,
-            '--widget-title-border-color-tablet': blockTitleBorderTablet,
-            '--widget-title-border-color-desktop': blockTitleBorderDesktop,
-            overflow: 'visible' // Ensure margins work by not hiding overflow unnecessarily
+            overflow: 'visible'
         } as React.CSSProperties}
     >
+        <div
+            id={`hero-box-${block.id}`}
+            className="relative"
+            style={{
+                borderRadius: currentUseBox ? currentBoxRadius : effectiveRadius,
+                backgroundColor: currentUseBox ? currentBoxColor : 'transparent',
+                boxShadow: currentUseBox ? '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' : 'none',
+                backgroundImage: currentBoxBackgroundImage,
+                backgroundSize: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+                backgroundPosition: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+                backgroundRepeat: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+                backgroundAttachment: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+                paddingTop: currentUseBox ? currentBoxPt : '0px',
+                paddingRight: currentUseBox ? currentBoxPr : '0px',
+                paddingBottom: currentUseBox ? currentBoxPb : '0px',
+                paddingLeft: currentUseBox ? currentBoxPl : '0px',
+            }}
+        >
+        {(config.showTitle !== false) && (
+          <h3
+            className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title"
+            style={{ lineHeight: currentBlockTitleLh, marginBottom: currentBlockTitleMb, paddingBottom: currentBlockTitlePb }}
+          >
+            <div className="widget-title-bar" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)", backgroundColor: currentBlockTitleBorder }}></div>
+            <span style={{ color: currentBlockTitleColor, fontSize: currentBlockTitleFs, lineHeight: currentBlockTitleLh }}>{widgetTitle}</span>
+          </h3>
+        )}
         <section 
             id={`hero-shell-${block.id}`}
             className={`relative w-full overflow-hidden ${heightClass}`}
             style={{ 
-                borderRadius: hasAnyBox ? innerRadius : effectiveRadius,
+                borderRadius: hasAnyBox ? currentInnerRadius : effectiveRadius,
+                height: currentShellHeight,
                 ...aspectRatioStyle
             } as React.CSSProperties}
         >
@@ -663,9 +579,10 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
             src={imageUrl}
             alt={heroPost.title}
             fill
-            quality={90}
+            quality={75}
             className="object-cover transition-transform duration-700 hover:scale-105"
             priority
+            fetchPriority="high"
             sizes="(max-width: 768px) 100vw, 1200px"
             />
             {/* Gradient Overlay */}
@@ -686,13 +603,47 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
         <div 
             id={`hero-content-${block.id}`}
             className="absolute bottom-0 left-0 right-0 z-20 w-full"
+            style={{
+              paddingTop: cpTopMobile,
+              paddingRight: cpRightMobile,
+              paddingBottom: cpBottomMobile,
+              paddingLeft: cpLeftMobile,
+              ...(device === "tablet"
+                ? {
+                    paddingTop: cpTopTablet,
+                    paddingRight: cpRightTablet,
+                    paddingBottom: cpBottomTablet,
+                    paddingLeft: cpLeftTablet,
+                  }
+                : {}),
+              ...(device === "desktop"
+                ? {
+                    paddingTop: cpTopDesktop,
+                    paddingRight: cpRightDesktop,
+                    paddingBottom: cpBottomDesktop,
+                    paddingLeft: cpLeftDesktop,
+                  }
+                : {}),
+            }}
         >
             <div className="container mx-auto">
                 <div className="max-w-3xl text-white">
-                {showCategoryAny && heroPost.category && (
+                {currentShowCategory && heroPost.category && (
                     <span 
                         id={`hero-cat-${block.id}`}
                         className="inline-block font-bold uppercase tracking-wider shadow-sm"
+                        style={{
+                          fontSize: currentCatFs,
+                          lineHeight: currentCatLh,
+                          color: currentCatColor,
+                          backgroundColor: currentCatBg,
+                          borderRadius: currentCatRadius,
+                          marginBottom: currentCatMb,
+                          paddingTop: currentCatPy,
+                          paddingBottom: currentCatPy,
+                          paddingLeft: currentCatPx,
+                          paddingRight: currentCatPx,
+                        }}
                     >
                     {heroPost.category.name}
                     </span>
@@ -701,7 +652,13 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
                 <h2 
                     id={`hero-title-${block.id}`}
                     className="font-bold drop-shadow-md"
-                    style={{ fontFamily: 'var(--home-news-title-font, sans-serif)' }}
+                    style={{
+                      fontFamily: 'var(--home-news-title-font, sans-serif)',
+                      fontSize: currentFs,
+                      lineHeight: String(currentLh),
+                      fontWeight: String(currentFw),
+                      marginBottom: 0,
+                    }}
                 >
                     <Link 
                         id={`hero-title-link-${block.id}`}
@@ -719,23 +676,27 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
                 </h2>
 
                 {hasAnyPostTitleContent && (
-                    <div id={`hero-after-title-${block.id}`}>
-                        {showMetaInfoAny && (
+                    <div id={`hero-after-title-${block.id}`} style={{ marginTop: currentTitleMb }}>
+                        {shouldShowMetaRow && (
                             <div 
                                 id={`hero-meta-${block.id}`}
                                 className="flex items-center gap-3 font-medium opacity-90"
                                 style={{ 
                                     fontFamily: 'var(--home-meta-font, sans-serif)',
-                                    fontWeight: 'var(--home-meta-weight, 500)'
+                                    fontWeight: String(currentMetaFw),
+                                    fontSize: currentMetaFs,
+                                    lineHeight: String(currentMetaLh),
+                                    color: currentMetaColor,
+                                    marginBottom: currentMetaMb,
                                 }}
                             >
-                                {showAuthorAny && heroAuthorName && (
+                                {currentShowAuthor && heroAuthorName && (
                                     <div id={`hero-author-${block.id}`} className="flex items-center gap-1.5">
-                                        <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[9px] relative overflow-hidden">
+                                        <span className="rounded-full bg-white/20 flex items-center justify-center relative overflow-hidden shrink-0" style={{ width: '1.5em', height: '1.5em', fontSize: '0.92em' }}>
                                             {heroAuthorAvatar ? (
                                               <Image src={heroAuthorAvatar} alt={heroAuthorName} fill className="object-cover" sizes="16px" />
                                             ) : (
-                                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5">
+                                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style={{ width: '1em', height: '1em' }}>
                                                   <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                                               </svg>
                                             )}
@@ -743,9 +704,9 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
                                         <span>{heroAuthorName}</span>
                                     </div>
                                 )}
-                                {showAuthorAny && showDateAny && <span id={`hero-date-separator-${block.id}`} className="w-1 h-1 rounded-full bg-white/50"></span>}
-                                {showDateAny && <div id={`hero-date-${block.id}`} className="flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 opacity-70">
+                                {currentShowAuthor && heroAuthorName && currentShowDate && <span id={`hero-date-separator-${block.id}`} className="rounded-full shrink-0 bg-white/50" style={{ width: '0.42em', height: '0.42em' }}></span>}
+                                {currentShowDate && <div id={`hero-date-${block.id}`} className="flex items-center gap-1.5">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-70 shrink-0" style={{ width: '1.22em', height: '1.22em' }}>
                                         <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
                                     </svg>
                                     <time
@@ -760,39 +721,19 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
                                 </div>}
                             </div>
                         )}
-                        {showExcerptAny && hasAnyExcerptContent && (
-                            <>
+                        {currentShowExcerpt && currentExcerpt && (
                             <p
-                                id={`hero-excerpt-mobile-${block.id}`}
-                                className={`hero-excerpt-${block.id} mt-3 max-w-2xl opacity-95`}
+                                className="mt-3 max-w-2xl opacity-95"
                                 style={{
                                     fontFamily: 'var(--home-excerpt-font, sans-serif)',
-                                    fontWeight: 'var(--home-excerpt-weight, 400)'
+                                    fontWeight: String(currentExcerptFw),
+                                    fontSize: currentExcerptFs,
+                                    lineHeight: String(currentExcerptLh),
+                                    color: currentExcerptColor
                                 }}
                             >
-                                {heroExcerptMobile}
+                                {currentExcerpt}
                             </p>
-                            <p
-                                id={`hero-excerpt-tablet-${block.id}`}
-                                className={`hero-excerpt-${block.id} mt-3 max-w-2xl opacity-95`}
-                                style={{
-                                    fontFamily: 'var(--home-excerpt-font, sans-serif)',
-                                    fontWeight: 'var(--home-excerpt-weight, 400)'
-                                }}
-                            >
-                                {heroExcerptTablet}
-                            </p>
-                            <p
-                                id={`hero-excerpt-desktop-${block.id}`}
-                                className={`hero-excerpt-${block.id} mt-3 max-w-2xl opacity-95`}
-                                style={{
-                                    fontFamily: 'var(--home-excerpt-font, sans-serif)',
-                                    fontWeight: 'var(--home-excerpt-weight, 400)'
-                                }}
-                            >
-                                {heroExcerptDesktop}
-                            </p>
-                            </>
                         )}
                     </div>
                 )}
@@ -801,7 +742,7 @@ export default function Hero({ block, posts, accentColor, borderRadius }: HeroPr
         </div>
 
         </section>
+        </div>
     </div>
-    </>
   );
 }

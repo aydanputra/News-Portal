@@ -4,17 +4,92 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { BuilderLocationSchema, HomepageBlocksInputSchema, HomepageBlockConfigSchema } from "@/lib/schemas";
 import { logActivity } from "@/lib/audit";
 import { normalizeHomepageBlocks } from "@/lib/homepage-block-migrations";
-import { assertRateLimit, requireAdmin } from "@/lib/api-guards";
+import { assertRateLimit } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
+import { getThemeBlocks, resolveBlockTypeAlias } from "@/lib/block-registry";
+import { getThemeArchiveWidgetGroups } from "@/lib/archive-builder-theme-registry";
+import { getThemePostWidgetGroups } from "@/lib/post-builder-theme-registry";
+import { getThemeFooterWidgetTypes, getThemeHeaderWidgetTypes } from "@/lib/header-footer-builder-theme-registry";
+
+function getAllowedBlockTypes(location: "home" | "post" | "archive" | "header" | "footer", themeId: string) {
+  const allowedTypes = new Set<string>(["section"]);
+
+  if (location === "home") {
+    for (const block of getThemeBlocks(themeId)) {
+      if (block.id) allowedTypes.add(block.id);
+    }
+    return allowedTypes;
+  }
+
+  if (location === "archive") {
+    const groups = getThemeArchiveWidgetGroups(themeId);
+    for (const widget of [...groups.main, ...groups.support]) {
+      if (widget.type) allowedTypes.add(widget.type);
+    }
+    return allowedTypes;
+  }
+
+  if (location === "post") {
+    const groups = getThemePostWidgetGroups(themeId);
+    for (const widget of [...groups.main, ...groups.support]) {
+      if (widget.type) allowedTypes.add(widget.type);
+    }
+    return allowedTypes;
+  }
+
+  if (location === "header") {
+    for (const type of getThemeHeaderWidgetTypes(themeId)) {
+      allowedTypes.add(type);
+    }
+    return allowedTypes;
+  }
+
+  for (const type of getThemeFooterWidgetTypes(themeId)) {
+    allowedTypes.add(type);
+  }
+  return allowedTypes;
+}
+
+function findUnsupportedBlockType(
+  blocks: Array<Record<string, unknown>>,
+  location: "home" | "post" | "archive" | "header" | "footer",
+  themeId: string,
+): string | null {
+  const allowedTypes = getAllowedBlockTypes(location, themeId);
+
+  const visit = (items: Array<Record<string, unknown>>): string | null => {
+    for (const item of items) {
+      const blockType = typeof item.type === "string" ? item.type : "";
+      const effectiveBlockType = blockType ? resolveBlockTypeAlias(blockType) : blockType;
+      if (!effectiveBlockType || !allowedTypes.has(effectiveBlockType)) {
+        return blockType || "(empty)";
+      }
+
+      const config = item.config;
+      const children =
+        config && typeof config === "object" && !Array.isArray(config)
+          ? (config as Record<string, unknown>).children
+          : undefined;
+      if (Array.isArray(children)) {
+        const unsupportedChild = visit(children.filter((child): child is Record<string, unknown> => Boolean(child && typeof child === "object" && !Array.isArray(child))));
+        if (unsupportedChild) return unsupportedChild;
+      }
+    }
+    return null;
+  };
+
+  return visit(blocks);
+}
 
 // GET: Ambil konfigurasi blok
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const rawLocation = searchParams.get("location") || "home";
-    const rawThemeId = searchParams.get("themeId") || "modern";
+    const rawThemeId = searchParams.get("themeId") || "classic";
     const parsedLocation = BuilderLocationSchema.safeParse(rawLocation);
     const location = parsedLocation.success ? parsedLocation.data : "home";
-    const themeId = typeof rawThemeId === "string" ? rawThemeId.trim().slice(0, 80) : "modern";
+    const themeId = typeof rawThemeId === "string" ? rawThemeId.trim().slice(0, 80) : "classic";
 
     const blocks = await prisma.homepageBlock.findMany({
       where: {
@@ -68,8 +143,8 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Invalid location" }, { status: 400 });
     }
     const location = locationParsed.data;
-    const themeIdRaw = typeof (bodyThemeId || queryThemeId) === "string" ? String(bodyThemeId || queryThemeId) : "modern";
-    const themeId = themeIdRaw.trim().slice(0, 80) || "modern";
+    const themeIdRaw = typeof (bodyThemeId || queryThemeId) === "string" ? String(bodyThemeId || queryThemeId) : "classic";
+    const themeId = themeIdRaw.trim().slice(0, 80) || "classic";
 
     const parsedBlocks = HomepageBlocksInputSchema.safeParse(rawBlocks);
     if (!parsedBlocks.success) {
@@ -90,6 +165,18 @@ export async function PUT(request: Request) {
         config: parsedConfig,
       };
     });
+
+    const unsupportedBlockType = findUnsupportedBlockType(
+      normalizedBlocks as Array<Record<string, unknown>>,
+      location,
+      themeId,
+    );
+    if (unsupportedBlockType) {
+      return NextResponse.json(
+        { error: `Block type "${unsupportedBlockType}" tidak terdaftar untuk tema "${themeId}" pada lokasi "${location}"` },
+        { status: 400 },
+      );
+    }
 
     await prisma.$transaction(async (tx) => {
       const existing = await tx.homepageBlock.findMany({
@@ -144,10 +231,25 @@ export async function PUT(request: Request) {
       }
 
       if (themeConfig && typeof themeConfig === "object" && !Array.isArray(themeConfig) && themeId) {
+        const existingThemeConfig = await (tx as any).themeConfig.findUnique({
+          where: { themeId },
+          select: { config: true },
+        });
+        const existingConfig =
+          existingThemeConfig?.config &&
+          typeof existingThemeConfig.config === "object" &&
+          !Array.isArray(existingThemeConfig.config)
+            ? (existingThemeConfig.config as Record<string, unknown>)
+            : {};
+        const mergedThemeConfig = {
+          ...existingConfig,
+          ...(themeConfig as Record<string, unknown>),
+        };
+
         await (tx as any).themeConfig.upsert({
           where: { themeId },
-          update: { config: themeConfig as object },
-          create: { themeId, config: themeConfig as object },
+          update: { config: mergedThemeConfig as object },
+          create: { themeId, config: mergedThemeConfig as object },
         });
       }
     });

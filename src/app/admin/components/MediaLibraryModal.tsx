@@ -10,6 +10,7 @@ export interface Media {
   fileUrl: string;
   fileType: string;
   size: number;
+  altText?: string;
 }
 
 interface MediaLibraryModalProps {
@@ -34,6 +35,7 @@ export default function MediaLibraryModal({
   const [uploading, setUploading] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [uploadAltText, setUploadAltText] = useState("");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
@@ -88,6 +90,9 @@ export default function MediaLibraryModal({
 
     const formData = new FormData();
     formData.append("file", e.target.files[0]);
+    if (allowedTypes === "image" && uploadAltText.trim() !== "") {
+      formData.append("altText", uploadAltText.trim());
+    }
 
     try {
       const res = await fetch("/api/media/upload", {
@@ -96,6 +101,7 @@ export default function MediaLibraryModal({
       });
       const data = await res.json();
       if (res.ok) {
+        setUploadAltText("");
         onSelect(data); 
         onClose();
       } else {
@@ -211,7 +217,7 @@ export default function MediaLibraryModal({
                             {isImg ? (
                                 <Image 
                                   src={media.fileUrl} 
-                                  alt={media.fileName} 
+                                  alt={media.altText || media.fileName} 
                                   fill 
                                   sizes="(max-width: 768px) 33vw, 20vw"
                                   className="object-cover" 
@@ -285,8 +291,20 @@ export default function MediaLibraryModal({
                   </div>
                   <p className="text-gray-600 font-medium mb-2">Klik atau seret file ke sini</p>
                   <p className="text-xs text-gray-400 mb-6">
-                      {allowedTypes === "image" ? "Mendukung JPG, PNG, WEBP" : "Mendukung Gambar & Dokumen (PDF, DOC)"}
+                      {allowedTypes === "image" ? "Mendukung JPG, PNG, WEBP. Gambar otomatis dikonversi ke WEBP." : "Mendukung Gambar & Dokumen (PDF, DOC)"}
                   </p>
+                  {allowedTypes === "image" && (
+                    <div className="w-full max-w-md px-6 mb-5">
+                      <label className="block text-xs font-medium text-gray-600 mb-2">Alt Image</label>
+                      <input
+                        type="text"
+                        value={uploadAltText}
+                        onChange={(e) => setUploadAltText(e.target.value)}
+                        className="input w-full"
+                        placeholder="Deskripsi singkat gambar untuk SEO"
+                      />
+                    </div>
+                  )}
                   <label className="px-6 py-2.5 bg-blue-600 text-white rounded-lg cursor-pointer hover:bg-blue-700 transition font-medium shadow-lg shadow-blue-600/30">
                     Pilih File
                     <input

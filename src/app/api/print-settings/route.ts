@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { assertRateLimit, isToolEnabledForRequest, requireAdmin } from "@/lib/api-guards";
+import { assertRateLimit, isToolEnabledForRequest } from "@/lib/api-guards";
+import { requireAdmin } from "@/lib/server-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
   try {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!isToolEnabledForRequest(request, "print_tools")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await isToolEnabledForRequest(request, "print_tools"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const settings = (await (prisma as any).setting.findUnique({ where: { id: "default" } })) as any;
     const normalized = normalizePrintSettings(settings?.printSettings);
@@ -107,7 +108,7 @@ export async function PUT(request: Request) {
   try {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!isToolEnabledForRequest(request, "print_tools")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (!(await isToolEnabledForRequest(request, "print_tools"))) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const rl = assertRateLimit(request, "tools:print_settings_write", { windowMs: 60_000, max: 30 });
     if (!rl.ok) {
       return NextResponse.json(

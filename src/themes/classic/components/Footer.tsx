@@ -2,7 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Fragment } from "react";
 import { Facebook, Twitter, Instagram, Youtube, Linkedin } from "lucide-react";
-import { safeStyleTagCss, sanitizeContent, sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeContent, sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
+import ImageUrlWidget from "@/components/shared/ImageUrlWidget";
 
 interface FooterProps {
   siteName: string;
@@ -131,6 +132,11 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
     }
     return undefined;
   };
+  const getObjectFitClass = (raw: unknown) => {
+    if (raw === "cover") return "object-cover";
+    if (raw === "fill") return "object-fill";
+    return "object-contain";
+  };
   const getTextAlign = (cfg: any) => {
     const raw = cfg?.textAlign ?? cfg?.align;
     return raw === "center" || raw === "right" || raw === "left" ? raw : "left";
@@ -150,11 +156,9 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
   const isTruthy = (value: unknown) => value === true || value === "true" || value === 1 || value === "1";
   const normalizeColor = (value: unknown, fallback: string) => {
     if (typeof value !== "string") return fallback;
-    const v = value.trim().toLowerCase();
-    if (!v) return fallback;
-    if (v === "#fff" || v === "#ffffff" || v === "white") return fallback;
-    if (v === "#f9fafb" || v === "#f3f4f6" || v === "#f5f5f5") return fallback;
-    return value;
+    const trimmed = value.trim();
+    if (!trimmed) return fallback;
+    return trimmed;
   };
   const formatSize = (val: string | number | undefined, fallback: string) => {
     if (val === undefined || val === null) return fallback;
@@ -194,6 +198,24 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
         return "0";
     }
   };
+  const getShadow = (s: string) => {
+    switch (s) {
+      case "sm":
+        return "0 1px 2px 0 rgb(0 0 0 / 0.05)";
+      case "md":
+        return "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)";
+      case "lg":
+        return "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05)";
+      case "xl":
+        return "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 10px 10px -5px rgb(0 0 0 / 0.04)";
+      case "2xl":
+        return "0 25px 50px -12px rgb(0 0 0 / 0.25)";
+      case "inner":
+        return "inset 0 2px 4px 0 rgb(0 0 0 / 0.05)";
+      default:
+        return "none";
+    }
+  };
   const getItemsAlignClass = (align: string) => {
     if (align === "center") return "items-center";
     if (align === "right") return "items-end";
@@ -211,101 +233,86 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
     const vAlignTabletRaw = getResponsive(child?.config, "verticalAlign", "tablet") ?? vAlignDesktopRaw;
     const vAlignMobileRaw = getResponsive(child?.config, "verticalAlign", "mobile") ?? vAlignTabletRaw;
     const selfAlignClass = `${toSelf(normalizeVAlign(vAlignMobileRaw))} ${toSelf(normalizeVAlign(vAlignTabletRaw), "md:")} ${toSelf(normalizeVAlign(vAlignDesktopRaw), "lg:")}`.trim();
+
+    const alignD = normalizeAlign(getResponsive(child?.config, "textAlign", "desktop") ?? child?.config?.textAlign);
+    const alignT = normalizeAlign(getResponsive(child?.config, "textAlign", "tablet") ?? alignD);
+    const alignM = normalizeAlign(getResponsive(child?.config, "textAlign", "mobile") ?? alignT);
+
+    const verticalAlignD = normalizeVAlign(vAlignDesktopRaw);
+    const verticalAlignT = normalizeVAlign(vAlignTabletRaw);
+    const verticalAlignM = normalizeVAlign(vAlignMobileRaw);
+
+    const mtD = formatSpacing(getResponsive(child?.config, "marginTop", "desktop")) ?? "0px";
+    const mrD = formatSpacing(getResponsive(child?.config, "marginRight", "desktop")) ?? "0px";
+    const mbD = formatSpacing(getResponsive(child?.config, "marginBottom", "desktop")) ?? "0px";
+    const mlD = formatSpacing(getResponsive(child?.config, "marginLeft", "desktop")) ?? "0px";
+    const ptD = formatSpacing(getResponsive(child?.config, "paddingTop", "desktop")) ?? "0px";
+    const prD = formatSpacing(getResponsive(child?.config, "paddingRight", "desktop")) ?? "0px";
+    const pbD = formatSpacing(getResponsive(child?.config, "paddingBottom", "desktop")) ?? "0px";
+    const plD = formatSpacing(getResponsive(child?.config, "paddingLeft", "desktop")) ?? "0px";
+
+    const mtT = formatSpacing(getResponsive(child?.config, "marginTop", "tablet")) ?? mtD;
+    const mrT = formatSpacing(getResponsive(child?.config, "marginRight", "tablet")) ?? mrD;
+    const mbT = formatSpacing(getResponsive(child?.config, "marginBottom", "tablet")) ?? mbD;
+    const mlT = formatSpacing(getResponsive(child?.config, "marginLeft", "tablet")) ?? mlD;
+    const ptT = formatSpacing(getResponsive(child?.config, "paddingTop", "tablet")) ?? ptD;
+    const prT = formatSpacing(getResponsive(child?.config, "paddingRight", "tablet")) ?? prD;
+    const pbT = formatSpacing(getResponsive(child?.config, "paddingBottom", "tablet")) ?? pbD;
+    const plT = formatSpacing(getResponsive(child?.config, "paddingLeft", "tablet")) ?? plD;
+
+    const mtM = formatSpacing(getResponsive(child?.config, "marginTop", "mobile")) ?? mtT;
+    const mrM = formatSpacing(getResponsive(child?.config, "marginRight", "mobile")) ?? mrT;
+    const mbM = formatSpacing(getResponsive(child?.config, "marginBottom", "mobile")) ?? mbT;
+    const mlM = formatSpacing(getResponsive(child?.config, "marginLeft", "mobile")) ?? mlT;
+    const ptM = formatSpacing(getResponsive(child?.config, "paddingTop", "mobile")) ?? ptT;
+    const prM = formatSpacing(getResponsive(child?.config, "paddingRight", "mobile")) ?? prT;
+    const pbM = formatSpacing(getResponsive(child?.config, "paddingBottom", "mobile")) ?? pbT;
+    const plM = formatSpacing(getResponsive(child?.config, "paddingLeft", "mobile")) ?? plT;
+
+    const mtDPos = verticalAlignD === "bottom" || verticalAlignD === "center" ? "auto" : mtD;
+    const mtTPos = verticalAlignT === "bottom" || verticalAlignT === "center" ? "auto" : mtT;
+    const mtMPos = verticalAlignM === "bottom" || verticalAlignM === "center" ? "auto" : mtM;
+    const mbDPos = verticalAlignD === "center" ? "auto" : mbD;
+    const mbTPos = verticalAlignT === "center" ? "auto" : mbT;
+    const mbMPos = verticalAlignM === "center" ? "auto" : mbM;
+
+    const styleVars: React.CSSProperties = {
+      ["--fb-w-ta-d" as any]: alignD,
+      ["--fb-w-ta-t" as any]: alignT,
+      ["--fb-w-ta-m" as any]: alignM,
+      ["--fb-w-mt-d" as any]: mtDPos,
+      ["--fb-w-mt-t" as any]: mtTPos,
+      ["--fb-w-mt-m" as any]: mtMPos,
+      ["--fb-w-mr-d" as any]: mrD,
+      ["--fb-w-mr-t" as any]: mrT,
+      ["--fb-w-mr-m" as any]: mrM,
+      ["--fb-w-mb-d" as any]: mbDPos,
+      ["--fb-w-mb-t" as any]: mbTPos,
+      ["--fb-w-mb-m" as any]: mbMPos,
+      ["--fb-w-ml-d" as any]: mlD,
+      ["--fb-w-ml-t" as any]: mlT,
+      ["--fb-w-ml-m" as any]: mlM,
+      ["--fb-w-pt-d" as any]: ptD,
+      ["--fb-w-pt-t" as any]: ptT,
+      ["--fb-w-pt-m" as any]: ptM,
+      ["--fb-w-pr-d" as any]: prD,
+      ["--fb-w-pr-t" as any]: prT,
+      ["--fb-w-pr-m" as any]: prM,
+      ["--fb-w-pb-d" as any]: pbD,
+      ["--fb-w-pb-t" as any]: pbT,
+      ["--fb-w-pb-m" as any]: pbM,
+      ["--fb-w-pl-d" as any]: plD,
+      ["--fb-w-pl-t" as any]: plT,
+      ["--fb-w-pl-m" as any]: plM,
+    };
     return (
       <div
         key={child.id}
+        suppressHydrationWarning
         id={`footer-widget-${child.id}`}
-        className={`min-w-0 ${growClass} ${selfAlignClass}`.trim()}
+        style={styleVars}
+        className={`fb-footer-widget-shell min-w-0 ${growClass} ${selfAlignClass} [text-align:var(--fb-w-ta-m)] md:[text-align:var(--fb-w-ta-t)] lg:[text-align:var(--fb-w-ta-d)]`.trim()}
       >
-        {(() => {
-          const alignD = normalizeAlign(getResponsive(child?.config, "textAlign", "desktop") ?? child?.config?.textAlign);
-          const alignT = normalizeAlign(getResponsive(child?.config, "textAlign", "tablet") ?? alignD);
-          const alignM = normalizeAlign(getResponsive(child?.config, "textAlign", "mobile") ?? alignT);
-
-          const verticalAlignD = normalizeVAlign(vAlignDesktopRaw);
-          const verticalAlignT = normalizeVAlign(vAlignTabletRaw);
-          const verticalAlignM = normalizeVAlign(vAlignMobileRaw);
-
-          const mtD = formatSpacing(getResponsive(child?.config, "marginTop", "desktop")) ?? "0px";
-          const mrD = formatSpacing(getResponsive(child?.config, "marginRight", "desktop")) ?? "0px";
-          const mbD = formatSpacing(getResponsive(child?.config, "marginBottom", "desktop")) ?? "0px";
-          const mlD = formatSpacing(getResponsive(child?.config, "marginLeft", "desktop")) ?? "0px";
-          const ptD = formatSpacing(getResponsive(child?.config, "paddingTop", "desktop")) ?? "0px";
-          const prD = formatSpacing(getResponsive(child?.config, "paddingRight", "desktop")) ?? "0px";
-          const pbD = formatSpacing(getResponsive(child?.config, "paddingBottom", "desktop")) ?? "0px";
-          const plD = formatSpacing(getResponsive(child?.config, "paddingLeft", "desktop")) ?? "0px";
-
-          const mtT = formatSpacing(getResponsive(child?.config, "marginTop", "tablet")) ?? mtD;
-          const mrT = formatSpacing(getResponsive(child?.config, "marginRight", "tablet")) ?? mrD;
-          const mbT = formatSpacing(getResponsive(child?.config, "marginBottom", "tablet")) ?? mbD;
-          const mlT = formatSpacing(getResponsive(child?.config, "marginLeft", "tablet")) ?? mlD;
-          const ptT = formatSpacing(getResponsive(child?.config, "paddingTop", "tablet")) ?? ptD;
-          const prT = formatSpacing(getResponsive(child?.config, "paddingRight", "tablet")) ?? prD;
-          const pbT = formatSpacing(getResponsive(child?.config, "paddingBottom", "tablet")) ?? pbD;
-          const plT = formatSpacing(getResponsive(child?.config, "paddingLeft", "tablet")) ?? plD;
-
-          const mtM = formatSpacing(getResponsive(child?.config, "marginTop", "mobile")) ?? mtT;
-          const mrM = formatSpacing(getResponsive(child?.config, "marginRight", "mobile")) ?? mrT;
-          const mbM = formatSpacing(getResponsive(child?.config, "marginBottom", "mobile")) ?? mbT;
-          const mlM = formatSpacing(getResponsive(child?.config, "marginLeft", "mobile")) ?? mlT;
-          const ptM = formatSpacing(getResponsive(child?.config, "paddingTop", "mobile")) ?? ptT;
-          const prM = formatSpacing(getResponsive(child?.config, "paddingRight", "mobile")) ?? prT;
-          const pbM = formatSpacing(getResponsive(child?.config, "paddingBottom", "mobile")) ?? pbT;
-          const plM = formatSpacing(getResponsive(child?.config, "paddingLeft", "mobile")) ?? plT;
-
-          const mtDPos = verticalAlignD === "bottom" || verticalAlignD === "center" ? "auto" : mtD;
-          const mtTPos = verticalAlignT === "bottom" || verticalAlignT === "center" ? "auto" : mtT;
-          const mtMPos = verticalAlignM === "bottom" || verticalAlignM === "center" ? "auto" : mtM;
-          const mbDPos = verticalAlignD === "center" ? "auto" : mbD;
-          const mbTPos = verticalAlignT === "center" ? "auto" : mbT;
-          const mbMPos = verticalAlignM === "center" ? "auto" : mbM;
-
-          return (
-            <style
-              dangerouslySetInnerHTML={{
-                __html: safeStyleTagCss(`
-                  .public-theme #footer-widget-${child.id} {
-                    text-align: ${alignM} !important;
-                    margin-top: ${mtMPos} !important;
-                    margin-right: ${mrM} !important;
-                    margin-bottom: ${mbMPos} !important;
-                    margin-left: ${mlM} !important;
-                    padding-top: ${ptM} !important;
-                    padding-right: ${prM} !important;
-                    padding-bottom: ${pbM} !important;
-                    padding-left: ${plM} !important;
-                  }
-                  @media (min-width: 768px) {
-                    .public-theme #footer-widget-${child.id} {
-                      text-align: ${alignT} !important;
-                      margin-top: ${mtTPos} !important;
-                      margin-right: ${mrT} !important;
-                      margin-bottom: ${mbTPos} !important;
-                      margin-left: ${mlT} !important;
-                      padding-top: ${ptT} !important;
-                      padding-right: ${prT} !important;
-                      padding-bottom: ${pbT} !important;
-                      padding-left: ${plT} !important;
-                    }
-                  }
-                  @media (min-width: 1025px) {
-                    .public-theme #footer-widget-${child.id} {
-                      text-align: ${alignD} !important;
-                      margin-top: ${mtDPos} !important;
-                      margin-right: ${mrD} !important;
-                      margin-bottom: ${mbDPos} !important;
-                      margin-left: ${mlD} !important;
-                      padding-top: ${ptD} !important;
-                      padding-right: ${prD} !important;
-                      padding-bottom: ${pbD} !important;
-                      padding-left: ${plD} !important;
-                    }
-                  }
-                `),
-              }}
-            />
-          );
-        })()}
         {renderWidget(child)}
       </div>
     );
@@ -344,6 +351,13 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
       const desktopText = resolveOptionalPx(getResponsive(config, "logoTextSize", "desktop")) || "28px";
       const tabletText = resolveOptionalPx(getResponsive(config, "logoTextSize", "tablet")) || desktopText;
       const mobileText = resolveOptionalPx(getResponsive(config, "logoTextSize", "mobile")) || desktopText;
+      const desktopRadius = resolveOptionalPx(getResponsive(config, "borderRadius", "desktop")) || "0px";
+      const tabletRadius = resolveOptionalPx(getResponsive(config, "borderRadius", "tablet")) || desktopRadius;
+      const mobileRadius = resolveOptionalPx(getResponsive(config, "borderRadius", "mobile")) || desktopRadius;
+      const logoFitClass = getObjectFitClass(config.objectFit);
+      const logoShadowClass = config.showShadow === true || config.showShadow === "true"
+        ? "shadow-[0_10px_30px_rgba(15,23,42,0.14)]"
+        : "";
 
       const style = {
         ["--fb-logo-desktop-h" as any]: desktopH,
@@ -355,6 +369,9 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
         ["--fb-logo-desktop-text" as any]: desktopText,
         ["--fb-logo-tablet-text" as any]: tabletText,
         ["--fb-logo-mobile-text" as any]: mobileText,
+        ["--fb-logo-desktop-radius" as any]: desktopRadius,
+        ["--fb-logo-tablet-radius" as any]: tabletRadius,
+        ["--fb-logo-mobile-radius" as any]: mobileRadius,
       } as any;
 
       return (
@@ -369,7 +386,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                     width={400}
                     height={120}
                     unoptimized
-                    className="fb-logo-light h-[var(--fb-logo-mobile-h,var(--fb-logo-desktop-h,40px))] md:h-[var(--fb-logo-tablet-h,var(--fb-logo-desktop-h,40px))] lg:h-[var(--fb-logo-desktop-h,40px)] w-auto max-w-[var(--fb-logo-mobile-maxw,var(--fb-logo-desktop-maxw,none))] md:max-w-[var(--fb-logo-tablet-maxw,var(--fb-logo-desktop-maxw,none))] lg:max-w-[var(--fb-logo-desktop-maxw,none)]"
+                    className={`[html.public-dark_&]:hidden h-[var(--fb-logo-mobile-h,var(--fb-logo-desktop-h,40px))] md:h-[var(--fb-logo-tablet-h,var(--fb-logo-desktop-h,40px))] lg:h-[var(--fb-logo-desktop-h,40px)] w-auto max-w-[var(--fb-logo-mobile-maxw,var(--fb-logo-desktop-maxw,none))] md:max-w-[var(--fb-logo-tablet-maxw,var(--fb-logo-desktop-maxw,none))] lg:max-w-[var(--fb-logo-desktop-maxw,none)] rounded-[var(--fb-logo-mobile-radius,var(--fb-logo-desktop-radius,0px))] md:rounded-[var(--fb-logo-tablet-radius,var(--fb-logo-desktop-radius,0px))] lg:rounded-[var(--fb-logo-desktop-radius,0px)] ${logoFitClass} ${logoShadowClass}`.trim()}
                   />
                   <Image
                     src={darkLogo}
@@ -377,7 +394,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                     width={400}
                     height={120}
                     unoptimized
-                    className="fb-logo-dark h-[var(--fb-logo-mobile-h,var(--fb-logo-desktop-h,40px))] md:h-[var(--fb-logo-tablet-h,var(--fb-logo-desktop-h,40px))] lg:h-[var(--fb-logo-desktop-h,40px)] w-auto max-w-[var(--fb-logo-mobile-maxw,var(--fb-logo-desktop-maxw,none))] md:max-w-[var(--fb-logo-tablet-maxw,var(--fb-logo-desktop-maxw,none))] lg:max-w-[var(--fb-logo-desktop-maxw,none)]"
+                    className={`hidden [html.public-dark_&]:inline-block h-[var(--fb-logo-mobile-h,var(--fb-logo-desktop-h,40px))] md:h-[var(--fb-logo-tablet-h,var(--fb-logo-desktop-h,40px))] lg:h-[var(--fb-logo-desktop-h,40px)] w-auto max-w-[var(--fb-logo-mobile-maxw,var(--fb-logo-desktop-maxw,none))] md:max-w-[var(--fb-logo-tablet-maxw,var(--fb-logo-desktop-maxw,none))] lg:max-w-[var(--fb-logo-desktop-maxw,none)] rounded-[var(--fb-logo-mobile-radius,var(--fb-logo-desktop-radius,0px))] md:rounded-[var(--fb-logo-tablet-radius,var(--fb-logo-desktop-radius,0px))] lg:rounded-[var(--fb-logo-desktop-radius,0px)] ${logoFitClass} ${logoShadowClass}`.trim()}
                   />
                 </>
               ) : (
@@ -387,7 +404,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                   width={400}
                   height={120}
                   unoptimized
-                  className="h-[var(--fb-logo-mobile-h,var(--fb-logo-desktop-h,40px))] md:h-[var(--fb-logo-tablet-h,var(--fb-logo-desktop-h,40px))] lg:h-[var(--fb-logo-desktop-h,40px)] w-auto max-w-[var(--fb-logo-mobile-maxw,var(--fb-logo-desktop-maxw,none))] md:max-w-[var(--fb-logo-tablet-maxw,var(--fb-logo-desktop-maxw,none))] lg:max-w-[var(--fb-logo-desktop-maxw,none)]"
+                  className={`h-[var(--fb-logo-mobile-h,var(--fb-logo-desktop-h,40px))] md:h-[var(--fb-logo-tablet-h,var(--fb-logo-desktop-h,40px))] lg:h-[var(--fb-logo-desktop-h,40px)] w-auto max-w-[var(--fb-logo-mobile-maxw,var(--fb-logo-desktop-maxw,none))] md:max-w-[var(--fb-logo-tablet-maxw,var(--fb-logo-desktop-maxw,none))] lg:max-w-[var(--fb-logo-desktop-maxw,none)] rounded-[var(--fb-logo-mobile-radius,var(--fb-logo-desktop-radius,0px))] md:rounded-[var(--fb-logo-tablet-radius,var(--fb-logo-desktop-radius,0px))] lg:rounded-[var(--fb-logo-desktop-radius,0px)] ${logoFitClass} ${logoShadowClass}`.trim()}
                 />
               )
             ) : (
@@ -444,6 +461,15 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
       const desktopWeight = scalar(getResponsive(config, "textFontWeight", "desktop")) || "400";
       const tabletWeight = scalar(getResponsive(config, "textFontWeight", "tablet")) || desktopWeight;
       const mobileWeight = scalar(getResponsive(config, "textFontWeight", "mobile")) || desktopWeight;
+      const desktopTitleColor = resolveOptionalColor(getResponsive(config, "blockTitleColor", "desktop")) || "#e5e7eb";
+      const tabletTitleColor = resolveOptionalColor(getResponsive(config, "blockTitleColor", "tablet")) || desktopTitleColor;
+      const mobileTitleColor = resolveOptionalColor(getResponsive(config, "blockTitleColor", "mobile")) || desktopTitleColor;
+      const desktopTitleSize = resolveOptionalPx(getResponsive(config, "blockTitleFontSize", "desktop")) || "16px";
+      const tabletTitleSize = resolveOptionalPx(getResponsive(config, "blockTitleFontSize", "tablet")) || desktopTitleSize;
+      const mobileTitleSize = resolveOptionalPx(getResponsive(config, "blockTitleFontSize", "mobile")) || desktopTitleSize;
+      const desktopTitleBorder = resolveOptionalColor(getResponsive(config, "blockTitleBorderColor", "desktop")) || "rgba(229, 231, 235, 0.28)";
+      const tabletTitleBorder = resolveOptionalColor(getResponsive(config, "blockTitleBorderColor", "tablet")) || desktopTitleBorder;
+      const mobileTitleBorder = resolveOptionalColor(getResponsive(config, "blockTitleBorderColor", "mobile")) || desktopTitleBorder;
       const styleVars: React.CSSProperties = {
         ["--fb-ft-color-desktop" as any]: desktopColor,
         ["--fb-ft-color-tablet" as any]: tabletColor,
@@ -457,31 +483,42 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
         ["--fb-ft-fw-desktop" as any]: desktopWeight,
         ["--fb-ft-fw-tablet" as any]: tabletWeight,
         ["--fb-ft-fw-mobile" as any]: mobileWeight,
+        ["--fb-ft-title-color-desktop" as any]: desktopTitleColor,
+        ["--fb-ft-title-color-tablet" as any]: tabletTitleColor,
+        ["--fb-ft-title-color-mobile" as any]: mobileTitleColor,
+        ["--fb-ft-title-size-desktop" as any]: desktopTitleSize,
+        ["--fb-ft-title-size-tablet" as any]: tabletTitleSize,
+        ["--fb-ft-title-size-mobile" as any]: mobileTitleSize,
+        ["--fb-ft-title-border-desktop" as any]: desktopTitleBorder,
+        ["--fb-ft-title-border-tablet" as any]: tabletTitleBorder,
+        ["--fb-ft-title-border-mobile" as any]: mobileTitleBorder,
       };
       return (
         <div className={`space-y-3 ${alignClass}`.trim()}>
-          {showTitle && <h4 className="font-bold text-gray-200">{title || "Info"}</h4>}
+          {showTitle && (
+            <h4
+              style={styleVars}
+              className="inline-flex border-b pb-1 font-bold [color:var(--fb-ft-title-color-mobile,var(--fb-ft-title-color-desktop,#e5e7eb))] md:[color:var(--fb-ft-title-color-tablet,var(--fb-ft-title-color-desktop,#e5e7eb))] lg:[color:var(--fb-ft-title-color-desktop,#e5e7eb)] text-[length:var(--fb-ft-title-size-mobile,var(--fb-ft-title-size-desktop,16px))] md:text-[length:var(--fb-ft-title-size-tablet,var(--fb-ft-title-size-desktop,16px))] lg:text-[length:var(--fb-ft-title-size-desktop,16px)] border-[color:var(--fb-ft-title-border-mobile,var(--fb-ft-title-border-desktop,rgba(229,231,235,0.28)))] md:border-[color:var(--fb-ft-title-border-tablet,var(--fb-ft-title-border-desktop,rgba(229,231,235,0.28)))] lg:border-[color:var(--fb-ft-title-border-desktop,rgba(229,231,235,0.28))]"
+            >
+              {title || "Info"}
+            </h4>
+          )}
           {clean.trim() !== "" && (
             <div
+              suppressHydrationWarning
               style={styleVars}
-              className="fb-footer-text max-w-full break-words whitespace-normal [color:var(--fb-ft-color-mobile,var(--fb-ft-color-desktop,#9ca3af))] md:[color:var(--fb-ft-color-tablet,var(--fb-ft-color-desktop,#9ca3af))] lg:[color:var(--fb-ft-color-desktop,#9ca3af)] text-[length:var(--fb-ft-size-mobile,var(--fb-ft-size-desktop,14px))] md:text-[length:var(--fb-ft-size-tablet,var(--fb-ft-size-desktop,14px))] lg:text-[length:var(--fb-ft-size-desktop,14px)] leading-[var(--fb-ft-lh-mobile,var(--fb-ft-lh-desktop,1.625))] md:leading-[var(--fb-ft-lh-tablet,var(--fb-ft-lh-desktop,1.625))] lg:leading-[var(--fb-ft-lh-desktop,1.625)] font-[var(--fb-ft-fw-mobile,var(--fb-ft-fw-desktop,400))] md:font-[var(--fb-ft-fw-tablet,var(--fb-ft-fw-desktop,400))] lg:font-[var(--fb-ft-fw-desktop,400)] [&_*]:max-w-full [&_a]:text-inherit [&_a:hover]:text-white [&_a]:underline-offset-4 [&_a:hover]:underline"
+              className="fb-footer-text max-w-full break-words whitespace-normal [color:var(--fb-ft-color-mobile,var(--fb-ft-color-desktop,#9ca3af))] md:[color:var(--fb-ft-color-tablet,var(--fb-ft-color-desktop,#9ca3af))] lg:[color:var(--fb-ft-color-desktop,#9ca3af)] text-[length:var(--fb-ft-size-mobile,var(--fb-ft-size-desktop,14px))] md:text-[length:var(--fb-ft-size-tablet,var(--fb-ft-size-desktop,14px))] lg:text-[length:var(--fb-ft-size-desktop,14px)] leading-[var(--fb-ft-lh-mobile,var(--fb-ft-lh-desktop,1.625))] md:leading-[var(--fb-ft-lh-tablet,var(--fb-ft-lh-desktop,1.625))] lg:leading-[var(--fb-ft-lh-desktop,1.625)] font-[var(--fb-ft-fw-mobile,var(--fb-ft-fw-desktop,400))] md:font-[var(--fb-ft-fw-tablet,var(--fb-ft-fw-desktop,400))] lg:font-[var(--fb-ft-fw-desktop,400)] [&_*]:max-w-full [&_*]:overflow-wrap-anywhere [&_*]:break-words [&_*]:whitespace-normal [&_a]:text-inherit [&_a:hover]:text-white [&_a]:underline-offset-4 [&_a:hover]:underline [&_p]:m-0 [&_b]:font-bold [&_strong]:font-bold [&_img]:max-w-full [&_img]:h-auto [&_video]:max-w-full [&_video]:h-auto [&_iframe]:max-w-full [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto"
               dangerouslySetInnerHTML={{
-                __html: safeStyleTagCss(
-                  `<style>` +
-                    `.fb-footer-text,.fb-footer-text *{max-width:100%;overflow-wrap:anywhere;word-break:break-word;white-space:normal !important;}` +
-                    `.fb-footer-text :where(p,span,div,em,b,i,u,s,small,mark,blockquote,ul,ol,li,h1,h2,h3,h4,h5,h6,a){color:inherit;font-size:inherit;line-height:inherit;}` +
-                    `.fb-footer-text :where(p){margin:0;}` +
-                    `.fb-footer-text :where(b,strong){font-weight:700;}` +
-                    `.fb-footer-text :where(img,video,iframe){max-width:100%;height:auto;}` +
-                    `.fb-footer-text :where(table){max-width:100%;display:block;overflow-x:auto;}` +
-                    `</style>` +
-                    clean,
-                ),
+                __html: clean,
               }}
             />
           )}
         </div>
       );
+    }
+
+    if (widget.type === "image_widget") {
+      return <ImageUrlWidget config={config} title={title || "Gambar"} className={alignClass} />;
     }
 
     if (widget.type === "footer_social") {
@@ -816,35 +853,22 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
       const columnGapDesktop = `${(Number(sectionConfig.columnGap ?? sectionConfig.tabletColumnGap ?? sectionConfig.mobileColumnGap ?? 6) || 0) * 0.25}rem`;
 
       return (
-        <div id={`footer-inner-section-${widget.id}`} className="w-full">
-          <style
-            dangerouslySetInnerHTML={{
-              __html: safeStyleTagCss(`
-                .public-theme #footer-inner-section-${widget.id} {
-                  --footer-widget-gap: ${blockGapMobile};
-                  --footer-column-gap: ${columnGapMobile};
-                }
-                @media (min-width: 768px) {
-                  .public-theme #footer-inner-section-${widget.id} {
-                    --footer-widget-gap: ${blockGapTablet};
-                    --footer-column-gap: ${columnGapTablet};
-                  }
-                }
-                @media (min-width: 1025px) {
-                  .public-theme #footer-inner-section-${widget.id} {
-                    --footer-widget-gap: ${blockGapDesktop};
-                    --footer-column-gap: ${columnGapDesktop};
-                  }
-                }
-              `),
-            }}
-          />
+        <div
+          id={`footer-inner-section-${widget.id}`}
+          className="w-full"
+          style={
+            {
+              ["--fb-is-wgap-m" as any]: blockGapMobile,
+              ["--fb-is-wgap-t" as any]: blockGapTablet,
+              ["--fb-is-wgap-d" as any]: blockGapDesktop,
+              ["--fb-is-cgap-m" as any]: columnGapMobile,
+              ["--fb-is-cgap-t" as any]: columnGapTablet,
+              ["--fb-is-cgap-d" as any]: columnGapDesktop,
+            } as any
+          }
+        >
           <div
-            className={`grid grid-cols-1 ${gridCols} ${gapClass}`.trim()}
-            style={{
-              columnGap: "var(--footer-column-gap)",
-              rowGap: "var(--footer-column-gap)",
-            }}
+            className={`grid grid-cols-1 ${gridCols} ${gapClass} gap-[var(--fb-is-cgap-m)] md:gap-[var(--fb-is-cgap-t)] lg:gap-[var(--fb-is-cgap-d)]`.trim()}
           >
             {Array.from({ length: colCount }).map((_, colIndex) => {
               const colChildren = activeChildren
@@ -852,8 +876,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
               return (
                 <div
                   key={`${widget.id}_inner_col_${colIndex}`}
-                  className={`min-w-0 flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop}`.trim()}
-                  style={{ gap: "var(--footer-widget-gap, 1.5rem)" }}
+                  className={`min-w-0 flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop} gap-[var(--fb-is-wgap-m)] md:gap-[var(--fb-is-wgap-t)] lg:gap-[var(--fb-is-wgap-d)]`.trim()}
                 >
                   {colChildren.map((c: any) => renderWidgetWithSpacing(c, { growClass: itemGrowClass }))}
                 </div>
@@ -932,16 +955,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
   };
 
   return (
-    <footer className="text-white mt-auto">
-      <style
-        dangerouslySetInnerHTML={{
-          __html: safeStyleTagCss(`
-            .fb-logo-dark { display: none !important; }
-            html.public-dark .fb-logo-light { display: none !important; }
-            html.public-dark .fb-logo-dark { display: inline-block !important; }
-          `),
-        }}
-      />
+    <footer className="classic-footer-root text-white mt-auto" suppressHydrationWarning>
       <div className="w-full">
         {sections.map((section) => {
           const sectionConfig = section?.config || {};
@@ -1020,19 +1034,6 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
           const mlM = resolveOptionalPx(getResponsive(sectionConfig, "marginLeft", "mobile")) ?? mlT;
           const mrM = resolveOptionalPx(getResponsive(sectionConfig, "marginRight", "mobile")) ?? mrT;
 
-          const ptMF = ptM ?? "0px";
-          const pbMF = pbM ?? "0px";
-          const plMF = plM ?? "0px";
-          const prMF = prM ?? "0px";
-          const ptTF = ptT ?? ptMF;
-          const pbTF = pbT ?? pbMF;
-          const plTF = plT ?? plMF;
-          const prTF = prT ?? prMF;
-          const ptDF = ptD ?? ptTF;
-          const pbDF = pbD ?? pbTF;
-          const plDF = plD ?? plTF;
-          const prDF = prD ?? prTF;
-
           const rawBgD = getResponsive(sectionConfig, "backgroundColor", "desktop");
           const rawBgT = getResponsive(sectionConfig, "backgroundColor", "tablet");
           const rawBgM = getResponsive(sectionConfig, "backgroundColor", "mobile");
@@ -1086,6 +1087,66 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
           const boxPXT = useBoxTablet ? formatSpacing(sectionConfig.tabletBoxPaddingX ?? sectionConfig.boxPaddingX ?? sectionConfig.mobileBoxPaddingX) ?? boxPXM : "0px";
           const boxPXD = useBoxDesktop ? formatSpacing(sectionConfig.boxPaddingX ?? sectionConfig.tabletBoxPaddingX ?? sectionConfig.mobileBoxPaddingX) ?? boxPXT : "0px";
 
+          const borderStyleValueMobile = String(sectionConfig.mobileBorderStyle ?? sectionConfig.tabletBorderStyle ?? sectionConfig.borderStyle ?? "solid");
+          const borderStyleValueTablet = String(sectionConfig.tabletBorderStyle ?? sectionConfig.borderStyle ?? borderStyleValueMobile);
+          const borderStyleValueDesktop = String(sectionConfig.borderStyle ?? borderStyleValueTablet);
+          const borderColorValueMobile = String(sectionConfig.mobileBorderColor ?? sectionConfig.tabletBorderColor ?? sectionConfig.borderColor ?? "var(--border, #e5e7eb)");
+          const borderColorValueTablet = String(sectionConfig.tabletBorderColor ?? sectionConfig.borderColor ?? borderColorValueMobile);
+          const borderColorValueDesktop = String(sectionConfig.borderColor ?? borderColorValueTablet);
+          const btValueMobile = Number(sectionConfig.mobileBorderTopWidth ?? sectionConfig.tabletBorderTopWidth ?? sectionConfig.borderTopWidth ?? 0);
+          const bbValueMobile = Number(sectionConfig.mobileBorderBottomWidth ?? sectionConfig.tabletBorderBottomWidth ?? sectionConfig.borderBottomWidth ?? 0);
+          const blValueMobile = Number(sectionConfig.mobileBorderLeftWidth ?? sectionConfig.tabletBorderLeftWidth ?? sectionConfig.borderLeftWidth ?? 0);
+          const brValueMobile = Number(sectionConfig.mobileBorderRightWidth ?? sectionConfig.tabletBorderRightWidth ?? sectionConfig.borderRightWidth ?? 0);
+          const btValueTablet = Number(sectionConfig.tabletBorderTopWidth ?? sectionConfig.borderTopWidth ?? 0);
+          const bbValueTablet = Number(sectionConfig.tabletBorderBottomWidth ?? sectionConfig.borderBottomWidth ?? 0);
+          const blValueTablet = Number(sectionConfig.tabletBorderLeftWidth ?? sectionConfig.borderLeftWidth ?? 0);
+          const brValueTablet = Number(sectionConfig.tabletBorderRightWidth ?? sectionConfig.borderRightWidth ?? 0);
+          const btValueDesktop = Number(sectionConfig.borderTopWidth ?? 0);
+          const bbValueDesktop = Number(sectionConfig.borderBottomWidth ?? 0);
+          const blValueDesktop = Number(sectionConfig.borderLeftWidth ?? 0);
+          const brValueDesktop = Number(sectionConfig.borderRightWidth ?? 0);
+          const shadowMobile = getShadow(String(sectionConfig.mobileBoxShadow ?? sectionConfig.tabletBoxShadow ?? sectionConfig.boxShadow ?? "none"));
+          const shadowTablet = getShadow(String(sectionConfig.tabletBoxShadow ?? sectionConfig.boxShadow ?? "none"));
+          const shadowDesktop = getShadow(String(sectionConfig.boxShadow ?? "none"));
+          const hasBorderMobile = btValueMobile > 0 || bbValueMobile > 0 || blValueMobile > 0 || brValueMobile > 0;
+          const hasBorderTablet = btValueTablet > 0 || bbValueTablet > 0 || blValueTablet > 0 || brValueTablet > 0;
+          const hasBorderDesktop = btValueDesktop > 0 || bbValueDesktop > 0 || blValueDesktop > 0 || brValueDesktop > 0;
+          const frameMobile = useBoxMobile || hasBorderMobile || shadowMobile !== "none";
+          const frameTablet = useBoxTablet || hasBorderTablet || shadowTablet !== "none";
+          const frameDesktop = useBoxDesktop || hasBorderDesktop || shadowDesktop !== "none";
+          const styleMobile = borderStyleValueMobile.trim().toLowerCase();
+          const styleTablet = borderStyleValueTablet.trim().toLowerCase();
+          const styleDesktop = borderStyleValueDesktop.trim().toLowerCase();
+          const borderStyleMobile = frameMobile ? (hasBorderMobile && styleMobile === "none" ? "solid" : borderStyleValueMobile) : "none";
+          const borderStyleTablet = frameTablet ? (hasBorderTablet && styleTablet === "none" ? "solid" : borderStyleValueTablet) : "none";
+          const borderStyleDesktop = frameDesktop ? (hasBorderDesktop && styleDesktop === "none" ? "solid" : borderStyleValueDesktop) : "none";
+          const borderColorMobile = frameMobile ? borderColorValueMobile : "transparent";
+          const borderColorTablet = frameTablet ? borderColorValueTablet : "transparent";
+          const borderColorDesktop = frameDesktop ? borderColorValueDesktop : "transparent";
+          const btMobile = frameMobile ? `${btValueMobile}px` : "0px";
+          const bbMobile = frameMobile ? `${bbValueMobile}px` : "0px";
+          const blMobile = frameMobile ? `${blValueMobile}px` : "0px";
+          const brMobile = frameMobile ? `${brValueMobile}px` : "0px";
+          const btTablet = frameTablet ? `${btValueTablet}px` : "0px";
+          const bbTablet = frameTablet ? `${bbValueTablet}px` : "0px";
+          const blTablet = frameTablet ? `${blValueTablet}px` : "0px";
+          const brTablet = frameTablet ? `${brValueTablet}px` : "0px";
+          const btDesktop = frameDesktop ? `${btValueDesktop}px` : "0px";
+          const bbDesktop = frameDesktop ? `${bbValueDesktop}px` : "0px";
+          const blDesktop = frameDesktop ? `${blValueDesktop}px` : "0px";
+          const brDesktop = frameDesktop ? `${brValueDesktop}px` : "0px";
+
+          const colCount = getColumnCount(section?.config?.layout);
+          const gridCols = getGridColsClass(colCount);
+          const gapClass = getGapClass(section?.config?.gap);
+          const children = Array.isArray(section?.config?.children) ? section.config.children : [];
+          const blockGapMobile = `${(Number(sectionConfig.mobileBlockGap ?? sectionConfig.blockGap ?? 6) || 0) * 0.25}rem`;
+          const blockGapTablet = `${(Number(sectionConfig.tabletBlockGap ?? sectionConfig.blockGap ?? sectionConfig.mobileBlockGap ?? 6) || 0) * 0.25}rem`;
+          const blockGapDesktop = `${(Number(sectionConfig.blockGap ?? sectionConfig.tabletBlockGap ?? sectionConfig.mobileBlockGap ?? 6) || 0) * 0.25}rem`;
+          const columnGapMobile = `${(Number(sectionConfig.mobileColumnGap ?? sectionConfig.columnGap ?? 6) || 0) * 0.25}rem`;
+          const columnGapTablet = `${(Number(sectionConfig.tabletColumnGap ?? sectionConfig.columnGap ?? sectionConfig.mobileColumnGap ?? 6) || 0) * 0.25}rem`;
+          const columnGapDesktop = `${(Number(sectionConfig.columnGap ?? sectionConfig.tabletColumnGap ?? sectionConfig.mobileColumnGap ?? 6) || 0) * 0.25}rem`;
+
           const sectionStyle = {
             ["--fb-sec-pt-m" as any]: ptM,
             ["--fb-sec-pb-m" as any]: pbM,
@@ -1099,6 +1160,18 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
             ["--fb-sec-pb-d" as any]: pbD,
             ["--fb-sec-pl-d" as any]: plD,
             ["--fb-sec-pr-d" as any]: prD,
+            ["--fb-sec-mt-m" as any]: mtM,
+            ["--fb-sec-mb-m" as any]: mbM,
+            ["--fb-sec-ml-m" as any]: mlM,
+            ["--fb-sec-mr-m" as any]: mrM,
+            ["--fb-sec-mt-t" as any]: mtT,
+            ["--fb-sec-mb-t" as any]: mbT,
+            ["--fb-sec-ml-t" as any]: mlT,
+            ["--fb-sec-mr-t" as any]: mrT,
+            ["--fb-sec-mt-d" as any]: mtD,
+            ["--fb-sec-mb-d" as any]: mbD,
+            ["--fb-sec-ml-d" as any]: mlD,
+            ["--fb-sec-mr-d" as any]: mrD,
             ["--fb-sec-bg-m" as any]: bgM,
             ["--fb-sec-bg-t" as any]: bgT,
             ["--fb-sec-bg-d" as any]: bgD,
@@ -1120,151 +1193,59 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
             ["--fb-sec-radius-m" as any]: radiusM,
             ["--fb-sec-radius-t" as any]: radiusT,
             ["--fb-sec-radius-d" as any]: radiusD,
+            ["--fb-sec-border-style-m" as any]: borderStyleMobile,
+            ["--fb-sec-border-style-t" as any]: borderStyleTablet,
+            ["--fb-sec-border-style-d" as any]: borderStyleDesktop,
+            ["--fb-sec-border-color-m" as any]: borderColorMobile,
+            ["--fb-sec-border-color-t" as any]: borderColorTablet,
+            ["--fb-sec-border-color-d" as any]: borderColorDesktop,
+            ["--fb-sec-bt-m" as any]: btMobile,
+            ["--fb-sec-bb-m" as any]: bbMobile,
+            ["--fb-sec-bl-m" as any]: blMobile,
+            ["--fb-sec-br-m" as any]: brMobile,
+            ["--fb-sec-bt-t" as any]: btTablet,
+            ["--fb-sec-bb-t" as any]: bbTablet,
+            ["--fb-sec-bl-t" as any]: blTablet,
+            ["--fb-sec-br-t" as any]: brTablet,
+            ["--fb-sec-bt-d" as any]: btDesktop,
+            ["--fb-sec-bb-d" as any]: bbDesktop,
+            ["--fb-sec-bl-d" as any]: blDesktop,
+            ["--fb-sec-br-d" as any]: brDesktop,
+            ["--fb-sec-shadow-m" as any]: frameMobile ? shadowMobile : "none",
+            ["--fb-sec-shadow-t" as any]: frameTablet ? shadowTablet : "none",
+            ["--fb-sec-shadow-d" as any]: frameDesktop ? shadowDesktop : "none",
             ["--fb-sec-boxpy-m" as any]: boxPYM,
             ["--fb-sec-boxpy-t" as any]: boxPYT,
             ["--fb-sec-boxpy-d" as any]: boxPYD,
             ["--fb-sec-boxpx-m" as any]: boxPXM,
             ["--fb-sec-boxpx-t" as any]: boxPXT,
             ["--fb-sec-boxpx-d" as any]: boxPXD,
+            ["--fb-sec-wgap-m" as any]: blockGapMobile,
+            ["--fb-sec-wgap-t" as any]: blockGapTablet,
+            ["--fb-sec-wgap-d" as any]: blockGapDesktop,
+            ["--fb-sec-cgap-m" as any]: columnGapMobile,
+            ["--fb-sec-cgap-t" as any]: columnGapTablet,
+            ["--fb-sec-cgap-d" as any]: columnGapDesktop,
           } as any;
-
-          const colCount = getColumnCount(section?.config?.layout);
-          const gridCols = getGridColsClass(colCount);
-          const gapClass = getGapClass(section?.config?.gap);
-          const children = Array.isArray(section?.config?.children) ? section.config.children : [];
-          const blockGapMobile = `${(Number(sectionConfig.mobileBlockGap ?? sectionConfig.blockGap ?? 6) || 0) * 0.25}rem`;
-          const blockGapTablet = `${(Number(sectionConfig.tabletBlockGap ?? sectionConfig.blockGap ?? sectionConfig.mobileBlockGap ?? 6) || 0) * 0.25}rem`;
-          const blockGapDesktop = `${(Number(sectionConfig.blockGap ?? sectionConfig.tabletBlockGap ?? sectionConfig.mobileBlockGap ?? 6) || 0) * 0.25}rem`;
-          const columnGapMobile = `${(Number(sectionConfig.mobileColumnGap ?? sectionConfig.columnGap ?? 6) || 0) * 0.25}rem`;
-          const columnGapTablet = `${(Number(sectionConfig.tabletColumnGap ?? sectionConfig.columnGap ?? sectionConfig.mobileColumnGap ?? 6) || 0) * 0.25}rem`;
-          const columnGapDesktop = `${(Number(sectionConfig.columnGap ?? sectionConfig.tabletColumnGap ?? sectionConfig.mobileColumnGap ?? 6) || 0) * 0.25}rem`;
 
           return (
             <Fragment key={section.id}>
-              <style
-                dangerouslySetInnerHTML={{
-                  __html: safeStyleTagCss(`
-                    .public-theme #footer-section-${section.id} {
-                      margin-top: ${mtM} !important;
-                      margin-bottom: ${mbM} !important;
-                      margin-left: ${mlM} !important;
-                      margin-right: ${mrM} !important;
-                      --footer-widget-gap: ${blockGapMobile};
-                      --footer-column-gap: ${columnGapMobile};
-                    }
-                    .public-theme #footer-section-container-${section.id} {
-                      width: 100% !important;
-                      max-width: ${maxWM} !important;
-                      padding-left: ${padXM} !important;
-                      padding-right: ${padXM} !important;
-                      margin-left: auto !important;
-                      margin-right: auto !important;
-                    }
-                    .public-theme #footer-section-surface-${section.id} {
-                      padding-top: ${ptMF} !important;
-                      padding-bottom: ${pbMF} !important;
-                      padding-left: ${plMF} !important;
-                      padding-right: ${prMF} !important;
-                      background-color: ${bgM} !important;
-                      background-image: ${bgImgM ? `url("${bgImgM}")` : "none"} !important;
-                      background-size: ${bgImgM ? sizeM : "auto"} !important;
-                      background-position: center !important;
-                      background-repeat: no-repeat !important;
-                      border-radius: ${radiusM} !important;
-                    }
-                    .public-theme #footer-section-overlay-${section.id} {
-                      background-color: ${overlayM || "transparent"} !important;
-                    }
-                    .public-theme #footer-section-box-content-${section.id} {
-                      padding-top: ${boxPYM} !important;
-                      padding-bottom: ${boxPYM} !important;
-                      padding-left: ${boxPXM} !important;
-                      padding-right: ${boxPXM} !important;
-                    }
-                    @media (min-width: 768px) {
-                      .public-theme #footer-section-${section.id} {
-                        margin-top: ${mtT} !important;
-                        margin-bottom: ${mbT} !important;
-                        margin-left: ${mlT} !important;
-                        margin-right: ${mrT} !important;
-                        --footer-widget-gap: ${blockGapTablet};
-                        --footer-column-gap: ${columnGapTablet};
-                      }
-                      .public-theme #footer-section-container-${section.id} {
-                        max-width: ${maxWT} !important;
-                        padding-left: ${padXT} !important;
-                        padding-right: ${padXT} !important;
-                      }
-                      .public-theme #footer-section-surface-${section.id} {
-                        padding-top: ${ptTF} !important;
-                        padding-bottom: ${pbTF} !important;
-                        padding-left: ${plTF} !important;
-                        padding-right: ${prTF} !important;
-                        background-color: ${bgT} !important;
-                        background-image: ${bgImgT ? `url("${bgImgT}")` : "none"} !important;
-                        background-size: ${bgImgT ? sizeT : "auto"} !important;
-                        border-radius: ${radiusT} !important;
-                      }
-                      .public-theme #footer-section-overlay-${section.id} {
-                        background-color: ${overlayT || overlayM || "transparent"} !important;
-                      }
-                      .public-theme #footer-section-box-content-${section.id} {
-                        padding-top: ${boxPYT} !important;
-                        padding-bottom: ${boxPYT} !important;
-                        padding-left: ${boxPXT} !important;
-                        padding-right: ${boxPXT} !important;
-                      }
-                    }
-                    @media (min-width: 1025px) {
-                      .public-theme #footer-section-${section.id} {
-                        margin-top: ${mtD} !important;
-                        margin-bottom: ${mbD} !important;
-                        margin-left: ${mlD} !important;
-                        margin-right: ${mrD} !important;
-                        --footer-widget-gap: ${blockGapDesktop};
-                        --footer-column-gap: ${columnGapDesktop};
-                      }
-                      .public-theme #footer-section-container-${section.id} {
-                        max-width: ${maxWD} !important;
-                        padding-left: ${padXD} !important;
-                        padding-right: ${padXD} !important;
-                      }
-                      .public-theme #footer-section-surface-${section.id} {
-                        padding-top: ${ptDF} !important;
-                        padding-bottom: ${pbDF} !important;
-                        padding-left: ${plDF} !important;
-                        padding-right: ${prDF} !important;
-                        background-color: ${bgD} !important;
-                        background-image: ${bgImgD ? `url("${bgImgD}")` : "none"} !important;
-                        background-size: ${bgImgD ? sizeD : "auto"} !important;
-                        border-radius: ${radiusD} !important;
-                      }
-                      .public-theme #footer-section-overlay-${section.id} {
-                        background-color: ${overlayD || overlayT || overlayM || "transparent"} !important;
-                      }
-                      .public-theme #footer-section-box-content-${section.id} {
-                        padding-top: ${boxPYD} !important;
-                        padding-bottom: ${boxPYD} !important;
-                        padding-left: ${boxPXD} !important;
-                        padding-right: ${boxPXD} !important;
-                      }
-                    }
-                  `),
-                }}
-              />
-              <section id={`footer-section-${section.id}`} className="relative w-full" style={sectionStyle}>
-                <div id={`footer-section-container-${section.id}`} className="w-full mx-auto">
-                <div id={`footer-section-surface-${section.id}`} className="relative w-full bg-[var(--fb-sec-bg-m)] md:bg-[var(--fb-sec-bg-t)] lg:bg-[var(--fb-sec-bg-d)] bg-[image:var(--fb-sec-bgimg-m)] md:bg-[image:var(--fb-sec-bgimg-t)] lg:bg-[image:var(--fb-sec-bgimg-d)] bg-no-repeat bg-center [background-size:var(--fb-sec-bgsize-m)] md:[background-size:var(--fb-sec-bgsize-t)] lg:[background-size:var(--fb-sec-bgsize-d)] pt-[var(--fb-sec-pt-m)] pb-[var(--fb-sec-pb-m)] pl-[var(--fb-sec-pl-m)] pr-[var(--fb-sec-pr-m)] md:pt-[var(--fb-sec-pt-t)] md:pb-[var(--fb-sec-pb-t)] md:pl-[var(--fb-sec-pl-t)] md:pr-[var(--fb-sec-pr-t)] lg:pt-[var(--fb-sec-pt-d)] lg:pb-[var(--fb-sec-pb-d)] lg:pl-[var(--fb-sec-pl-d)] lg:pr-[var(--fb-sec-pr-d)] rounded-[var(--fb-sec-radius-m)] md:rounded-[var(--fb-sec-radius-t)] lg:rounded-[var(--fb-sec-radius-d)] overflow-visible">
+              <section
+                id={`footer-section-${section.id}`}
+                className="relative w-full mt-[var(--fb-sec-mt-m)] mr-[var(--fb-sec-mr-m)] mb-[var(--fb-sec-mb-m)] ml-[var(--fb-sec-ml-m)] md:mt-[var(--fb-sec-mt-t)] md:mr-[var(--fb-sec-mr-t)] md:mb-[var(--fb-sec-mb-t)] md:ml-[var(--fb-sec-ml-t)] lg:mt-[var(--fb-sec-mt-d)] lg:mr-[var(--fb-sec-mr-d)] lg:mb-[var(--fb-sec-mb-d)] lg:ml-[var(--fb-sec-ml-d)]"
+                style={sectionStyle}
+              >
+                <div
+                  id={`footer-section-container-${section.id}`}
+                  className="w-full mx-auto max-w-[var(--fb-sec-maxw-m)] md:max-w-[var(--fb-sec-maxw-t)] lg:max-w-[var(--fb-sec-maxw-d)] px-[var(--fb-sec-padx-m)] md:px-[var(--fb-sec-padx-t)] lg:px-[var(--fb-sec-padx-d)]"
+                >
+                <div id={`footer-section-surface-${section.id}`} className="relative w-full bg-[var(--fb-sec-bg-m)] md:bg-[var(--fb-sec-bg-t)] lg:bg-[var(--fb-sec-bg-d)] bg-[image:var(--fb-sec-bgimg-m)] md:bg-[image:var(--fb-sec-bgimg-t)] lg:bg-[image:var(--fb-sec-bgimg-d)] bg-no-repeat bg-center [background-size:var(--fb-sec-bgsize-m)] md:[background-size:var(--fb-sec-bgsize-t)] lg:[background-size:var(--fb-sec-bgsize-d)] pt-[var(--fb-sec-pt-m)] pb-[var(--fb-sec-pb-m)] pl-[var(--fb-sec-pl-m)] pr-[var(--fb-sec-pr-m)] md:pt-[var(--fb-sec-pt-t)] md:pb-[var(--fb-sec-pb-t)] md:pl-[var(--fb-sec-pl-t)] md:pr-[var(--fb-sec-pr-t)] lg:pt-[var(--fb-sec-pt-d)] lg:pb-[var(--fb-sec-pb-d)] lg:pl-[var(--fb-sec-pl-d)] lg:pr-[var(--fb-sec-pr-d)] [border-top-style:var(--fb-sec-border-style-m)] [border-bottom-style:var(--fb-sec-border-style-m)] [border-left-style:var(--fb-sec-border-style-m)] [border-right-style:var(--fb-sec-border-style-m)] md:[border-top-style:var(--fb-sec-border-style-t)] md:[border-bottom-style:var(--fb-sec-border-style-t)] md:[border-left-style:var(--fb-sec-border-style-t)] md:[border-right-style:var(--fb-sec-border-style-t)] lg:[border-top-style:var(--fb-sec-border-style-d)] lg:[border-bottom-style:var(--fb-sec-border-style-d)] lg:[border-left-style:var(--fb-sec-border-style-d)] lg:[border-right-style:var(--fb-sec-border-style-d)] [border-color:var(--fb-sec-border-color-m)] md:[border-color:var(--fb-sec-border-color-t)] lg:[border-color:var(--fb-sec-border-color-d)] border-t-[var(--fb-sec-bt-m)] border-b-[var(--fb-sec-bb-m)] border-l-[var(--fb-sec-bl-m)] border-r-[var(--fb-sec-br-m)] md:border-t-[var(--fb-sec-bt-t)] md:border-b-[var(--fb-sec-bb-t)] md:border-l-[var(--fb-sec-bl-t)] md:border-r-[var(--fb-sec-br-t)] lg:border-t-[var(--fb-sec-bt-d)] lg:border-b-[var(--fb-sec-bb-d)] lg:border-l-[var(--fb-sec-bl-d)] lg:border-r-[var(--fb-sec-br-d)] shadow-[var(--fb-sec-shadow-m)] md:shadow-[var(--fb-sec-shadow-t)] lg:shadow-[var(--fb-sec-shadow-d)] rounded-[var(--fb-sec-radius-m)] md:rounded-[var(--fb-sec-radius-t)] lg:rounded-[var(--fb-sec-radius-d)] overflow-visible">
                   {hasBgImage && (
                     <div id={`footer-section-overlay-${section.id}`} className="absolute inset-0 pointer-events-none bg-[var(--fb-sec-ov-m)] md:bg-[var(--fb-sec-ov-t)] lg:bg-[var(--fb-sec-ov-d)] rounded-[var(--fb-sec-radius-m)] md:rounded-[var(--fb-sec-radius-t)] lg:rounded-[var(--fb-sec-radius-d)]" />
                   )}
                   <div id={`footer-section-box-content-${section.id}`} className="relative z-10 pt-[var(--fb-sec-boxpy-m)] pb-[var(--fb-sec-boxpy-m)] pl-[var(--fb-sec-boxpx-m)] pr-[var(--fb-sec-boxpx-m)] md:pt-[var(--fb-sec-boxpy-t)] md:pb-[var(--fb-sec-boxpy-t)] md:pl-[var(--fb-sec-boxpx-t)] md:pr-[var(--fb-sec-boxpx-t)] lg:pt-[var(--fb-sec-boxpy-d)] lg:pb-[var(--fb-sec-boxpy-d)] lg:pl-[var(--fb-sec-boxpx-d)] lg:pr-[var(--fb-sec-boxpx-d)]">
                     <div
-                      className={`grid grid-cols-1 ${gridCols} ${gapClass}`.trim()}
-                      style={{
-                        columnGap: "var(--footer-column-gap)",
-                        rowGap: "var(--footer-column-gap)",
-                      }}
+                      className={`grid grid-cols-1 ${gridCols} ${gapClass} gap-[var(--fb-sec-cgap-m)] md:gap-[var(--fb-sec-cgap-t)] lg:gap-[var(--fb-sec-cgap-d)]`.trim()}
                     >
                       {Array.from({ length: colCount }).map((_, colIndex) => {
                         const colChildren = children
@@ -1272,8 +1253,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                         return (
                           <div
                             key={`${section.id}_col_${colIndex}`}
-                            className={`min-w-0 flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop}`.trim()}
-                            style={{ gap: "var(--footer-widget-gap, 1.5rem)" }}
+                            className={`min-w-0 flex ${directionClassMobile} ${alignClassMobile} ${crossClassMobile} ${directionClassTablet} ${alignClassTablet} ${crossClassTablet} ${directionClassDesktop} ${alignClassDesktop} ${crossClassDesktop} gap-[var(--fb-sec-wgap-m)] md:gap-[var(--fb-sec-wgap-t)] lg:gap-[var(--fb-sec-wgap-d)]`.trim()}
                           >
                             {colChildren.map((c: any) => renderWidgetWithSpacing(c, { growClass: itemGrowClass }))}
                           </div>
@@ -1288,6 +1268,46 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
           );
         })}
       </div>
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .fb-footer-widget-shell {
+              margin-top: var(--fb-w-mt-m, 0px);
+              margin-right: var(--fb-w-mr-m, 0px);
+              margin-bottom: var(--fb-w-mb-m, 0px);
+              margin-left: var(--fb-w-ml-m, 0px);
+              padding-top: var(--fb-w-pt-m, 0px);
+              padding-right: var(--fb-w-pr-m, 0px);
+              padding-bottom: var(--fb-w-pb-m, 0px);
+              padding-left: var(--fb-w-pl-m, 0px);
+            }
+            @media (min-width: 768px) {
+              .fb-footer-widget-shell {
+                margin-top: var(--fb-w-mt-t, var(--fb-w-mt-m, 0px));
+                margin-right: var(--fb-w-mr-t, var(--fb-w-mr-m, 0px));
+                margin-bottom: var(--fb-w-mb-t, var(--fb-w-mb-m, 0px));
+                margin-left: var(--fb-w-ml-t, var(--fb-w-ml-m, 0px));
+                padding-top: var(--fb-w-pt-t, var(--fb-w-pt-m, 0px));
+                padding-right: var(--fb-w-pr-t, var(--fb-w-pr-m, 0px));
+                padding-bottom: var(--fb-w-pb-t, var(--fb-w-pb-m, 0px));
+                padding-left: var(--fb-w-pl-t, var(--fb-w-pl-m, 0px));
+              }
+            }
+            @media (min-width: 1024px) {
+              .fb-footer-widget-shell {
+                margin-top: var(--fb-w-mt-d, var(--fb-w-mt-t, 0px));
+                margin-right: var(--fb-w-mr-d, var(--fb-w-mr-t, 0px));
+                margin-bottom: var(--fb-w-mb-d, var(--fb-w-mb-t, 0px));
+                margin-left: var(--fb-w-ml-d, var(--fb-w-ml-t, 0px));
+                padding-top: var(--fb-w-pt-d, var(--fb-w-pt-t, 0px));
+                padding-right: var(--fb-w-pr-d, var(--fb-w-pr-t, 0px));
+                padding-bottom: var(--fb-w-pb-d, var(--fb-w-pb-t, 0px));
+                padding-left: var(--fb-w-pl-d, var(--fb-w-pl-t, 0px));
+              }
+            }
+          `,
+        }}
+      />
     </footer>
   );
 }

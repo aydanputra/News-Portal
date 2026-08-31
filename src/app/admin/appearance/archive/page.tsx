@@ -5,12 +5,14 @@ import EditChildModal from "@/components/admin/page-builder/EditChildModal";
 import EditSectionModal from "@/components/admin/page-builder/EditSectionModal";
 import PreviewPanel from "@/components/admin/page-builder/PreviewPanel";
 import SectionPicker from "@/components/admin/page-builder/SectionPicker";
+import { getThemeDefinition, themeSupports } from "@/lib/theme-registry";
 import { useArchiveBuilder } from "./useArchiveBuilder";
 import { useSidebarSourceBlocks } from "@/hooks/useSidebarSourceBlocks";
 
 export default function ArchiveAppearancePage() {
   const { state, actions } = useArchiveBuilder();
-  const archiveBuilderEnabled = state.activeTheme === "pranala";
+  const activeThemeDefinition = getThemeDefinition(state.activeTheme);
+  const archiveBuilderEnabled = themeSupports(state.activeTheme, "supportsArchiveBuilder");
   const sourceBlocksByLocation = useSidebarSourceBlocks(state.activeTheme);
 
   return (
@@ -24,7 +26,11 @@ export default function ArchiveAppearancePage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="font-display text-3xl font-bold text-[var(--fg-primary)]">Archive Builder</h1>
-          <p className="text-[var(--fg-secondary)]">Builder layout archive khusus tema Pranala</p>
+          <p className="text-[var(--fg-secondary)]">
+            {archiveBuilderEnabled
+              ? `Builder layout archive untuk tema ${activeThemeDefinition.label}`
+              : `Tema ${activeThemeDefinition.label} belum mendukung archive builder`}
+          </p>
         </div>
 
         <div className="flex space-x-3">
@@ -137,6 +143,7 @@ export default function ArchiveAppearancePage() {
 
       <EditChildModal
         builderLocation="archive"
+        activeTheme={state.activeTheme}
         child={actions.getEditingChildBlock()}
         isOpen={!!state.editingChild}
         onClose={() => actions.setEditingChild(null)}
@@ -151,7 +158,9 @@ export default function ArchiveAppearancePage() {
         getConfigValue={actions.getConfigValue}
         onUpdateTitle={actions.onUpdateTitle}
         globalSettings={{
+          accentColor: state.accentColor,
           primaryColor: state.primaryColor,
+          backgroundColor: state.backgroundColor,
           headingColor: state.headingColor,
           metaColor: state.metaColor,
           excerptColor: state.excerptColor,
@@ -159,7 +168,8 @@ export default function ArchiveAppearancePage() {
           homeNewsTitleColor: state.homeNewsTitleColor,
           homeHoverColor: state.homeHoverColor,
           homeExcerptColor: state.homeExcerptColor,
-          homeMetaColor: state.homeMetaColor
+          homeMetaColor: state.homeMetaColor,
+          globalBorderRadius: state.globalBorderRadius,
         }}
       />
 

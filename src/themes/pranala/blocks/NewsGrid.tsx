@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues } from "./responsive";
-import { safeStyleTagCss } from "@/lib/sanitizer";
 
 type NewsGridAuthor = { name?: string; fullName?: string; avatar?: string; avatarUrl?: string; image?: string; banner?: string } | string;
 
@@ -18,6 +17,7 @@ type NewsGridPost = {
   publishedAt?: string | Date | null;
   createdAt?: string | Date | null;
   category?: { slug: string; name: string } | null;
+  archiveDisplayCategory?: { slug: string; name: string } | null;
   author?: NewsGridAuthor | null;
   authorName?: string | null;
   authorAvatar?: string | null;
@@ -76,12 +76,24 @@ type NewsGridConfig = {
   excerptLineHeight?: number | string;
   tabletExcerptLineHeight?: number | string;
   mobileExcerptLineHeight?: number | string;
+  excerptFontWeight?: string;
+  tabletExcerptFontWeight?: string;
+  mobileExcerptFontWeight?: string;
   metaColor?: string;
   tabletMetaColor?: string;
   mobileMetaColor?: string;
   metaFontSize?: number | string;
   tabletMetaFontSize?: number | string;
   mobileMetaFontSize?: number | string;
+  metaLineHeight?: number | string;
+  tabletMetaLineHeight?: number | string;
+  mobileMetaLineHeight?: number | string;
+  metaFontWeight?: string;
+  tabletMetaFontWeight?: string;
+  mobileMetaFontWeight?: string;
+  metaMarginBottom?: number | string;
+  tabletMetaMarginBottom?: number | string;
+  mobileMetaMarginBottom?: number | string;
   categoryTextColor?: string;
   tabletCategoryTextColor?: string;
   mobileCategoryTextColor?: string;
@@ -115,6 +127,15 @@ type NewsGridConfig = {
   blockTitleBorderColor?: string;
   tabletBlockTitleBorderColor?: string;
   mobileBlockTitleBorderColor?: string;
+  blockTitleLineHeight?: number | string;
+  tabletBlockTitleLineHeight?: number | string;
+  mobileBlockTitleLineHeight?: number | string;
+  blockTitleMarginBottom?: number | string;
+  tabletBlockTitleMarginBottom?: number | string;
+  mobileBlockTitleMarginBottom?: number | string;
+  blockTitlePaddingBottom?: number | string;
+  tabletBlockTitlePaddingBottom?: number | string;
+  mobileBlockTitlePaddingBottom?: number | string;
   contentPadding?: number;
   tabletContentPadding?: number;
   mobileContentPadding?: number;
@@ -135,6 +156,18 @@ type NewsGridConfig = {
   useBox?: boolean | string;
   boxColor?: string;
   boxBorderRadius?: string | number;
+  boxPaddingTop?: number;
+  boxPaddingRight?: number;
+  boxPaddingBottom?: number;
+  boxPaddingLeft?: number;
+  tabletBoxPaddingTop?: number;
+  tabletBoxPaddingRight?: number;
+  tabletBoxPaddingBottom?: number;
+  tabletBoxPaddingLeft?: number;
+  mobileBoxPaddingTop?: number;
+  mobileBoxPaddingRight?: number;
+  mobileBoxPaddingBottom?: number;
+  mobileBoxPaddingLeft?: number;
   marginTop?: number;
   marginRight?: number;
   marginBottom?: number;
@@ -241,6 +274,31 @@ const toFontWeight = (value: unknown, fallback = "700") => {
   return map[value] || value;
 };
 
+const normalizeLegacyNeutralSurface = (value: unknown, fallback: string) => {
+  if (typeof value !== "string") return fallback;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return fallback;
+
+  const legacyLightSurfaces = new Set([
+    "#fff",
+    "#ffffff",
+    "#f8fafc",
+    "#f9fafb",
+    "#f3f4f6",
+    "#f1f5f9",
+    "#e5e7eb",
+    "white",
+    "rgb(255, 255, 255)",
+    "rgb(248, 250, 252)",
+    "rgb(249, 250, 251)",
+    "rgb(243, 244, 246)",
+    "rgb(241, 245, 249)",
+    "rgb(229, 231, 235)",
+  ]);
+
+  return legacyLightSurfaces.has(normalized) ? fallback : value;
+};
+
 const clampExcerpt = (excerpt: string | null | undefined, maxLength: number) => {
   if (!excerpt) return "";
   const clean = excerpt.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -285,8 +343,9 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
   const cfg = block.config || {};
   const configRecord = cfg as Record<string, unknown>;
   const title = customTitle || cfg.title || "Grid News";
-  const globalRadius = "var(--home-main-box-radius, 0.75rem)";
+  const globalRadius = "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))";
   const [device, setDevice] = React.useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [isPublicDarkMode, setIsPublicDarkMode] = React.useState(false);
 
   const limitDesktop = toNumber(cfg.limit, 6);
   const limitTablet = toNumber(cfg.tabletLimit, limitDesktop);
@@ -317,7 +376,7 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
   const cardRadiusDesktop = resolveRadiusValue(gridBaseRadiusValue, globalRadius, { legacyDefaultNumbers: [12] });
   const cardRadiusTablet = resolveRadiusValue(cfg.tabletGridBoxBorderRadius ?? gridBaseRadiusValue, cardRadiusDesktop, { legacyDefaultNumbers: [12] });
   const cardRadiusMobile = resolveRadiusValue(cfg.mobileGridBoxBorderRadius ?? gridBaseRadiusValue, cardRadiusDesktop, { legacyDefaultNumbers: [12] });
-  const cardBgDesktop = (cfg.gridBoxColor as string) || "var(--bg-elevated, #ffffff)";
+  const cardBgDesktop = normalizeLegacyNeutralSurface(cfg.gridBoxColor, "var(--bg-elevated, #ffffff)");
   const cardBgTablet = (cfg.tabletGridBoxColor as string) || cardBgDesktop;
   const cardBgMobile = (cfg.mobileGridBoxColor as string) || cardBgDesktop;
 
@@ -327,42 +386,63 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
   const titleHoverDesktop = (cfg.titleHoverColor as string) || "var(--home-hover-color, var(--accent))";
   const titleHoverTablet = (cfg.tabletTitleHoverColor as string) || titleHoverDesktop;
   const titleHoverMobile = (cfg.mobileTitleHoverColor as string) || titleHoverDesktop;
-  const titleFsDesktop = toPxOrRaw(cfg.titleFontSize, "20px");
+  const titleFsDesktop = toPxOrRaw(cfg.titleFontSize, "var(--home-news-title-size, 18px)");
   const titleFsTablet = toPxOrRaw(cfg.tabletTitleFontSize ?? cfg.titleFontSize, titleFsDesktop);
-  const titleFsMobile = toPxOrRaw(cfg.mobileTitleFontSize ?? cfg.titleFontSize, "18px");
+  const titleFsMobile = toPxOrRaw(cfg.mobileTitleFontSize ?? cfg.titleFontSize, "var(--home-news-title-size, 18px)");
   const titleLhDesktop = String(cfg.titleLineHeight ?? "1.35");
   const titleLhTablet = String(cfg.tabletTitleLineHeight ?? cfg.titleLineHeight ?? "1.35");
   const titleLhMobile = String(cfg.mobileTitleLineHeight ?? cfg.titleLineHeight ?? "1.35");
-  const titleFwDesktop = toFontWeight(cfg.titleFontWeight, "700");
+  const titleFwDesktop = toFontWeight(cfg.titleFontWeight, "var(--home-news-title-weight, 600)");
   const titleFwTablet = toFontWeight(cfg.tabletTitleFontWeight ?? cfg.titleFontWeight, titleFwDesktop);
   const titleFwMobile = toFontWeight(cfg.mobileTitleFontWeight ?? cfg.titleFontWeight, titleFwDesktop);
 
   const excerptColorDesktop = (cfg.excerptColor as string) || "var(--home-excerpt-color, #4b5563)";
   const excerptColorTablet = (cfg.tabletExcerptColor as string) || excerptColorDesktop;
   const excerptColorMobile = (cfg.mobileExcerptColor as string) || excerptColorDesktop;
-  const excerptFsDesktop = toPxOrRaw(cfg.excerptFontSize, "14px");
+  const excerptFsDesktop = toPxOrRaw(cfg.excerptFontSize, "var(--home-excerpt-size, 14px)");
   const excerptFsTablet = toPxOrRaw(cfg.tabletExcerptFontSize ?? cfg.excerptFontSize, excerptFsDesktop);
-  const excerptFsMobile = toPxOrRaw(cfg.mobileExcerptFontSize ?? cfg.excerptFontSize, "13px");
+  const excerptFsMobile = toPxOrRaw(cfg.mobileExcerptFontSize ?? cfg.excerptFontSize, "var(--home-excerpt-size, 13px)");
   const excerptLhDesktop = String(cfg.excerptLineHeight ?? "1.55");
   const excerptLhTablet = String(cfg.tabletExcerptLineHeight ?? cfg.excerptLineHeight ?? "1.55");
   const excerptLhMobile = String(cfg.mobileExcerptLineHeight ?? cfg.excerptLineHeight ?? "1.55");
+  const excerptFwDesktop = toFontWeight(cfg.excerptFontWeight, "400");
+  const excerptFwTablet = toFontWeight(cfg.tabletExcerptFontWeight ?? cfg.excerptFontWeight, excerptFwDesktop);
+  const excerptFwMobile = toFontWeight(cfg.mobileExcerptFontWeight ?? cfg.excerptFontWeight, excerptFwDesktop);
 
   const metaColorDesktop = (cfg.metaColor as string) || "var(--home-meta-color, #9ca3af)";
   const metaColorTablet = (cfg.tabletMetaColor as string) || metaColorDesktop;
   const metaColorMobile = (cfg.mobileMetaColor as string) || metaColorDesktop;
-  const metaFsDesktop = toPxOrRaw(cfg.metaFontSize, "12px");
+  const metaFsDesktop = toPxOrRaw(cfg.metaFontSize, "var(--home-meta-size, 12px)");
   const metaFsTablet = toPxOrRaw(cfg.tabletMetaFontSize ?? cfg.metaFontSize, metaFsDesktop);
-  const metaFsMobile = toPxOrRaw(cfg.mobileMetaFontSize ?? cfg.metaFontSize, "11px");
+  const metaFsMobile = toPxOrRaw(cfg.mobileMetaFontSize ?? cfg.metaFontSize, "var(--home-meta-size, 11px)");
+  const metaLhDesktop = String(cfg.metaLineHeight ?? "1.5");
+  const metaLhTablet = String(cfg.tabletMetaLineHeight ?? cfg.metaLineHeight ?? metaLhDesktop);
+  const metaLhMobile = String(cfg.mobileMetaLineHeight ?? cfg.metaLineHeight ?? "1.5");
+  const metaFwDesktop = toFontWeight(cfg.metaFontWeight, "500");
+  const metaFwTablet = toFontWeight(cfg.tabletMetaFontWeight ?? cfg.metaFontWeight, metaFwDesktop);
+  const metaFwMobile = toFontWeight(cfg.mobileMetaFontWeight ?? cfg.metaFontWeight, metaFwDesktop);
+  const metaMbDesktop = toPxOrRaw(cfg.metaMarginBottom, "0px");
+  const metaMbTablet = toPxOrRaw(cfg.tabletMetaMarginBottom ?? cfg.metaMarginBottom, metaMbDesktop);
+  const metaMbMobile = toPxOrRaw(cfg.mobileMetaMarginBottom ?? cfg.metaMarginBottom, "0px");
 
-  const categoryColorDesktop = (cfg.categoryTextColor as string) || (cfg.categoryLabelColor as string) || "#ffffff";
-  const categoryColorTablet = (cfg.tabletCategoryTextColor as string) || (cfg.tabletCategoryLabelColor as string) || categoryColorDesktop;
-  const categoryColorMobile = (cfg.mobileCategoryTextColor as string) || (cfg.mobileCategoryLabelColor as string) || categoryColorDesktop;
+  const categoryColorDesktop = (cfg as any).categoryLabelTextColor || (cfg.categoryTextColor as string) || (cfg.categoryLabelColor as string) || "#ffffff";
+  const categoryColorTablet = (cfg as any).tabletCategoryLabelTextColor || (cfg.tabletCategoryTextColor as string) || (cfg.tabletCategoryLabelColor as string) || categoryColorDesktop;
+  const categoryColorMobile = (cfg as any).mobileCategoryLabelTextColor || (cfg.mobileCategoryTextColor as string) || (cfg.mobileCategoryLabelColor as string) || categoryColorDesktop;
   const categoryBgDesktop = (cfg.categoryBgColor as string) || (cfg.categoryLabelBgColor as string) || "var(--accent)";
   const categoryBgTablet = (cfg.tabletCategoryBgColor as string) || (cfg.tabletCategoryLabelBgColor as string) || categoryBgDesktop;
   const categoryBgMobile = (cfg.mobileCategoryBgColor as string) || (cfg.mobileCategoryLabelBgColor as string) || categoryBgDesktop;
   const categoryFsDesktop = toPxOrRaw(cfg.categoryFontSize ?? cfg.categoryLabelFontSize, "11px");
   const categoryFsTablet = toPxOrRaw(cfg.tabletCategoryFontSize ?? cfg.tabletCategoryLabelFontSize ?? cfg.categoryFontSize ?? cfg.categoryLabelFontSize, categoryFsDesktop);
   const categoryFsMobile = toPxOrRaw(cfg.mobileCategoryFontSize ?? cfg.mobileCategoryLabelFontSize ?? cfg.categoryFontSize ?? cfg.categoryLabelFontSize, "10px");
+  const categoryLhDesktop = String(cfg.categoryLabelLineHeight ?? "1");
+  const categoryLhTablet = String(cfg.tabletCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight ?? categoryLhDesktop);
+  const categoryLhMobile = String(cfg.mobileCategoryLabelLineHeight ?? cfg.categoryLabelLineHeight ?? "1");
+  const categoryPxDesktop = toPxOrRaw(cfg.categoryPaddingX ?? cfg.categoryLabelPaddingX, "8px");
+  const categoryPxTablet = toPxOrRaw(cfg.tabletCategoryPaddingX ?? cfg.tabletCategoryLabelPaddingX ?? cfg.categoryPaddingX ?? cfg.categoryLabelPaddingX, categoryPxDesktop);
+  const categoryPxMobile = toPxOrRaw(cfg.mobileCategoryPaddingX ?? cfg.mobileCategoryLabelPaddingX ?? cfg.categoryPaddingX ?? cfg.categoryLabelPaddingX, "8px");
+  const categoryPyDesktop = toPxOrRaw(cfg.categoryPaddingY ?? cfg.categoryLabelPaddingY, "4px");
+  const categoryPyTablet = toPxOrRaw(cfg.tabletCategoryPaddingY ?? cfg.tabletCategoryLabelPaddingY ?? cfg.categoryPaddingY ?? cfg.categoryLabelPaddingY, categoryPyDesktop);
+  const categoryPyMobile = toPxOrRaw(cfg.mobileCategoryPaddingY ?? cfg.mobileCategoryLabelPaddingY ?? cfg.categoryPaddingY ?? cfg.categoryLabelPaddingY, "4px");
   const categoryRadiusDesktop = resolveRadiusValue(cfg.categoryBorderRadius ?? cfg.categoryLabelBorderRadius, globalRadius);
   const categoryRadiusTablet = resolveRadiusValue(cfg.tabletCategoryBorderRadius ?? cfg.tabletCategoryLabelBorderRadius ?? cfg.categoryBorderRadius ?? cfg.categoryLabelBorderRadius, categoryRadiusDesktop);
   const categoryRadiusMobile = resolveRadiusValue(cfg.mobileCategoryBorderRadius ?? cfg.mobileCategoryLabelBorderRadius ?? cfg.categoryBorderRadius ?? cfg.categoryLabelBorderRadius, categoryRadiusDesktop);
@@ -370,17 +450,26 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
   const blockTitleColorDesktop = (cfg.blockTitleColor as string) || "var(--home-widget-title-color, var(--heading-color, #1e293b))";
   const blockTitleColorTablet = (cfg.tabletBlockTitleColor as string) || blockTitleColorDesktop;
   const blockTitleColorMobile = (cfg.mobileBlockTitleColor as string) || blockTitleColorDesktop;
-  const blockTitleFsDesktop = toPxOrRaw(cfg.blockTitleFontSize, "24px");
+  const blockTitleFsDesktop = toPxOrRaw(cfg.blockTitleFontSize, "var(--home-widget-title-size, 20px)");
   const blockTitleFsTablet = toPxOrRaw(cfg.tabletBlockTitleFontSize ?? cfg.blockTitleFontSize, blockTitleFsDesktop);
-  const blockTitleFsMobile = toPxOrRaw(cfg.mobileBlockTitleFontSize ?? cfg.blockTitleFontSize, "20px");
+  const blockTitleFsMobile = toPxOrRaw(cfg.mobileBlockTitleFontSize ?? cfg.blockTitleFontSize, "var(--home-widget-title-size, 20px)");
+  const blockTitleLhDesktop = String(cfg.blockTitleLineHeight ?? "1.2");
+  const blockTitleLhTablet = String(cfg.tabletBlockTitleLineHeight ?? cfg.blockTitleLineHeight ?? blockTitleLhDesktop);
+  const blockTitleLhMobile = String(cfg.mobileBlockTitleLineHeight ?? cfg.blockTitleLineHeight ?? "1.2");
   const blockTitleBorderDesktop = (cfg.blockTitleBorderColor as string) || "var(--accent)";
   const blockTitleBorderTablet = (cfg.tabletBlockTitleBorderColor as string) || blockTitleBorderDesktop;
   const blockTitleBorderMobile = (cfg.mobileBlockTitleBorderColor as string) || blockTitleBorderDesktop;
+  const blockTitleMbDesktop = toPxOrRaw(cfg.blockTitleMarginBottom, "12px");
+  const blockTitleMbTablet = toPxOrRaw(cfg.tabletBlockTitleMarginBottom ?? cfg.blockTitleMarginBottom, blockTitleMbDesktop);
+  const blockTitleMbMobile = toPxOrRaw(cfg.mobileBlockTitleMarginBottom ?? cfg.blockTitleMarginBottom, "12px");
+  const blockTitlePbDesktop = toPxOrRaw(cfg.blockTitlePaddingBottom, "12px");
+  const blockTitlePbTablet = toPxOrRaw(cfg.tabletBlockTitlePaddingBottom ?? cfg.blockTitlePaddingBottom, blockTitlePbDesktop);
+  const blockTitlePbMobile = toPxOrRaw(cfg.mobileBlockTitlePaddingBottom ?? cfg.blockTitlePaddingBottom, "12px");
 
   const contentPaddingDesktop = toPxOrRaw(cfg.contentPadding, "12px");
   const contentPaddingTablet = toPxOrRaw(cfg.tabletContentPadding ?? cfg.contentPadding, contentPaddingDesktop);
   const contentPaddingMobile = toPxOrRaw(cfg.mobileContentPadding ?? cfg.contentPadding, contentPaddingDesktop);
-  const contentBgDesktop = (cfg.backgroundColor as string) || "transparent";
+  const contentBgDesktop = normalizeLegacyNeutralSurface(cfg.backgroundColor, "transparent");
   const contentBgTablet = (cfg.tabletBackgroundColor as string) || contentBgDesktop;
   const contentBgMobile = (cfg.mobileBackgroundColor as string) || contentBgDesktop;
   const contentRadiusDesktop = resolveRadiusValue(cfg.borderRadius, globalRadius);
@@ -388,38 +477,75 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
   const contentRadiusMobile = resolveRadiusValue(cfg.mobileBorderRadius ?? cfg.borderRadius, contentRadiusDesktop);
 
   const showCategoryDesktop = getResponsiveBool(configRecord, "showCategory", "desktop", true);
-  const showMetaDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", true);
+  const showMetaDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", getResponsiveBool(configRecord, "showMeta", "desktop", true));
   const showAuthorDesktop = getResponsiveBool(configRecord, "showAuthor", "desktop", true);
   const showDateDesktop = getResponsiveBool(configRecord, "showDate", "desktop", true);
   const showExcerptDesktop = getResponsiveBool(configRecord, "showExcerpt", "desktop", false);
 
   const showCategoryTablet = getResponsiveBool(configRecord, "showCategory", "tablet", true);
-  const showMetaTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", true);
+  const showMetaTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", getResponsiveBool(configRecord, "showMeta", "tablet", true));
   const showAuthorTablet = getResponsiveBool(configRecord, "showAuthor", "tablet", true);
   const showDateTablet = getResponsiveBool(configRecord, "showDate", "tablet", true);
   const showExcerptTablet = getResponsiveBool(configRecord, "showExcerpt", "tablet", false);
 
   const showCategoryMobile = getResponsiveBool(configRecord, "showCategory", "mobile", true);
-  const showMetaMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", true);
+  const showMetaMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", getResponsiveBool(configRecord, "showMeta", "mobile", true));
   const showAuthorMobile = getResponsiveBool(configRecord, "showAuthor", "mobile", true);
   const showDateMobile = getResponsiveBool(configRecord, "showDate", "mobile", true);
   const showExcerptMobile = getResponsiveBool(configRecord, "showExcerpt", "mobile", false);
 
-  const excerptLenDesktop = toNumber(cfg.excerptLength, 110);
+  const excerptLenDesktop = toNumber(cfg.excerptLength, 120);
   const excerptLenTablet = toNumber(cfg.tabletExcerptLength ?? cfg.excerptLength, excerptLenDesktop);
-  const excerptLenMobile = toNumber(cfg.mobileExcerptLength ?? cfg.excerptLength, 90);
+  const excerptLenMobile = toNumber(cfg.mobileExcerptLength ?? cfg.excerptLength, 120);
 
   const useBoxValues = getResponsiveBoolValues(configRecord, "useBox", false);
   const useBoxDesktop = useBoxValues.desktop;
   const useBoxTablet = useBoxValues.tablet;
   const useBoxMobile = useBoxValues.mobile;
   const boxColorValues = getResponsiveValues<string>(configRecord, "boxColor");
-  const boxColorDesktop = boxColorValues.desktop || "var(--bg-elevated, #ffffff)";
+  const boxColorDesktop = normalizeLegacyNeutralSurface(boxColorValues.desktop, "transparent");
   const boxColorTablet = boxColorValues.tablet || boxColorDesktop;
   const boxColorMobile = boxColorValues.mobile || boxColorDesktop;
+  const boxBgImageDesktop = typeof (cfg as any).backgroundImage === "string" ? (cfg as any).backgroundImage : "";
+  const boxBgImageTablet = typeof (cfg as any).tabletBackgroundImage === "string" && (cfg as any).tabletBackgroundImage.trim() !== "" ? (cfg as any).tabletBackgroundImage : boxBgImageDesktop;
+  const boxBgImageMobile = typeof (cfg as any).mobileBackgroundImage === "string" && (cfg as any).mobileBackgroundImage.trim() !== "" ? (cfg as any).mobileBackgroundImage : boxBgImageDesktop;
+  const boxBgSizeDesktop = typeof (cfg as any).backgroundSize === "string" && (cfg as any).backgroundSize.trim() !== "" ? (cfg as any).backgroundSize : "cover";
+  const boxBgSizeTablet = typeof (cfg as any).tabletBackgroundSize === "string" && (cfg as any).tabletBackgroundSize.trim() !== "" ? (cfg as any).tabletBackgroundSize : boxBgSizeDesktop;
+  const boxBgSizeMobile = typeof (cfg as any).mobileBackgroundSize === "string" && (cfg as any).mobileBackgroundSize.trim() !== "" ? (cfg as any).mobileBackgroundSize : boxBgSizeDesktop;
+  const boxBgPositionDesktop = typeof (cfg as any).backgroundPosition === "string" && (cfg as any).backgroundPosition.trim() !== "" ? (cfg as any).backgroundPosition : "center";
+  const boxBgPositionTablet = typeof (cfg as any).tabletBackgroundPosition === "string" && (cfg as any).tabletBackgroundPosition.trim() !== "" ? (cfg as any).tabletBackgroundPosition : boxBgPositionDesktop;
+  const boxBgPositionMobile = typeof (cfg as any).mobileBackgroundPosition === "string" && (cfg as any).mobileBackgroundPosition.trim() !== "" ? (cfg as any).mobileBackgroundPosition : boxBgPositionDesktop;
+  const boxBgRepeatDesktop = typeof (cfg as any).backgroundRepeat === "string" && (cfg as any).backgroundRepeat.trim() !== "" ? (cfg as any).backgroundRepeat : "no-repeat";
+  const boxBgRepeatTablet = typeof (cfg as any).tabletBackgroundRepeat === "string" && (cfg as any).tabletBackgroundRepeat.trim() !== "" ? (cfg as any).tabletBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgRepeatMobile = typeof (cfg as any).mobileBackgroundRepeat === "string" && (cfg as any).mobileBackgroundRepeat.trim() !== "" ? (cfg as any).mobileBackgroundRepeat : boxBgRepeatDesktop;
+  const boxBgAttachmentDesktop = typeof (cfg as any).backgroundAttachment === "string" && (cfg as any).backgroundAttachment.trim() !== "" ? (cfg as any).backgroundAttachment : "scroll";
+  const boxBgAttachmentTablet = typeof (cfg as any).tabletBackgroundAttachment === "string" && (cfg as any).tabletBackgroundAttachment.trim() !== "" ? (cfg as any).tabletBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxBgAttachmentMobile = typeof (cfg as any).mobileBackgroundAttachment === "string" && (cfg as any).mobileBackgroundAttachment.trim() !== "" ? (cfg as any).mobileBackgroundAttachment : boxBgAttachmentDesktop;
+  const boxOverlayColorDesktop = typeof (cfg as any).backgroundOverlayColor === "string" ? (cfg as any).backgroundOverlayColor : "transparent";
+  const boxOverlayColorTablet = typeof (cfg as any).tabletBackgroundOverlayColor === "string" && (cfg as any).tabletBackgroundOverlayColor.trim() !== "" ? (cfg as any).tabletBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayColorMobile = typeof (cfg as any).mobileBackgroundOverlayColor === "string" && (cfg as any).mobileBackgroundOverlayColor.trim() !== "" ? (cfg as any).mobileBackgroundOverlayColor : boxOverlayColorDesktop;
+  const boxOverlayOpacityDesktop = Math.min(100, Math.max(0, Number((cfg as any).backgroundOverlayOpacity ?? 45) || 0));
+  const boxOverlayOpacityTablet = Math.min(100, Math.max(0, Number((cfg as any).tabletBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
+  const boxOverlayOpacityMobile = Math.min(100, Math.max(0, Number((cfg as any).mobileBackgroundOverlayOpacity ?? boxOverlayOpacityDesktop) || 0));
   const boxRadiusDesktop = resolveRadiusValue(cfg.boxBorderRadius, globalRadius);
   const boxRadiusTablet = resolveRadiusValue(cfg.tabletBoxBorderRadius ?? cfg.boxBorderRadius, boxRadiusDesktop);
   const boxRadiusMobile = resolveRadiusValue(cfg.mobileBoxBorderRadius ?? cfg.boxBorderRadius, boxRadiusDesktop);
+  const boxPtBase = cfg.boxPaddingTop !== undefined ? `${cfg.boxPaddingTop}px` : "0px";
+  const boxPrBase = cfg.boxPaddingRight !== undefined ? `${cfg.boxPaddingRight}px` : "0px";
+  const boxPbBase = cfg.boxPaddingBottom !== undefined ? `${cfg.boxPaddingBottom}px` : "0px";
+  const boxPlBase = cfg.boxPaddingLeft !== undefined ? `${cfg.boxPaddingLeft}px` : "0px";
+  const boxPtMobile = cfg.mobileBoxPaddingTop !== undefined ? `${cfg.mobileBoxPaddingTop}px` : boxPtBase;
+  const boxPrMobile = cfg.mobileBoxPaddingRight !== undefined ? `${cfg.mobileBoxPaddingRight}px` : boxPrBase;
+  const boxPbMobile = cfg.mobileBoxPaddingBottom !== undefined ? `${cfg.mobileBoxPaddingBottom}px` : boxPbBase;
+  const boxPlMobile = cfg.mobileBoxPaddingLeft !== undefined ? `${cfg.mobileBoxPaddingLeft}px` : boxPlBase;
+  const boxPtTablet = cfg.tabletBoxPaddingTop !== undefined ? `${cfg.tabletBoxPaddingTop}px` : boxPtBase;
+  const boxPrTablet = cfg.tabletBoxPaddingRight !== undefined ? `${cfg.tabletBoxPaddingRight}px` : boxPrBase;
+  const boxPbTablet = cfg.tabletBoxPaddingBottom !== undefined ? `${cfg.tabletBoxPaddingBottom}px` : boxPbBase;
+  const boxPlTablet = cfg.tabletBoxPaddingLeft !== undefined ? `${cfg.tabletBoxPaddingLeft}px` : boxPlBase;
+  const boxPtDesktop = boxPtBase;
+  const boxPrDesktop = boxPrBase;
+  const boxPbDesktop = boxPbBase;
+  const boxPlDesktop = boxPlBase;
 
   const pTopMobile = cfg.mobilePaddingTop !== undefined ? `${cfg.mobilePaddingTop}px` : "0px";
   const pRightMobile = cfg.mobilePaddingRight !== undefined ? `${cfg.mobilePaddingRight}px` : "0px";
@@ -465,199 +591,180 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
     return () => window.removeEventListener("resize", updateDevice);
   }, []);
 
+  React.useEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    const applyMode = () => setIsPublicDarkMode(root.classList.contains("public-dark"));
+    applyMode();
+
+    const observer = new MutationObserver(applyMode);
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
   const excerptLength = device === "mobile"
     ? excerptLenMobile
     : device === "tablet"
       ? excerptLenTablet
       : excerptLenDesktop;
+  const currentLimit = device === "mobile" ? limitMobile : device === "tablet" ? limitTablet : limitDesktop;
+  const currentUseBox = device === "mobile" ? useBoxMobile : device === "tablet" ? useBoxTablet : useBoxDesktop;
+  const currentBoxColor = device === "mobile" ? boxColorMobile : device === "tablet" ? boxColorTablet : boxColorDesktop;
+  const currentBoxBgImage = device === "mobile" ? boxBgImageMobile : device === "tablet" ? boxBgImageTablet : boxBgImageDesktop;
+  const currentBoxBgSize = device === "mobile" ? boxBgSizeMobile : device === "tablet" ? boxBgSizeTablet : boxBgSizeDesktop;
+  const currentBoxBgPosition = device === "mobile" ? boxBgPositionMobile : device === "tablet" ? boxBgPositionTablet : boxBgPositionDesktop;
+  const currentBoxBgRepeat = device === "mobile" ? boxBgRepeatMobile : device === "tablet" ? boxBgRepeatTablet : boxBgRepeatDesktop;
+  const currentBoxBgAttachment = device === "mobile" ? boxBgAttachmentMobile : device === "tablet" ? boxBgAttachmentTablet : boxBgAttachmentDesktop;
+  const currentBoxOverlayColor = device === "mobile" ? boxOverlayColorMobile : device === "tablet" ? boxOverlayColorTablet : boxOverlayColorDesktop;
+  const currentBoxOverlayOpacity = device === "mobile" ? boxOverlayOpacityMobile : device === "tablet" ? boxOverlayOpacityTablet : boxOverlayOpacityDesktop;
+  const hasCurrentBoxOverlay = currentBoxOverlayOpacity > 0 && typeof currentBoxOverlayColor === "string" && currentBoxOverlayColor.trim() !== "" && currentBoxOverlayColor !== "transparent";
+  const currentBoxOverlayFill = hasCurrentBoxOverlay ? `color-mix(in srgb, ${currentBoxOverlayColor} ${currentBoxOverlayOpacity}%, transparent)` : "transparent";
+  const currentBoxBackgroundImage = currentUseBox && currentBoxBgImage
+    ? (hasCurrentBoxOverlay
+      ? `linear-gradient(${currentBoxOverlayFill}, ${currentBoxOverlayFill}), url("${currentBoxBgImage}")`
+      : `url("${currentBoxBgImage}")`)
+    : "none";
+  const currentBoxRadius = device === "mobile" ? boxRadiusMobile : device === "tablet" ? boxRadiusTablet : boxRadiusDesktop;
+  const currentBoxPt = device === "mobile" ? boxPtMobile : device === "tablet" ? boxPtTablet : boxPtDesktop;
+  const currentBoxPr = device === "mobile" ? boxPrMobile : device === "tablet" ? boxPrTablet : boxPrDesktop;
+  const currentBoxPb = device === "mobile" ? boxPbMobile : device === "tablet" ? boxPbTablet : boxPbDesktop;
+  const currentBoxPl = device === "mobile" ? boxPlMobile : device === "tablet" ? boxPlTablet : boxPlDesktop;
+  const currentColumns = device === "mobile" ? columnsMobile : device === "tablet" ? columnsTablet : columnsDesktop;
+  const currentGapX = device === "mobile" ? gapXMobile : device === "tablet" ? gapXTablet : gapXDesktop;
+  const currentGapY = device === "mobile" ? gapYMobile : device === "tablet" ? gapYTablet : gapYDesktop;
+  const currentCardRadius = device === "mobile" ? cardRadiusMobile : device === "tablet" ? cardRadiusTablet : cardRadiusDesktop;
+  const currentCardBg = device === "mobile" ? cardBgMobile : device === "tablet" ? cardBgTablet : cardBgDesktop;
+  const currentContentPadding = device === "mobile" ? contentPaddingMobile : device === "tablet" ? contentPaddingTablet : contentPaddingDesktop;
+  const currentContentBg = device === "mobile" ? contentBgMobile : device === "tablet" ? contentBgTablet : contentBgDesktop;
+  const currentContentRadius = device === "mobile" ? contentRadiusMobile : device === "tablet" ? contentRadiusTablet : contentRadiusDesktop;
+  const currentImageWidth = device === "mobile" ? imageWidthMobile : device === "tablet" ? imageWidthTablet : imageWidthDesktop;
+  const currentImageHeight = device === "mobile" ? imageHeightMobile : device === "tablet" ? imageHeightTablet : imageHeightDesktop;
+  const currentShowCategory = device === "mobile" ? showCategoryMobile : device === "tablet" ? showCategoryTablet : showCategoryDesktop;
+  const currentCategoryColor = device === "mobile" ? categoryColorMobile : device === "tablet" ? categoryColorTablet : categoryColorDesktop;
+  const currentCategoryBg = device === "mobile" ? categoryBgMobile : device === "tablet" ? categoryBgTablet : categoryBgDesktop;
+  const currentCategoryFs = device === "mobile" ? categoryFsMobile : device === "tablet" ? categoryFsTablet : categoryFsDesktop;
+  const currentCategoryLh = device === "mobile" ? categoryLhMobile : device === "tablet" ? categoryLhTablet : categoryLhDesktop;
+  const currentCategoryPx = device === "mobile" ? categoryPxMobile : device === "tablet" ? categoryPxTablet : categoryPxDesktop;
+  const currentCategoryPy = device === "mobile" ? categoryPyMobile : device === "tablet" ? categoryPyTablet : categoryPyDesktop;
+  const currentCategoryRadius = device === "mobile" ? categoryRadiusMobile : device === "tablet" ? categoryRadiusTablet : categoryRadiusDesktop;
+  const currentCategoryHasBg = currentCategoryBg !== "transparent" && currentCategoryBg !== "none";
+  const currentTitleColor = device === "mobile" ? titleColorMobile : device === "tablet" ? titleColorTablet : titleColorDesktop;
+  const currentTitleHover = device === "mobile" ? titleHoverMobile : device === "tablet" ? titleHoverTablet : titleHoverDesktop;
+  const currentTitleFs = device === "mobile" ? titleFsMobile : device === "tablet" ? titleFsTablet : titleFsDesktop;
+  const currentTitleLh = device === "mobile" ? titleLhMobile : device === "tablet" ? titleLhTablet : titleLhDesktop;
+  const currentTitleFw = device === "mobile" ? titleFwMobile : device === "tablet" ? titleFwTablet : titleFwDesktop;
+  const currentShowMeta = device === "mobile" ? showMetaMobile : device === "tablet" ? showMetaTablet : showMetaDesktop;
+  const currentShowAuthor = device === "mobile" ? showAuthorMobile : device === "tablet" ? showAuthorTablet : showAuthorDesktop;
+  const currentShowDate = device === "mobile" ? showDateMobile : device === "tablet" ? showDateTablet : showDateDesktop;
+  const currentMetaColor = device === "mobile" ? metaColorMobile : device === "tablet" ? metaColorTablet : metaColorDesktop;
+  const currentMetaFs = device === "mobile" ? metaFsMobile : device === "tablet" ? metaFsTablet : metaFsDesktop;
+  const currentMetaLh = device === "mobile" ? metaLhMobile : device === "tablet" ? metaLhTablet : metaLhDesktop;
+  const currentMetaFw = device === "mobile" ? metaFwMobile : device === "tablet" ? metaFwTablet : metaFwDesktop;
+  const currentMetaMb = device === "mobile" ? metaMbMobile : device === "tablet" ? metaMbTablet : metaMbDesktop;
+  const currentShowExcerpt = device === "mobile" ? showExcerptMobile : device === "tablet" ? showExcerptTablet : showExcerptDesktop;
+  const currentExcerptColor = device === "mobile" ? excerptColorMobile : device === "tablet" ? excerptColorTablet : excerptColorDesktop;
+  const currentExcerptFs = device === "mobile" ? excerptFsMobile : device === "tablet" ? excerptFsTablet : excerptFsDesktop;
+  const currentExcerptLh = device === "mobile" ? excerptLhMobile : device === "tablet" ? excerptLhTablet : excerptLhDesktop;
+  const currentExcerptFw = device === "mobile" ? excerptFwMobile : device === "tablet" ? excerptFwTablet : excerptFwDesktop;
+  const effectiveContentBg = isPublicDarkMode ? "#ffffff" : currentContentBg;
+  const effectiveTitleColor = isPublicDarkMode ? "#0f172a" : currentTitleColor;
+  const effectiveTitleHover = isPublicDarkMode ? "var(--home-hover-color, var(--accent))" : currentTitleHover;
+  const effectiveMetaColor = isPublicDarkMode ? "#64748b" : currentMetaColor;
+  const effectiveExcerptColor = isPublicDarkMode ? "#334155" : currentExcerptColor;
+  const effectiveBlockTitleColorMobile = isPublicDarkMode ? "#ffffff" : blockTitleColorMobile;
+  const effectiveBlockTitleColorTablet = isPublicDarkMode ? "#ffffff" : blockTitleColorTablet;
+  const effectiveBlockTitleColorDesktop = isPublicDarkMode ? "#ffffff" : blockTitleColorDesktop;
+  const effectiveBlockTitleBorderMobile = isPublicDarkMode ? "#ffffff" : blockTitleBorderMobile;
+  const effectiveBlockTitleBorderTablet = isPublicDarkMode ? "#ffffff" : blockTitleBorderTablet;
+  const effectiveBlockTitleBorderDesktop = isPublicDarkMode ? "#ffffff" : blockTitleBorderDesktop;
+  const currentBlockTitleLh = device === "mobile" ? blockTitleLhMobile : device === "tablet" ? blockTitleLhTablet : blockTitleLhDesktop;
+  const currentBlockTitleMb = device === "mobile" ? blockTitleMbMobile : device === "tablet" ? blockTitleMbTablet : blockTitleMbDesktop;
+  const currentBlockTitlePb = device === "mobile" ? blockTitlePbMobile : device === "tablet" ? blockTitlePbTablet : blockTitlePbDesktop;
+  const contentThemeVars = {
+    "--home-news-title-color": effectiveTitleColor,
+    "--home-news-title-size": currentTitleFs,
+    "--home-news-title-weight": currentTitleFw,
+    "--home-meta-color": effectiveMetaColor,
+    "--home-meta-size": currentMetaFs,
+    "--home-meta-weight": currentMetaFw,
+    "--home-excerpt-color": effectiveExcerptColor,
+    "--home-excerpt-size": currentExcerptFs,
+    "--home-excerpt-weight": currentExcerptFw,
+  } as React.CSSProperties;
+  const renderedPosts = visiblePosts.slice(0, currentLimit);
 
   return (
     <div
       id={`news-grid-${block.id}`}
-      className={`w-full ${darkWidgetBoxAuto ? "news-grid-dark-widget-auto" : ""} ${darkCardBoxAuto ? "news-grid-dark-card-auto" : ""}`}
+      className={`w-full responsive-block-frame ${darkWidgetBoxAuto ? "news-grid-dark-widget-auto" : ""} ${darkCardBoxAuto ? "news-grid-dark-card-auto" : ""}`.trim()}
       style={{
-        backgroundColor: "transparent",
-        borderRadius: "0",
-        border: "none",
-        boxShadow: "none",
-        "--widget-title-color-mobile": blockTitleColorMobile,
-        "--widget-title-color-tablet": blockTitleColorTablet,
-        "--widget-title-color-desktop": blockTitleColorDesktop,
+        "--widget-title-color-mobile": effectiveBlockTitleColorMobile,
+        "--widget-title-color-tablet": effectiveBlockTitleColorTablet,
+        "--widget-title-color-desktop": effectiveBlockTitleColorDesktop,
         "--widget-title-size-mobile": blockTitleFsMobile,
         "--widget-title-size-tablet": blockTitleFsTablet,
         "--widget-title-size-desktop": blockTitleFsDesktop,
-        "--widget-title-border-color-mobile": blockTitleBorderMobile,
-        "--widget-title-border-color-tablet": blockTitleBorderTablet,
-        "--widget-title-border-color-desktop": blockTitleBorderDesktop,
+        "--widget-title-border-color-mobile": effectiveBlockTitleBorderMobile,
+        "--widget-title-border-color-tablet": effectiveBlockTitleBorderTablet,
+        "--widget-title-border-color-desktop": effectiveBlockTitleBorderDesktop,
+        "--rb-mt-mobile": mTopMobile,
+        "--rb-mr-mobile": mRightMobile,
+        "--rb-mb-mobile": mBottomMobile,
+        "--rb-ml-mobile": mLeftMobile,
+        "--rb-pt-mobile": pTopMobile,
+        "--rb-pr-mobile": pRightMobile,
+        "--rb-pb-mobile": pBottomMobile,
+        "--rb-pl-mobile": pLeftMobile,
+        "--rb-mt-tablet": mTopTablet,
+        "--rb-mr-tablet": mRightTablet,
+        "--rb-mb-tablet": mBottomTablet,
+        "--rb-ml-tablet": mLeftTablet,
+        "--rb-pt-tablet": pTopTablet,
+        "--rb-pr-tablet": pRightTablet,
+        "--rb-pb-tablet": pBottomTablet,
+        "--rb-pl-tablet": pLeftTablet,
+        "--rb-mt-desktop": mTopDesktop,
+        "--rb-mr-desktop": mRightDesktop,
+        "--rb-mb-desktop": mBottomDesktop,
+        "--rb-ml-desktop": mLeftDesktop,
+        "--rb-pt-desktop": pTopDesktop,
+        "--rb-pr-desktop": pRightDesktop,
+        "--rb-pb-desktop": pBottomDesktop,
+        "--rb-pl-desktop": pLeftDesktop,
       } as React.CSSProperties}
     >
-      <style
-        dangerouslySetInnerHTML={{
-          __html: safeStyleTagCss(`
-            #news-grid-${block.id} {
-              background-color: ${useBoxMobile ? boxColorMobile : "transparent"};
-              border-radius: ${useBoxMobile ? boxRadiusMobile : "0"};
-              border: ${useBoxMobile ? "var(--box-border, 1px solid #f3f4f6)" : "none"};
-              box-shadow: ${useBoxMobile ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"};
-            }
-            #news-grid-${block.id} .news-grid-inner {
-              margin-top: ${mTopMobile};
-              margin-right: ${mRightMobile};
-              margin-bottom: ${mBottomMobile};
-              margin-left: ${mLeftMobile};
-              padding-top: ${pTopMobile};
-              padding-right: ${pRightMobile};
-              padding-bottom: ${pBottomMobile};
-              padding-left: ${pLeftMobile};
-            }
-            #news-grid-${block.id} .news-grid-list {
-              display: grid;
-              grid-template-columns: repeat(${columnsMobile}, minmax(0, 1fr));
-              column-gap: ${gapXMobile};
-              row-gap: ${gapYMobile};
-            }
-            #news-grid-${block.id} .news-grid-item:nth-child(n+${limitMobile + 1}) { display: none; }
-            #news-grid-${block.id} .news-grid-item {
-              border-radius: ${cardRadiusMobile};
-              background-color: ${cardBgMobile};
-            }
-            #news-grid-${block.id} .news-grid-content {
-              padding: ${contentPaddingMobile};
-              background-color: ${contentBgMobile};
-              border-radius: ${contentRadiusMobile};
-            }
-            #news-grid-${block.id} .news-grid-thumb { width: ${imageWidthMobile}; height: ${imageHeightMobile}; }
-            #news-grid-${block.id} .news-grid-category {
-              display: ${showCategoryMobile ? "inline-flex" : "none"};
-              color: ${categoryColorMobile};
-              background-color: ${categoryBgMobile};
-              font-size: ${categoryFsMobile};
-              border-radius: ${categoryRadiusMobile};
-            }
-            #news-grid-${block.id} .news-grid-title-wrap {
-              font-size: ${titleFsMobile};
-              line-height: ${titleLhMobile};
-              font-weight: ${titleFwMobile};
-            }
-            #news-grid-${block.id} .news-grid-title { color: inherit !important; font-size: inherit !important; line-height: inherit !important; font-weight: inherit !important; font-family: inherit !important; }
-            #news-grid-${block.id} .news-grid-title-wrap { color: ${titleColorMobile}; }
-            #news-grid-${block.id} .news-grid-title:hover { color: ${titleHoverMobile} !important; }
-            #news-grid-${block.id} .news-grid-meta {
-              display: ${showMetaMobile ? "flex" : "none"};
-              color: ${metaColorMobile};
-              font-size: ${metaFsMobile};
-            }
-            #news-grid-${block.id} .news-grid-author-wrap { display: ${showAuthorMobile ? "flex" : "none"}; }
-            #news-grid-${block.id} .news-grid-author { display: ${showAuthorMobile ? "inline" : "none"}; }
-            #news-grid-${block.id} .news-grid-date { display: ${showDateMobile ? "inline" : "none"}; }
-            #news-grid-${block.id} .news-grid-dot { display: ${showAuthorMobile && showDateMobile ? "inline" : "none"}; }
-            #news-grid-${block.id} .news-grid-excerpt {
-              display: ${showExcerptMobile ? "block" : "none"};
-              color: ${excerptColorMobile};
-              font-size: ${excerptFsMobile};
-              line-height: ${excerptLhMobile};
-            }
-            @media (min-width: 768px) {
-              #news-grid-${block.id} {
-                background-color: ${useBoxTablet ? boxColorTablet : "transparent"};
-                border-radius: ${useBoxTablet ? boxRadiusTablet : "0"};
-                border: ${useBoxTablet ? "var(--box-border, 1px solid #f3f4f6)" : "none"};
-                box-shadow: ${useBoxTablet ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"};
-              }
-              #news-grid-${block.id} .news-grid-inner {
-                margin-top: ${mTopTablet};
-                margin-right: ${mRightTablet};
-                margin-bottom: ${mBottomTablet};
-                margin-left: ${mLeftTablet};
-                padding-top: ${pTopTablet};
-                padding-right: ${pRightTablet};
-                padding-bottom: ${pBottomTablet};
-                padding-left: ${pLeftTablet};
-              }
-              #news-grid-${block.id} .news-grid-list {
-                grid-template-columns: repeat(${columnsTablet}, minmax(0, 1fr));
-                column-gap: ${gapXTablet};
-                row-gap: ${gapYTablet};
-              }
-              #news-grid-${block.id} .news-grid-item { display: block; }
-              #news-grid-${block.id} .news-grid-item:nth-child(n+${limitTablet + 1}) { display: none; }
-              #news-grid-${block.id} .news-grid-item { border-radius: ${cardRadiusTablet}; background-color: ${cardBgTablet}; }
-              #news-grid-${block.id} .news-grid-content { padding: ${contentPaddingTablet}; background-color: ${contentBgTablet}; border-radius: ${contentRadiusTablet}; }
-              #news-grid-${block.id} .news-grid-thumb { width: ${imageWidthTablet}; height: ${imageHeightTablet}; }
-              #news-grid-${block.id} .news-grid-category { display: ${showCategoryTablet ? "inline-flex" : "none"}; color: ${categoryColorTablet}; background-color: ${categoryBgTablet}; font-size: ${categoryFsTablet}; border-radius: ${categoryRadiusTablet}; }
-              #news-grid-${block.id} .news-grid-title-wrap { font-size: ${titleFsTablet}; line-height: ${titleLhTablet}; font-weight: ${titleFwTablet}; color: ${titleColorTablet}; }
-              #news-grid-${block.id} .news-grid-title:hover { color: ${titleHoverTablet} !important; }
-              #news-grid-${block.id} .news-grid-meta { display: ${showMetaTablet ? "flex" : "none"}; color: ${metaColorTablet}; font-size: ${metaFsTablet}; }
-              #news-grid-${block.id} .news-grid-author-wrap { display: ${showAuthorTablet ? "flex" : "none"}; }
-              #news-grid-${block.id} .news-grid-author { display: ${showAuthorTablet ? "inline" : "none"}; }
-              #news-grid-${block.id} .news-grid-date { display: ${showDateTablet ? "inline" : "none"}; }
-              #news-grid-${block.id} .news-grid-dot { display: ${showAuthorTablet && showDateTablet ? "inline" : "none"}; }
-              #news-grid-${block.id} .news-grid-excerpt { display: ${showExcerptTablet ? "block" : "none"}; color: ${excerptColorTablet}; font-size: ${excerptFsTablet}; line-height: ${excerptLhTablet}; }
-            }
-            @media (min-width: 1025px) {
-              #news-grid-${block.id} {
-                background-color: ${useBoxDesktop ? boxColorDesktop : "transparent"};
-                border-radius: ${useBoxDesktop ? boxRadiusDesktop : "0"};
-                border: ${useBoxDesktop ? "var(--box-border, 1px solid #f3f4f6)" : "none"};
-                box-shadow: ${useBoxDesktop ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none"};
-              }
-              #news-grid-${block.id} .news-grid-inner {
-                margin-top: ${mTopDesktop};
-                margin-right: ${mRightDesktop};
-                margin-bottom: ${mBottomDesktop};
-                margin-left: ${mLeftDesktop};
-                padding-top: ${pTopDesktop};
-                padding-right: ${pRightDesktop};
-                padding-bottom: ${pBottomDesktop};
-                padding-left: ${pLeftDesktop};
-              }
-              #news-grid-${block.id} .news-grid-list {
-                grid-template-columns: repeat(${columnsDesktop}, minmax(0, 1fr));
-                column-gap: ${gapXDesktop};
-                row-gap: ${gapYDesktop};
-              }
-              #news-grid-${block.id} .news-grid-item { display: block; }
-              #news-grid-${block.id} .news-grid-item:nth-child(n+${limitDesktop + 1}) { display: none; }
-              #news-grid-${block.id} .news-grid-item { border-radius: ${cardRadiusDesktop}; background-color: ${cardBgDesktop}; }
-              #news-grid-${block.id} .news-grid-content { padding: ${contentPaddingDesktop}; background-color: ${contentBgDesktop}; border-radius: ${contentRadiusDesktop}; }
-              #news-grid-${block.id} .news-grid-thumb { width: ${imageWidthDesktop}; height: ${imageHeightDesktop}; }
-              #news-grid-${block.id} .news-grid-category { display: ${showCategoryDesktop ? "inline-flex" : "none"}; color: ${categoryColorDesktop}; background-color: ${categoryBgDesktop}; font-size: ${categoryFsDesktop}; border-radius: ${categoryRadiusDesktop}; }
-              #news-grid-${block.id} .news-grid-title-wrap { font-size: ${titleFsDesktop}; line-height: ${titleLhDesktop}; font-weight: ${titleFwDesktop}; color: ${titleColorDesktop}; }
-              #news-grid-${block.id} .news-grid-title:hover { color: ${titleHoverDesktop} !important; }
-              #news-grid-${block.id} .news-grid-meta { display: ${showMetaDesktop ? "flex" : "none"}; color: ${metaColorDesktop}; font-size: ${metaFsDesktop}; }
-              #news-grid-${block.id} .news-grid-author-wrap { display: ${showAuthorDesktop ? "flex" : "none"}; }
-              #news-grid-${block.id} .news-grid-author { display: ${showAuthorDesktop ? "inline" : "none"}; }
-              #news-grid-${block.id} .news-grid-date { display: ${showDateDesktop ? "inline" : "none"}; }
-              #news-grid-${block.id} .news-grid-dot { display: ${showAuthorDesktop && showDateDesktop ? "inline" : "none"}; }
-              #news-grid-${block.id} .news-grid-excerpt { display: ${showExcerptDesktop ? "block" : "none"}; color: ${excerptColorDesktop}; font-size: ${excerptFsDesktop}; line-height: ${excerptLhDesktop}; }
-            }
-            html.public-dark #news-grid-${block.id}.news-grid-dark-widget-auto {
-              background-color: var(--bg-elevated) !important;
-              border: 1px solid var(--border) !important;
-              box-shadow: none !important;
-            }
-            html.public-dark #news-grid-${block.id}.news-grid-dark-card-auto .news-grid-item {
-              background-color: var(--bg-surface) !important;
-              border-color: var(--border) !important;
-            }
-            html.public-dark #news-grid-${block.id}.news-grid-dark-card-auto .news-grid-content {
-              background-color: transparent !important;
-            }
-          `),
+      <div
+        style={{
+          backgroundColor: currentUseBox ? currentBoxColor : "transparent",
+          borderRadius: currentUseBox ? currentBoxRadius : "0",
+          border: currentUseBox ? "var(--box-border, 1px solid #f3f4f6)" : "none",
+          boxShadow: currentUseBox ? "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))" : "none",
+          backgroundImage: currentBoxBackgroundImage,
+          backgroundSize: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `cover, ${currentBoxBgSize}` : currentBoxBgSize) : undefined,
+          backgroundPosition: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `center, ${currentBoxBgPosition}` : currentBoxBgPosition) : undefined,
+          backgroundRepeat: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `no-repeat, ${currentBoxBgRepeat}` : currentBoxBgRepeat) : undefined,
+          backgroundAttachment: currentUseBox && currentBoxBgImage ? (hasCurrentBoxOverlay ? `scroll, ${currentBoxBgAttachment}` : currentBoxBgAttachment) : undefined,
+          paddingTop: currentUseBox ? currentBoxPt : "0px",
+          paddingRight: currentUseBox ? currentBoxPr : "0px",
+          paddingBottom: currentUseBox ? currentBoxPb : "0px",
+          paddingLeft: currentUseBox ? currentBoxPl : "0px",
         }}
-      />
-
+      >
       <div className="news-grid-inner">
         {(cfg.showTitle !== false) && (
-          <h3 className="font-bold mb-3 border-b border-gray-100 pb-3 flex items-center theme-widget-title">
-            <div className="widget-title-bar w-1 h-5 mr-3" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)" }}></div>
+          <h3
+            className="font-bold border-b border-[color:var(--border,#e5e7eb)] flex items-center theme-widget-title"
+            style={{ lineHeight: currentBlockTitleLh, marginBottom: currentBlockTitleMb, paddingBottom: currentBlockTitlePb }}
+          >
+            <div className="widget-title-bar" style={{ borderRadius: "var(--home-main-box-radius, 0.25rem)" }}></div>
             <span>{title}</span>
           </h3>
         )}
 
-        <div className="news-grid-list">
-          {visiblePosts.map((post, idx) => {
+        <div className="news-grid-list" style={{ display: "grid", gridTemplateColumns: `repeat(${currentColumns}, minmax(0, 1fr))`, columnGap: currentGapX, rowGap: currentGapY }}>
+          {renderedPosts.map((post, idx) => {
             const postLink = post.category ? `/${post.category.slug}/${post.slug}` : `/post/${post.slug}`;
+            const displayCategory = post.archiveDisplayCategory || post.category;
             const imageUrl = post.image || post.featuredImage?.fileUrl;
             const isVideo = String((post as any)?.type || "").toUpperCase() === "VIDEO";
             const authorName = (() => {
@@ -683,13 +790,18 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
             const dateObj = dateVal ? (dateVal instanceof Date ? dateVal : new Date(dateVal)) : null;
             const dateIso = dateObj && !Number.isNaN(dateObj.getTime()) ? dateObj.toISOString() : "";
             const excerptText = clampExcerpt(getExcerptSource(post, excerptLength), excerptLength);
+            const showMetaRow = currentShowMeta && ((currentShowAuthor && !!authorName) || (currentShowDate && !!dateVal));
             return (
-              <article key={post.id || `${block.id}-${idx}`} className="news-grid-item overflow-hidden border border-[color:var(--border)]">
-                <Link href={postLink} className="news-grid-thumb relative block overflow-hidden bg-gray-100">
+              <article
+                key={post.id || `${block.id}-${idx}`}
+                className="news-grid-item overflow-hidden border border-[color:var(--border)]"
+                style={{ borderRadius: currentCardRadius, backgroundColor: currentCardBg }}
+              >
+                <Link href={postLink} className="news-grid-thumb relative block overflow-hidden bg-[color:var(--bg-surface,#f9fafb)]" style={{ width: currentImageWidth, height: currentImageHeight }}>
                   {imageUrl ? (
                     <Image src={imageUrl} alt={post.title} fill className="object-cover hover:scale-105 transition-transform duration-500" sizes="(max-width: 768px) 100vw, 33vw" />
                   ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-[var(--fg-muted)] text-xs">No Image</div>
+                    <div className="absolute inset-0 flex items-center justify-center [color:var(--muted-text,var(--home-meta-color,#9ca3af))] text-xs">No Image</div>
                   )}
                   {isVideo && (
                     <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -700,27 +812,79 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
                       </span>
                     </span>
                   )}
-                  {post.category && (
-                    <span className="news-grid-category absolute top-2 left-2 px-2 py-0.5 font-bold uppercase tracking-wide">
-                      {post.category.name}
+                  {currentShowCategory && displayCategory && (
+                    <span
+                      className="news-grid-category absolute top-2 left-2 font-bold uppercase tracking-wide"
+                      style={{
+                        color: currentCategoryColor,
+                        backgroundColor: currentCategoryBg,
+                        fontSize: currentCategoryFs,
+                        lineHeight: currentCategoryLh,
+                        borderRadius: currentCategoryHasBg ? currentCategoryRadius : "0",
+                        padding: currentCategoryHasBg ? `${currentCategoryPy} ${currentCategoryPx}` : "0",
+                      }}
+                    >
+                      {displayCategory.name}
                     </span>
                   )}
                 </Link>
-                <div className="news-grid-content">
-                  <h4 className="news-grid-title-wrap mb-1.5">
-                    <Link href={postLink} className="news-grid-title transition-colors">
+                <div
+                  className="news-grid-content"
+                  style={{
+                    padding: currentContentPadding,
+                    backgroundColor: effectiveContentBg,
+                    borderRadius: currentContentRadius,
+                    ...contentThemeVars,
+                  }}
+                >
+                  <h4
+                    className="news-grid-title-wrap mb-1.5"
+                    style={{
+                      fontSize: currentTitleFs,
+                      lineHeight: currentTitleLh,
+                      fontWeight: currentTitleFw,
+                      color: effectiveTitleColor,
+                      fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))",
+                      fontSynthesis: "var(--home-news-title-synthesis, var(--font-heading-synthesis, none))",
+                    }}
+                  >
+                    <Link
+                      href={postLink}
+                      className="news-grid-title transition-colors"
+                      style={{
+                        ["--news-grid-title-color" as string]: effectiveTitleColor,
+                        ["--news-grid-title-size" as string]: currentTitleFs,
+                        ["--news-grid-title-weight" as string]: currentTitleFw,
+                        ["--news-grid-title-font" as string]: "var(--home-news-title-font, var(--font-heading, sans-serif))",
+                        ["--news-grid-title-hover" as string]: effectiveTitleHover,
+                        color: "inherit",
+                        fontSize: "inherit",
+                        lineHeight: "inherit",
+                        fontWeight: "inherit",
+                        fontFamily: "inherit",
+                        fontSynthesis: "inherit",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = effectiveTitleHover; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "inherit"; }}
+                    >
                       {post.title}
                     </Link>
                   </h4>
-                  {(authorName || dateVal) && (
-                    <div className="news-grid-meta items-center gap-3 font-medium mt-2">
-                      {authorName && (
-                        <div className="news-grid-author-wrap items-center gap-1.5">
-                          <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] relative overflow-hidden" style={{ backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}>
+                  {showMetaRow && (
+                    <div
+                      className="flex items-center gap-3 mt-2"
+                      style={{ color: effectiveMetaColor, fontSize: currentMetaFs, lineHeight: currentMetaLh, fontWeight: currentMetaFw, marginBottom: currentMetaMb }}
+                    >
+                      {currentShowAuthor && authorName && (
+                        <div className="news-grid-author-wrap flex items-center gap-1.5">
+                          <span
+                            className="rounded-full flex items-center justify-center relative overflow-hidden shrink-0"
+                            style={{ width: "1.5em", height: "1.5em", fontSize: "0.92em", backgroundColor: "color-mix(in oklab, var(--fg-primary) 10%, transparent)" }}
+                          >
                             {authorAvatar ? (
                               <Image src={authorAvatar} alt={authorName} fill className="object-cover" sizes="16px" />
                             ) : (
-                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-2.5 h-2.5 opacity-80">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-80" style={{ width: "1em", height: "1em" }}>
                                 <path fillRule="evenodd" d="M7.5 6a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM3.751 20.105a8.25 8.25 0 0116.498 0 .75.75 0 01-.437.695A18.683 18.683 0 0112 22.5c-2.786 0-5.433-.608-7.812-1.7a.75.75 0 01-.437-.695z" clipRule="evenodd" />
                               </svg>
                             )}
@@ -729,13 +893,13 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
                         </div>
                       )}
 
-                      {authorName && dateVal && (
-                        <span className="news-grid-dot w-1 h-1 rounded-full" style={{ backgroundColor: "currentColor", opacity: 0.5 }} />
+                      {currentShowAuthor && authorName && currentShowDate && dateVal && (
+                        <span className="news-grid-dot rounded-full shrink-0" style={{ width: "0.42em", height: "0.42em", backgroundColor: "currentColor", opacity: 0.5 }} />
                       )}
 
-                      {dateVal && (
+                      {currentShowDate && dateVal && (
                         <div className="flex items-center gap-1.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 opacity-70">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="opacity-70 shrink-0" style={{ width: "1.22em", height: "1.22em" }}>
                             <path fillRule="evenodd" d="M6.75 2.25A.75.75 0 017.5 3v1.5h9V3A.75.75 0 0118 3v1.5h.75a3 3 0 013 3v11.25a3 3 0 01-3 3H5.25a3 3 0 01-3-3V7.5a3 3 0 013-3H6V3a.75.75 0 01.75-.75zm13.5 9a1.5 1.5 0 00-1.5-1.5H5.25a1.5 1.5 0 00-1.5 1.5v7.5a1.5 1.5 0 001.5 1.5h13.5a1.5 1.5 0 001.5-1.5v-7.5z" clipRule="evenodd" />
                           </svg>
                           <time className="news-grid-date" dateTime={dateIso}>
@@ -745,12 +909,17 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
                       )}
                     </div>
                   )}
-                  <p className="news-grid-excerpt">{excerptText}</p>
+                  {currentShowExcerpt && (
+                    <p style={{ color: effectiveExcerptColor, fontSize: currentExcerptFs, lineHeight: currentExcerptLh, fontWeight: currentExcerptFw }}>
+                      {excerptText}
+                    </p>
+                  )}
                 </div>
               </article>
             );
           })}
         </div>
+      </div>
       </div>
     </div>
   );
