@@ -1,6 +1,32 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { isBypassedRedirectPath, normalizeRedirectPath } from "@/lib/redirects";
+import { AUTH_COOKIE_NAME } from "@/lib/auth-cookie";
+
+function isStateChanging(method: string): boolean {
+  return method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE";
+}
+
+// CSRF: tolak request state-changing lintas-origin yang membawa cookie auth.
+// Defence-in-depth di atas SameSite=Strict + __Host- cookie.
+function isCrossSiteForbidden(request: NextRequest): boolean {
+  if (!isStateChanging(request.method)) return false;
+  if (!request.cookies.get(AUTH_COOKIE_NAME)?.value) return false;
+
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      if (new URL(origin).host !== request.nextUrl.host) return true;
+    } catch {
+      return true;
+    }
+  }
+
+  const secFetchSite = request.headers.get("sec-fetch-site");
+  if (secFetchSite === "cross-site") return true;
+
+  return false;
+}
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -11,8 +37,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Ambil cookie 'auth_token'
-  const token = request.cookies.get("auth_token")?.value;
+  if (isCrossSiteForbidden(request)) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
+
+  // Ambil cookie auth
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value;
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-admin-pathname", pathname);
 

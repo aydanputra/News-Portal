@@ -4,6 +4,7 @@ import { verifyPassword, createToken } from "@/lib/auth";
 import { cookies } from "next/headers";
 import { logActivity } from "@/lib/audit";
 import { assertRateLimit } from "@/lib/api-guards";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS } from "@/lib/auth-cookie";
 
 export async function POST(request: Request) {
   try {
@@ -56,12 +57,9 @@ export async function POST(request: Request) {
     // httpOnly: true -> Agar tidak bisa dicuri via JavaScript browser
     // secure: true -> Hanya lewat HTTPS (di production)
     const cookieStore = await cookies();
-    cookieStore.set("auth_token", token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+    cookieStore.set(AUTH_COOKIE_NAME, token, {
+      ...AUTH_COOKIE_OPTIONS,
       maxAge: 60 * 60 * 24, // 1 hari
-      path: "/", // Berlaku di seluruh website
     });
 
     await logActivity(user.id, "LOGIN", "Auth", user.id, { email: user.email }, request);

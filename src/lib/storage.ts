@@ -26,8 +26,29 @@ export class LocalStorage implements StorageProvider {
     }
   }
 
+  private resolveSafePath(key: string): string {
+    if (!key || typeof key !== "string") {
+      throw new Error("Invalid storage key");
+    }
+    // Reject path traversal, absolute paths, backslashes and null bytes.
+    if (
+      key.includes("..") ||
+      key.includes("\\") ||
+      key.includes("\0") ||
+      path.isAbsolute(key)
+    ) {
+      throw new Error("Invalid storage key");
+    }
+    const root = path.resolve(this.uploadDir);
+    const filePath = path.resolve(root, key);
+    if (!filePath.startsWith(root + path.sep)) {
+      throw new Error("Invalid storage key");
+    }
+    return filePath;
+  }
+
   async upload(file: File | Buffer, key: string, _mimeType: string): Promise<string> {
-    const filePath = path.join(this.uploadDir, key);
+    const filePath = this.resolveSafePath(key);
     this.ensureDir(filePath);
 
     let buffer: Buffer;
@@ -42,7 +63,7 @@ export class LocalStorage implements StorageProvider {
   }
 
   async delete(key: string): Promise<void> {
-    const filePath = path.join(this.uploadDir, key);
+    const filePath = this.resolveSafePath(key);
     try {
       await unlink(filePath);
     } catch {

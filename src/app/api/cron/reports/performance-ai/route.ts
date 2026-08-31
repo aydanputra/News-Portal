@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { PostStatus } from "@prisma/client";
 import { sendTelegramMessage } from "@/lib/external-notifications";
-import crypto from "crypto";
+import { decryptAiKey } from "@/lib/ai-key-crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -35,23 +35,6 @@ function periodToDays(period: string) {
   if (period === "weekly") return 7;
   if (period === "monthly") return 30;
   return 1;
-}
-
-function deriveKey(masterKey: string) {
-  return crypto.scryptSync(masterKey, "news-portal-ai-openai", 32);
-}
-
-function decryptSecret(ciphertextB64: string, masterKey: string) {
-  const key = deriveKey(masterKey);
-  const raw = Buffer.from(ciphertextB64, "base64");
-  if (raw.length < 12 + 16 + 1) return null;
-  const iv = raw.subarray(0, 12);
-  const tag = raw.subarray(12, 28);
-  const ciphertext = raw.subarray(28);
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
-  decipher.setAuthTag(tag);
-  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
-  return plaintext.trim() ? plaintext : null;
 }
 
 async function ensureTodaySnapshot(day: Date) {
@@ -323,7 +306,7 @@ export async function POST(request: Request) {
       const master = typeof process.env.MASTER_KEY === "string" ? process.env.MASTER_KEY : "";
       if (enc && master) {
         try {
-          aiApiKey = decryptSecret(enc, master);
+          aiApiKey = decryptAiKey(enc, master);
           aiKeySource = aiApiKey ? "db" : "db_invalid";
         } catch (error) {
           void error;

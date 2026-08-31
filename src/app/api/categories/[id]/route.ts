@@ -1,17 +1,14 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
+import { requireUser } from "@/lib/server-auth";
 import { slugify } from "@/lib/utils";
-import { cookies } from "next/headers";
 
 // PUT: Edit Kategori
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user || user.role === "WRITER") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -55,9 +52,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     // Hanya ADMIN yang boleh hapus kategori (sesuai requirement)
     if (!user || user.role !== "ADMIN") {

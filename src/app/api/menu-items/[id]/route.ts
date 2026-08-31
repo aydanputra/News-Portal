@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth";
+import { requireUser } from "@/lib/server-auth";
 import { z } from "zod";
 
 const updateItemSchema = z.object({
@@ -9,13 +8,6 @@ const updateItemSchema = z.object({
   customUrl: z.string().url().nullable().optional(),
   openInNewTab: z.boolean().optional(),
 });
-
-async function requireUser() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("auth_token")?.value;
-  const user = verifyToken(token || "");
-  return user;
-}
 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

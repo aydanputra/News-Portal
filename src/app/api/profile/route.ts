@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
+import { requireUser } from "@/lib/server-auth";
+import { AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS } from "@/lib/auth-cookie";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 
@@ -9,33 +10,25 @@ export const dynamic = "force-dynamic";
 // GET: Current User Profile
 export async function GET() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-
-    if (!token) {
+    const user = await requireUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const payload = await verifyToken(token);
-    if (!payload || !payload.id) {
-      console.error("Invalid token payload:", payload);
-      return NextResponse.json({ error: "Invalid token payload" }, { status: 401 });
-    }
-
-    console.log("Fetching profile for user ID:", payload.id);
+    console.log("Fetching profile for user ID:", user.id);
 
     // Try a simple query first
     const rawUser = await (prisma.user as any).findUnique({
-      where: { id: payload.id }
+      where: { id: user.id }
     });
 
     if (!rawUser) {
-      console.error("User not found in DB for ID:", payload.id);
+      console.error("User not found in DB for ID:", user.id);
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     // Filter fields manually to avoid any select issues
-    const user = {
+    const profile = {
         id: rawUser.id,
         name: rawUser.name,
         email: rawUser.email,
@@ -51,7 +44,7 @@ export async function GET() {
         telegramChatId: rawUser.telegramChatId,
     };
 
-    return NextResponse.json(user);
+    return NextResponse.json(profile);
   } catch (error) {
     console.error("Get Profile Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
@@ -61,16 +54,9 @@ export async function GET() {
 // PUT: Update Current User Profile
 export async function PUT(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-
-    if (!token) {
+    const user = await requireUser();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const payload = await verifyToken(token);
-    if (!payload || !payload.id) {
-      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -102,10 +88,10 @@ export async function PUT(request: Request) {
         updateData.password = hashedPassword;
     }
 
-    console.log("Updating profile for user:", payload.id, "Data:", JSON.stringify(updateData, null, 2));
+    console.log("Updating profile for user:", user.id, "Data:", JSON.stringify(updateData, null, 2));
 
     const updatedUser = await (prisma.user as any).update({
-      where: { id: payload.id },
+      where: { id: user.id },
       data: updateData,
       select: {
         id: true,
@@ -138,33 +124,26 @@ export async function PUT(request: Request) {
 // DELETE: Delete (Suspend) Account
 export async function DELETE(request: Request) {
     try {
-        const cookieStore = await cookies();
-        const token = cookieStore.get("auth_token")?.value;
-    
-        if (!token) {
+        const user = await requireUser();
+        if (!user) {
           return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-        }
-    
-        const payload = await verifyToken(token);
-        if (!payload) {
-          return NextResponse.json({ error: "Invalid token" }, { status: 401 });
         }
 
         const body = await request.json();
         const { password } = body;
 
         // Verify password before deleting
-        const user = await prisma.user.findUnique({ where: { id: payload.id } });
-        if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+        if (!dbUser) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-        const isPasswordValid = await bcrypt.compare(password, user.password);
+        const isPasswordValid = await bcrypt.compare(password, dbUser.password);
         if (!isPasswordValid) {
             return NextResponse.json({ error: "Password incorrect" }, { status: 400 });
         }
 
         // Soft Delete
         await prisma.user.update({
-            where: { id: payload.id },
+            where: { id: user.id },
             data: {
                 status: "SUSPENDED",
                 deletedAt: new Date(),
@@ -172,7 +151,8 @@ export async function DELETE(request: Request) {
         });
 
         // Logout by deleting cookie
-        cookieStore.delete("auth_token");
+        const cookieStore = await cookies();
+        cookieStore.set(AUTH_COOKIE_NAME, "", { ...AUTH_COOKIE_OPTIONS, maxAge: 0 });
 
         return NextResponse.json({ success: true });
 

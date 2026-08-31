@@ -1,27 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
-import crypto from "crypto";
+import { requireAdmin } from "@/lib/server-auth";
+import { decryptAiKey } from "@/lib/ai-key-crypto";
 
 export const dynamic = "force-dynamic";
-
-function deriveKey(masterKey: string) {
-  return crypto.scryptSync(masterKey, "news-portal-ai-openai", 32);
-}
-
-function decryptSecret(ciphertextB64: string, masterKey: string) {
-  const key = deriveKey(masterKey);
-  const raw = Buffer.from(ciphertextB64, "base64");
-  if (raw.length < 12 + 16 + 1) return null;
-  const iv = raw.subarray(0, 12);
-  const tag = raw.subarray(12, 28);
-  const ciphertext = raw.subarray(28);
-  const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
-  decipher.setAuthTag(tag);
-  const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString("utf8");
-  return plaintext.trim() ? plaintext.trim() : null;
-}
 
 async function sendTelegramMessageWithResult(params: { token: string; chatId: string; message: string }) {
   const url = `https://api.telegram.org/bot${params.token}/sendMessage`;
@@ -40,10 +22,8 @@ async function sendTelegramMessageWithResult(params: { token: string; chatId: st
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-    if (!user || !["ADMIN", "SUPER_ADMIN"].includes(user.role)) {
+    const user = await requireAdmin();
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -132,7 +112,7 @@ export async function POST(request: Request) {
     const master = typeof process.env.MASTER_KEY === "string" ? process.env.MASTER_KEY : "";
     if (enc && master) {
       try {
-        apiKey = decryptSecret(enc, master);
+        apiKey = decryptAiKey(enc, master);
         keySource = apiKey ? "db" : "db_invalid";
       } catch (error) {
         void error;

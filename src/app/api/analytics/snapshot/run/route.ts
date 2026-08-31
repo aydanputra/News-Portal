@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireAdmin } from "@/lib/server-auth";
 import { PostStatus } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -14,14 +13,8 @@ function startOfDay(date: Date) {
 
 export async function POST() {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-
+    const user = await requireAdmin();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    if (!["ADMIN", "SUPER_ADMIN"].includes(String((user as any)?.role || ""))) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
 
     const day = startOfDay(new Date());
 

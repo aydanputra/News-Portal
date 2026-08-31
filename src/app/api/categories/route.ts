@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
+import { requireUser } from "@/lib/server-auth";
 import { slugify } from "@/lib/utils";
-import { cookies } from "next/headers";
 
 type Category = {
   id: string;
@@ -72,9 +71,7 @@ export async function GET() {
 // POST: Buat Kategori Baru (Parent/Child)
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     // Hanya ADMIN & EDITOR yang boleh buat kategori
     if (!user || user.role === "WRITER") {

@@ -5,8 +5,12 @@ import path from "path";
 import { v4 as uuidv4 } from 'uuid';
 import { assertRateLimit, isToolEnabledForRequest } from "@/lib/api-guards";
 import { requireAdmin } from "@/lib/server-auth";
+import { hostIsBlocked } from "@/lib/ssrf";
+import { detectImageType, IMAGE_EXTENSION_BY_TYPE } from "@/lib/upload-validation";
 
 type DownloadedImage = { url: string; filename: string; size: number; mime: string };
+
+const MAX_IMPORT_IMAGE_BYTES = 10 * 1024 * 1024;
 
 function normalizeHostname(value: string): string {
     return value.trim().toLowerCase().replace(/:\d+$/, '');
@@ -151,27 +155,38 @@ async function resolveUploaderId() {
 async function downloadImage(url: string, uploadDir: string): Promise<DownloadedImage | null> {
     try {
         const normalizedUrl = url.startsWith('//') ? `https:${url}` : url;
+        const parsed = new URL(normalizedUrl);
+        if (!["http:", "https:"].includes(parsed.protocol)) return null;
+
+        // SSRF guard: blokir host privat/reserved/loopback.
+        if (await hostIsBlocked(parsed.hostname)) {
+            console.warn(`[import/media] Blocked SSRF target: ${parsed.hostname}`);
+            return null;
+        }
+
         const res = await fetch(normalizedUrl);
         if (!res.ok) return null;
-        
-        const buffer = await res.arrayBuffer();
-        const size = buffer.byteLength;
+
         const contentType = res.headers.get('content-type') || 'image/jpeg';
-        
-        // Try to get extension from URL or content-type
-        let ext = path.extname(new URL(normalizedUrl).pathname);
-        if (!ext || ext.length > 5) {
-            if (contentType === 'image/jpeg') ext = '.jpg';
-            else if (contentType === 'image/png') ext = '.png';
-            else if (contentType === 'image/webp') ext = '.webp';
-            else ext = '.jpg';
-        }
-        
+        if (!contentType.startsWith('image/')) return null;
+
+        const declaredLength = Number(res.headers.get('content-length') || '0');
+        if (declaredLength > MAX_IMPORT_IMAGE_BYTES) return null;
+
+        const buffer = Buffer.from(await res.arrayBuffer());
+        const size = buffer.byteLength;
+        if (size > MAX_IMPORT_IMAGE_BYTES) return null;
+
+        // Validasi magic bytes; ekstensi dari hasil deteksi, bukan URL/MIME.
+        const detected = detectImageType(buffer);
+        if (!detected) return null;
+        const ext = IMAGE_EXTENSION_BY_TYPE[detected];
+
         const filename = `${uuidv4()}${ext}`;
         const filepath = path.join(uploadDir, filename);
-        
-        fs.writeFileSync(filepath, Buffer.from(buffer));
-        
+
+        fs.writeFileSync(filepath, buffer);
+
         return {
             url: `/uploads/imported/${filename}`,
             filename: filename,

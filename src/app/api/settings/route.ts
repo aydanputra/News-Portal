@@ -1,28 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag, revalidatePath } from "next/cache";
-import crypto from "crypto";
 import { assertRateLimit } from "@/lib/api-guards";
 import { requireAdmin } from "@/lib/server-auth";
 import { sanitizeInsertCode } from "@/lib/sanitizer";
+import { encryptAiKey } from "@/lib/ai-key-crypto";
 import {
   mergeThemeConfigWithSettings,
   normalizeDeprecatedSettingFonts,
   THEME_GLOBAL_STYLE_SYNC_KEYS,
 } from "@/lib/settings";
-
-function deriveKey(masterKey: string) {
-  return crypto.scryptSync(masterKey, "news-portal-ai-openai", 32);
-}
-
-function encryptSecret(plaintext: string, masterKey: string) {
-  const key = deriveKey(masterKey);
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return Buffer.concat([iv, tag, ciphertext]).toString("base64");
-}
 
 // GET: Ambil Settings (Global + Theme Specific)
 export async function GET(request: Request) {
@@ -311,7 +298,7 @@ export async function PUT(request: Request) {
       wantsToUpdateAiKey && typeof rawAiKey === "string"
         ? rawAiKey.trim() === ""
           ? null
-          : encryptSecret(rawAiKey.trim(), process.env.MASTER_KEY as string)
+          : encryptAiKey(rawAiKey.trim(), process.env.MASTER_KEY as string)
         : undefined;
 
     const wantsInsertCodeUpdate = ["insertCodeHead", "insertCodeBody", "insertCodeFooter"].some((key) =>

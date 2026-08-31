@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireUser } from "@/lib/server-auth";
 
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -11,10 +10,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    // @ts-ignore
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

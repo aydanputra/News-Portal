@@ -1,7 +1,6 @@
 
 import { NextResponse } from "next/server";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireUser } from "@/lib/server-auth";
 import https from "https";
 import { storage } from "@/lib/storage";
 
@@ -33,9 +32,7 @@ const fetchText = (url: string): Promise<string> => {
 
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user || user.role !== "ADMIN") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

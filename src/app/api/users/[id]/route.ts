@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireAdmin } from "@/lib/server-auth";
 import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
@@ -36,11 +35,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const currentUser = verifyToken(token || "");
+    const currentUser = await requireAdmin();
 
-    if (!currentUser || (currentUser.role !== "ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
+    if (!currentUser) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -64,11 +61,9 @@ export async function PUT(
   ) {
     try {
       const { id } = await params;
-      const cookieStore = await cookies();
-      const token = cookieStore.get("auth_token")?.value;
-      const currentUser = verifyToken(token || "");
+      const currentUser = await requireAdmin();
   
-      if (!currentUser || (currentUser.role !== "ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
+      if (!currentUser) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
   
@@ -140,11 +135,9 @@ export async function DELETE(
   ) {
     try {
       const { id } = await params;
-      const cookieStore = await cookies();
-      const token = cookieStore.get("auth_token")?.value;
-      const currentUser = verifyToken(token || "");
+      const currentUser = await requireAdmin();
   
-      if (!currentUser || (currentUser.role !== "ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
+      if (!currentUser) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
 

@@ -1,18 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireAdmin } from "@/lib/server-auth";
 import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 // GET: List Users (Admin Only)
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireAdmin();
 
-    if (!user || (user.role !== "ADMIN" && user.role !== "SUPER_ADMIN")) {
+    if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -76,11 +73,9 @@ export async function GET(request: Request) {
 // POST: Create User (Admin Only)
 export async function POST(request: Request) {
     try {
-      const cookieStore = await cookies();
-      const token = cookieStore.get("auth_token")?.value;
-      const currentUser = verifyToken(token || "");
+      const currentUser = await requireAdmin();
   
-      if (!currentUser || (currentUser.role !== "ADMIN" && currentUser.role !== "SUPER_ADMIN")) {
+      if (!currentUser) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
       }
   

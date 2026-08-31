@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireUser } from "@/lib/server-auth";
 import { slugify } from "@/lib/utils";
 import { sanitizeContent } from "@/lib/sanitizer";
 
@@ -27,9 +26,7 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 

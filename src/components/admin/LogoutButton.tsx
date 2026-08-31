@@ -11,9 +11,6 @@ export default function LogoutButton() {
     try {
       // Panggil API Logout (untuk hapus cookie httpOnly di server)
       await fetch("/api/auth/logout", { method: "POST" });
-      
-      // Hapus cookie client-side jika ada (opsional)
-      document.cookie = "auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT";
 
       // Redirect ke login
       router.push("/admin/login");

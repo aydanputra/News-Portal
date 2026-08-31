@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { verifyToken } from "@/lib/auth";
+import { requireUser } from "@/lib/server-auth";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -44,15 +43,13 @@ function safeInt(value: unknown) {
 
 export async function GET(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (!["EDITOR", "ADMIN", "SUPER_ADMIN"].includes(String((user as any)?.role || ""))) {
+    if (!["EDITOR", "ADMIN", "SUPER_ADMIN"].includes(user.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -456,7 +453,7 @@ export async function GET(request: Request) {
     const viewsInRange = [...trendMap.values()].reduce((sum, value) => sum + value, 0);
 
     const payload = {
-      viewerRole: String((user as any)?.role || ""),
+      viewerRole: user.role,
       generatedAt: new Date().toISOString(),
       trackingMode: "realtime",
       range: {

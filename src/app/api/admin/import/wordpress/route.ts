@@ -4,6 +4,7 @@ import { parseStringPromise } from "xml2js";
 import { Role, PostStatus, PostType } from "@prisma/client";
 import fs from "fs";
 import path from "path";
+import bcrypt from "bcryptjs";
 import { assertRateLimit, isToolEnabledForRequest } from "@/lib/api-guards";
 import { requireAdmin } from "@/lib/server-auth";
 import { normalizeRedirectPath } from "@/lib/redirects";
@@ -287,11 +288,12 @@ export async function POST(req: NextRequest) {
 
                 if (!user) {
                     // Create dummy user
+                    const hashedPassword = await bcrypt.hash("temp-password-change-me", 10);
                     user = await prisma.user.create({
                         data: {
                             name: authorName,
                             email: `${simpleSlugify(authorName)}@imported.temp`,
-                            password: "temp-password-change-me", // Todo: Hash this properly if using real auth
+                            password: hashedPassword,
                             role: Role.WRITER,
                         }
                     });
@@ -340,13 +342,14 @@ export async function POST(req: NextRequest) {
                             authorId = authorMap.values().next().value;
                         } else {
                             // Emergency fallback: Create a default admin user
+                            const hashedAdminPassword = await bcrypt.hash("admin-password", 10);
                             const defaultAdmin = await prisma.user.upsert({
                                 where: { email: 'admin@imported.temp' },
                                 update: {},
                                 create: {
                                     name: 'Admin Import',
                                     email: 'admin@imported.temp',
-                                    password: 'admin-password',
+                                    password: hashedAdminPassword,
                                     role: Role.ADMIN
                                 }
                             });

@@ -1,8 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireUser, requireAdmin } from "@/lib/server-auth";
 import { getStorageKeyFromUrl, storage } from "@/lib/storage";
 
 // GET: List Media
@@ -18,9 +17,7 @@ export async function GET(request: Request) {
     const sort = (searchParams.get("sort") || "desc").toLowerCase() === "asc" ? "asc" : "desc";
     const month = (searchParams.get("month") || "").trim();
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -93,12 +90,10 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: "ID media diperlukan" }, { status: 400 });
     }
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireAdmin();
 
     // Hanya ADMIN yang boleh hapus
-    if (!user || user.role !== "ADMIN") {
+    if (!user) {
       return NextResponse.json({ error: "Hanya Admin yang boleh menghapus media" }, { status: 403 });
     }
 

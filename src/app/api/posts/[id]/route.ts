@@ -1,8 +1,7 @@
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
-import { cookies } from "next/headers";
+import { requireUser } from "@/lib/server-auth";
 import { getYouTubeThumbnailUrl, slugify } from "@/lib/utils";
 import { PostType, PostStatus, Prisma } from "@prisma/client";
 import { logActivity } from "@/lib/audit";
@@ -59,10 +58,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-    
+    const user = await requireUser();
+
     if (!id) {
         return NextResponse.json({ error: "ID not provided" }, { status: 400 });
     }
@@ -133,9 +130,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
     const { id } = await params;
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -613,9 +608,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
     const { id } = await params;
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -670,9 +663,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
     const { id } = await params;
 
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 import path from "path";
-import { verifyToken } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { cookies } from "next/headers";
+import { requireUser } from "@/lib/server-auth";
 import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { storage } from "@/lib/storage";
 import { assertRateLimit } from "@/lib/api-guards";
+import {
+  detectImageType,
+  detectDocType,
+  docMagicMatches,
+  DOC_EXTENSION_BY_MIME,
+} from "@/lib/upload-validation";
 
 export async function POST(request: Request) {
   try {
     // 1. Cek Auth
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
-
+    const user = await requireUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -25,12 +27,6 @@ export async function POST(request: Request) {
         { error: "Too Many Requests" },
         { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
       );
-    }
-
-    // Verify user exists in DB
-    const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-    if (!dbUser) {
-        return NextResponse.json({ error: "Sesi kadaluarsa (User tidak ditemukan). Silakan login ulang." }, { status: 401 });
     }
 
     // 2. Ambil File
@@ -75,6 +71,18 @@ export async function POST(request: Request) {
 
     // 5. Processing
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // 5a. Validasi magic bytes (cek isi file, bukan hanya MIME dari client)
+    if (isImage && !detectImageType(buffer)) {
+      return NextResponse.json({ error: "Konten gambar tidak valid" }, { status: 400 });
+    }
+    if (isDoc) {
+      const magic = detectDocType(buffer);
+      if (!magic || !docMagicMatches(file.type, magic)) {
+        return NextResponse.json({ error: "Konten dokumen tidak valid" }, { status: 400 });
+      }
+    }
+
     let finalBuffer: Buffer;
     let finalFileName: string;
     let finalMimeType: string;
@@ -110,17 +118,13 @@ export async function POST(request: Request) {
             }
 
         } catch (sharpError) {
-            console.error("Sharp processing failed, falling back to original file", sharpError);
-            finalBuffer = buffer;
-            const ext = path.extname(file.name);
-            finalFileName = `${uuidv4()}${ext}`;
-            finalMimeType = file.type;
-            displayFileName = file.name;
+            console.error("Sharp processing failed", sharpError);
+            return NextResponse.json({ error: "Gagal memproses gambar" }, { status: 400 });
         }
     } else {
         // Document Processing (Direct Save)
         finalBuffer = buffer;
-        const ext = path.extname(file.name) || (file.type === "application/pdf" ? ".pdf" : "");
+        const ext = DOC_EXTENSION_BY_MIME[file.type] || ".bin";
         finalFileName = `${uuidv4()}${ext}`;
         finalMimeType = file.type;
         displayFileName = file.name;

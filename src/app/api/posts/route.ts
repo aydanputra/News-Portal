@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
 import { getYouTubeThumbnailUrl, slugify } from "@/lib/utils";
-import { cookies } from "next/headers";
 import { PostType, PostStatus } from "@prisma/client";
 import { logActivity } from "@/lib/audit";
 import { resolvePostTransition } from "@/lib/post-workflow";
 import { sanitizeContent } from "@/lib/sanitizer";
 import { validatePost } from "@/lib/validators/postValidator";
 import { normalizePostTypeMedia } from "@/lib/post-type-media";
+import { requireUser } from "@/lib/server-auth";
 import { revalidateTag } from "next/cache";
 
 function toPlain(html: string): string {
@@ -45,9 +44,7 @@ export async function GET(request: Request) {
     const q = (searchParams.get("q") || "").trim();
     const typeParam = (searchParams.get("type") || "all").trim();
 
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -164,9 +161,7 @@ export async function GET(request: Request) {
 // POST: Buat berita baru
 export async function POST(request: Request) {
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("auth_token")?.value;
-    const user = verifyToken(token || "");
+    const user = await requireUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
