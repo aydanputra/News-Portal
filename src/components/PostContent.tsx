@@ -305,6 +305,13 @@ export default function PostContent({ content, className, style }: PostContentPr
   const options = {
     replace: (domNode: DOMNode) => {
       if (domNode instanceof Element && domNode.attribs) {
+        if (domNode.name === "img") {
+          // Lazy-load content images to reduce initial transfer; sanitizer already
+          // allows `loading` so adding it here is safe and keeps CLS low via srcset.
+          domNode.attribs.loading = "lazy";
+          domNode.attribs.decoding = "async";
+        }
+
         if (domNode.attribs.class?.includes("social-embed")) {
           return renderVideoEmbed(findEmbedUrl(domNode)) || undefined;
         }

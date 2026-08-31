@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { assertRateLimit } from "@/lib/api-guards";
+import { enqueuePostView } from "@/lib/view-batcher";
 import {
   getTrackingCookieMaxAge,
   getTrackingCookieName,
@@ -66,10 +67,9 @@ export async function POST(request: Request) {
         throw error;
       }
 
-      await tx.post.update({
-        where: { id: postId },
-        data: { views: { increment: 1 } },
-      });
+      // Defer the hot `Post.views` increment to a periodic batch flush instead
+      // of writing to the shared `Post` row on every request.
+      enqueuePostView(postId);
 
       await tx.postViewDaily.upsert({
         where: {
