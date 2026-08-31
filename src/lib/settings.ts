@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { normalizeDeprecatedFontChoice } from "@/lib/font-utils";
+import { unstable_cache } from "next/cache";
 
 const THEME_GLOBAL_ONLY_KEYS = [
   "id",
@@ -158,25 +159,34 @@ function stripSecrets(setting: any) {
   return rest;
 }
 
+async function fetchSettingsUncached() {
+  let setting: any = await prisma.setting.findUnique({ where: { id: "default" } });
+  if (!setting) {
+    setting = await prisma.setting.create({
+      data: { id: "default" },
+    });
+  }
+
+  const activeTheme = setting.activeTheme || "classic";
+  const themeConfig = await (prisma as any).themeConfig.findUnique({
+    where: { themeId: activeTheme },
+  });
+
+  if (themeConfig && themeConfig.config) {
+    setting = mergeThemeConfigWithSettings(setting, themeConfig.config);
+  }
+
+  return stripSecrets(normalizeDeprecatedSettingFonts(setting));
+}
+
+const getSettingsCached = unstable_cache(fetchSettingsUncached, ["settings"], {
+  revalidate: 300,
+  tags: ["settings"],
+});
+
 export async function getSettings() {
   try {
-    let setting: any = await prisma.setting.findUnique({ where: { id: "default" } });
-    if (!setting) {
-      setting = await prisma.setting.create({
-        data: { id: "default" },
-      });
-    }
-
-    const activeTheme = setting.activeTheme || "classic";
-    const themeConfig = await (prisma as any).themeConfig.findUnique({
-      where: { themeId: activeTheme },
-    });
-
-    if (themeConfig && themeConfig.config) {
-      setting = mergeThemeConfigWithSettings(setting, themeConfig.config);
-    }
-
-    return stripSecrets(normalizeDeprecatedSettingFonts(setting));
+    return await getSettingsCached();
   } catch (error) {
     console.error("Failed to fetch settings:", error);
     return {};

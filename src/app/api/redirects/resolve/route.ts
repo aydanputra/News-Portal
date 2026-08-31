@@ -1,8 +1,25 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { normalizeRedirectPath } from "@/lib/redirects";
 
 export const dynamic = "force-dynamic";
+
+const getRedirectRule = unstable_cache(
+  async (oldPath: string) => {
+    return prisma.redirectRule.findUnique({
+      where: { oldPath },
+      select: {
+        id: true,
+        newPath: true,
+        statusCode: true,
+        isActive: true,
+      },
+    });
+  },
+  ["redirect-rule"],
+  { revalidate: 60, tags: ["redirect-rule"] },
+);
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -12,15 +29,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ found: false });
   }
 
-  const row = await prisma.redirectRule.findUnique({
-    where: { oldPath },
-    select: {
-      id: true,
-      newPath: true,
-      statusCode: true,
-      isActive: true,
-    },
-  });
+  const row = await getRedirectRule(oldPath);
 
   if (!row || !row.isActive) {
     return NextResponse.json({ found: false });

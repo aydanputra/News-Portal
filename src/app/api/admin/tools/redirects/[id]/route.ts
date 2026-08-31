@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-auth";
 import { isToolEnabledForRequest } from "@/lib/api-guards";
@@ -43,6 +44,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         note: note || null,
       },
     });
+    revalidateTag("redirect-rule");
     return NextResponse.json(row);
   } catch (error: any) {
     const code = String(error?.code || "");
@@ -61,6 +63,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const { id } = await params;
   try {
     await prisma.redirectRule.delete({ where: { id } });
+    revalidateTag("redirect-rule");
     return NextResponse.json({ ok: true });
   } catch {
     return NextResponse.json({ error: "Gagal menghapus redirect" }, { status: 400 });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-auth";
 import { isToolEnabledForRequest } from "@/lib/api-guards";
@@ -70,6 +71,7 @@ export async function POST(request: Request) {
         note: note || null,
       },
     });
+    revalidateTag("redirect-rule");
     return NextResponse.json(row);
   } catch (error: any) {
     const message =
