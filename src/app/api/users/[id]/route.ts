@@ -98,6 +98,9 @@ export async function PUT(
       
       if (role) {
           if (!Object.values(Role).includes(role)) return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+          if (role === "SUPER_ADMIN" && currentUser.role !== "SUPER_ADMIN") {
+              return NextResponse.json({ error: "Hanya Super Admin yang dapat menetapkan peran Super Admin" }, { status: 403 });
+          }
           updateData.role = role;
       }
       if (status) {

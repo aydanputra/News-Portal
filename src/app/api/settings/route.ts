@@ -236,15 +236,15 @@ export async function GET(request: Request) {
 
         // Notification Settings
         notificationTelegramEnabled: globalSetting?.notificationTelegramEnabled ?? false,
-        notificationTelegramBotToken: globalSetting?.notificationTelegramBotToken || "",
-        notificationTelegramChatId: globalSetting?.notificationTelegramChatId || "",
+        notificationTelegramBotTokenConfigured: Boolean(globalSetting?.notificationTelegramBotToken),
+        notificationTelegramChatIdConfigured: Boolean(globalSetting?.notificationTelegramChatId),
         notificationEmailEnabled: globalSetting?.notificationEmailEnabled ?? false,
         notificationEmailFrom: globalSetting?.notificationEmailFrom || "",
         notificationEmailTo: globalSetting?.notificationEmailTo || "",
         notificationSmtpHost: globalSetting?.notificationSmtpHost || "",
         notificationSmtpPort: globalSetting?.notificationSmtpPort || 587,
         notificationSmtpUser: globalSetting?.notificationSmtpUser || "",
-        notificationSmtpPass: globalSetting?.notificationSmtpPass || "",
+        notificationSmtpPassConfigured: Boolean(globalSetting?.notificationSmtpPass),
         notificationSmtpSecure: globalSetting?.notificationSmtpSecure ?? true,
         notificationEvents: globalSetting?.notificationEvents || { onNewPost: true, onPostRejected: true, onPostPublished: true },
         aiApiKeyConfigured: Boolean(
@@ -280,8 +280,19 @@ export async function PUT(request: Request) {
       );
     }
 
-    const { themeId, ...data } = await request.json();
-    const wantsToUpdateAiKey = "aiOpenAiApiKey" in data || "aiApiKey" in data;
+    const requestBody = await request.json();
+    const { themeId, ...rawData } = requestBody;
+    const existingSetting = normalizeDeprecatedSettingFonts(
+      await prisma.setting.findUnique({ where: { id: "default" } }),
+    ) || {};
+    const data: any = normalizeDeprecatedSettingFonts({
+      ...existingSetting,
+      ...rawData,
+    });
+
+    const wantsToUpdateAiKey =
+      Object.prototype.hasOwnProperty.call(rawData, "aiOpenAiApiKey") ||
+      Object.prototype.hasOwnProperty.call(rawData, "aiApiKey");
     if (wantsToUpdateAiKey && !["ADMIN", "SUPER_ADMIN"].includes(admin.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -304,7 +315,7 @@ export async function PUT(request: Request) {
         : undefined;
 
     const wantsInsertCodeUpdate = ["insertCodeHead", "insertCodeBody", "insertCodeFooter"].some((key) =>
-      Object.prototype.hasOwnProperty.call(data, key),
+      Object.prototype.hasOwnProperty.call(rawData, key),
     );
     if (wantsInsertCodeUpdate && admin.role !== "SUPER_ADMIN") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });

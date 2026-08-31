@@ -2,8 +2,47 @@ import { NextRequest, NextResponse } from "next/server";
 import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
+import { isIP } from "node:net";
+import { lookup } from "node:dns/promises";
 
 export const dynamic = "force-dynamic";
+
+const PRIVATE_IP_PATTERNS: RegExp[] = [
+  /^127\./,
+  /^10\./,
+  /^169\.254\./,
+  /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
+  /^192\.168\./,
+  /^0\./,
+  /^::1$/,
+  /^fc00:/i,
+  /^fe80:/i,
+  /^::ffff:127\./i,
+  /^::ffff:10\./i,
+  /^::ffff:169\.254\./i,
+  /^::ffff:172\.(1[6-9]|2[0-9]|3[0-1])\./i,
+  /^::ffff:192\.168\./i,
+];
+
+function isPrivateOrReservedIp(ip: string): boolean {
+  const normalized = ip.trim().replace(/^\[|\]$/g, "");
+  if (isIP(normalized) === 0) return true;
+  return PRIVATE_IP_PATTERNS.some((pattern) => pattern.test(normalized));
+}
+
+async function hostIsBlocked(hostname: string): Promise<boolean> {
+  const trimmed = hostname.trim().replace(/^\[|\]$/g, "");
+  if (isIP(trimmed) !== 0) {
+    return isPrivateOrReservedIp(trimmed);
+  }
+  try {
+    const addresses = await lookup(trimmed, { all: true });
+    if (!addresses || addresses.length === 0) return true;
+    return addresses.some((entry) => isPrivateOrReservedIp(entry.address));
+  } catch {
+    return true;
+  }
+}
 
 function clamp(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = Number.parseInt(String(value ?? ""), 10);
@@ -25,14 +64,21 @@ async function readInputBuffer(input: string): Promise<Buffer | null> {
 
     if (value.startsWith("/")) {
       const cleanPath = value.split("?")[0].replace(/^\/+/, "");
+      if (cleanPath.includes("..") || !cleanPath.startsWith("uploads/")) return null;
       const absolutePath = path.join(process.cwd(), "public", cleanPath);
       return await fs.readFile(absolutePath);
     }
 
     if (!/^https?:\/\//i.test(value)) return null;
 
-    const response = await fetch(value, { cache: "force-cache" });
+    const url = new URL(value);
+    if (await hostIsBlocked(url.hostname)) return null;
+
+    const response = await fetch(value, { redirect: "follow", cache: "force-cache" });
     if (!response.ok) return null;
+
+    const finalUrl = new URL(response.url);
+    if (await hostIsBlocked(finalUrl.hostname)) return null;
 
     const arrayBuffer = await response.arrayBuffer();
     return Buffer.from(arrayBuffer);
@@ -75,7 +121,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (!sourceBuffer || !watermarkBuffer) {
-      return NextResponse.redirect(sourceUrl, 307);
+      return NextResponse.redirect(new URL(sourceUrl, request.url).toString(), 307);
     }
 
     const sourceImage = sharp(sourceBuffer, { failOn: "none" });
@@ -84,7 +130,7 @@ export async function GET(request: NextRequest) {
     const sourceHeight = Math.max(1, sourceMetadata.height || 0);
 
     if (!sourceWidth || !sourceHeight) {
-      return NextResponse.redirect(sourceUrl, 307);
+      return NextResponse.redirect(new URL(sourceUrl, request.url).toString(), 307);
     }
 
     const sizePercent = clamp(searchParams.get("sz"), 5, 80, 24);

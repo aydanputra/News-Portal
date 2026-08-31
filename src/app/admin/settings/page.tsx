@@ -76,6 +76,9 @@ export default function SettingsPage() {
   const [notifSmtpPort, setNotifSmtpPort] = useState(587);
   const [notifSmtpUser, setNotifSmtpUser] = useState("");
   const [notifSmtpPass, setNotifSmtpPass] = useState("");
+  const [notifTelegramBotTokenConfigured, setNotifTelegramBotTokenConfigured] = useState(false);
+  const [notifTelegramChatIdConfigured, setNotifTelegramChatIdConfigured] = useState(false);
+  const [notifSmtpPassConfigured, setNotifSmtpPassConfigured] = useState(false);
   const [notifSmtpSecure, setNotifSmtpSecure] = useState(true);
   const [notifEvents, setNotifEvents] = useState(NOTIF_EVENTS_DEFAULT);
   const [aiApiKeyConfigured, setAiApiKeyConfigured] = useState(false);
@@ -144,15 +147,18 @@ export default function SettingsPage() {
         
         // Notification Settings
         setNotifTelegramEnabled(data.notificationTelegramEnabled ?? false);
-        setNotifTelegramBotToken(data.notificationTelegramBotToken || "");
-        setNotifTelegramChatId(data.notificationTelegramChatId || "");
+        setNotifTelegramBotToken("");
+        setNotifTelegramBotTokenConfigured(Boolean(data.notificationTelegramBotTokenConfigured));
+        setNotifTelegramChatId("");
+        setNotifTelegramChatIdConfigured(Boolean(data.notificationTelegramChatIdConfigured));
         setNotifEmailEnabled(data.notificationEmailEnabled ?? false);
         setNotifEmailFrom(data.notificationEmailFrom || "");
         setNotifEmailTo(data.notificationEmailTo || "");
         setNotifSmtpHost(data.notificationSmtpHost || "");
         setNotifSmtpPort(data.notificationSmtpPort || 587);
         setNotifSmtpUser(data.notificationSmtpUser || "");
-        setNotifSmtpPass(data.notificationSmtpPass || "");
+        setNotifSmtpPass("");
+        setNotifSmtpPassConfigured(Boolean(data.notificationSmtpPassConfigured));
         setNotifSmtpSecure(data.notificationSmtpSecure ?? true);
         setNotifEvents({ ...NOTIF_EVENTS_DEFAULT, ...(data.notificationEvents || {}) });
         setAiApiKeyConfigured(Boolean(data.aiApiKeyConfigured));
@@ -265,15 +271,15 @@ export default function SettingsPage() {
         activeTheme,
 
         notificationTelegramEnabled: notifTelegramEnabled,
-        notificationTelegramBotToken: notifTelegramBotToken,
-        notificationTelegramChatId: notifTelegramChatId,
+        ...(notifTelegramBotToken.trim() ? { notificationTelegramBotToken: notifTelegramBotToken } : {}),
+        ...(notifTelegramChatId.trim() ? { notificationTelegramChatId: notifTelegramChatId } : {}),
         notificationEmailEnabled: notifEmailEnabled,
         notificationEmailFrom: notifEmailFrom,
         notificationEmailTo: notifEmailTo,
         notificationSmtpHost: notifSmtpHost,
         notificationSmtpPort: notifSmtpPort,
         notificationSmtpUser: notifSmtpUser,
-        notificationSmtpPass: notifSmtpPass,
+        ...(notifSmtpPass.trim() ? { notificationSmtpPass: notifSmtpPass } : {}),
         notificationSmtpSecure: notifSmtpSecure,
         notificationEvents: notifEvents,
       };
@@ -582,7 +588,7 @@ export default function SettingsPage() {
                       className="input w-full"
                       value={notifTelegramBotToken}
                       onChange={(e) => setNotifTelegramBotToken(e.target.value)}
-                      placeholder="123456:ABC-DEF..."
+                      placeholder={notifTelegramBotTokenConfigured ? "Telah dikonfigurasi — biarkan kosong jika tidak diubah" : "123456:ABC-DEF..."}
                     />
                   </div>
                   <div>
@@ -592,7 +598,7 @@ export default function SettingsPage() {
                       className="input w-full"
                       value={notifTelegramChatId}
                       onChange={(e) => setNotifTelegramChatId(e.target.value)}
-                      placeholder="-100123456789"
+                      placeholder={notifTelegramChatIdConfigured ? "Telah dikonfigurasi — biarkan kosong jika tidak diubah" : "-100123456789"}
                     />
                     <div className="text-[11px] text-[var(--fg-muted)] mt-1">Umumnya format supergroup: -100xxxxxxxxxx</div>
                   </div>
@@ -1202,6 +1208,7 @@ export default function SettingsPage() {
                           className="input w-full"
                           value={notifSmtpPass}
                           onChange={(e) => setNotifSmtpPass(e.target.value)}
+                          placeholder={notifSmtpPassConfigured ? "Telah dikonfigurasi — biarkan kosong jika tidak diubah" : "••••••••"}
                         />
                       </div>
                     </div>

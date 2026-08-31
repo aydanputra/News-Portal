@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import React from "react";
 import { resolveThemeFontFamily, resolveThemeFontSynthesis } from "@/lib/font-utils";
+import { sanitizeContent } from "@/lib/sanitizer";
 import AdBanner from "../blocks/AdBanner";
 import { getYouTubeThumbnailUrl } from "@/lib/utils";
 import { getVideoEmbedInfo } from "@/lib/video-embed";
@@ -921,7 +922,7 @@ export default function PranalaPostContent({
   };
 
   optionsRef.current = options;
-  const parsedContent = parse(content, options);
+  const parsedContent = parse(sanitizeContent(content), options);
   const fallbackInlineItems = groupedInlineItems.find((items) => items.length > 0) || inlineRelatedItems.slice(0, countPerPosition);
   const shouldRenderFallbackInlineBlock = isInlineRelatedEnabled && insertedBlockCount === 0 && fallbackInlineItems.length > 0;
 

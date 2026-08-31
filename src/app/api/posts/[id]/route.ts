@@ -59,6 +59,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const cookieStore = await cookies();
+    const token = cookieStore.get("auth_token")?.value;
+    const user = verifyToken(token || "");
     
     if (!id) {
         return NextResponse.json({ error: "ID not provided" }, { status: 400 });
@@ -77,6 +80,17 @@ export async function GET(
     if (!post) {
         console.error(`Post with ID ${id} not found`);
         return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    // Akses kontrol: konten non-publish hanya untuk user berwenang
+    if (post.status !== "PUBLISHED") {
+      if (!user) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
+      const access = await checkAccess(id, user);
+      if (access.error) {
+        return NextResponse.json({ error: "Not found" }, { status: 404 });
+      }
     }
 
     try {
