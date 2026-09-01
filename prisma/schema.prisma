@@ -152,6 +152,9 @@ model Post {
   @@index([categoryId])
   @@index([authorId])
   @@index([createdAt])
+  @@index([status, publishedAt])
+  @@index([categoryId, status, publishedAt])
+  @@index([status, updatedAt])
 }
 
 model PostReviewTarget {
