@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
+import type { Setting } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag, revalidatePath } from "next/cache";
 import { assertRateLimit } from "@/lib/api-guards";
@@ -14,6 +15,16 @@ import {
   THEME_GLOBAL_STYLE_SYNC_KEYS,
 } from "@/lib/settings";
 
+type GlobalSettings = Setting & {
+  postHoverColor?: string | null;
+};
+
+type SettingsDraft = Setting & {
+  aiOpenAiApiKey?: string | null;
+  aiApiKey?: string | null;
+  postHoverColor?: string | null;
+};
+
 // GET: Ambil Settings (Global + Theme Specific)
 export async function GET(request: Request) {
   try {
@@ -26,7 +37,7 @@ export async function GET(request: Request) {
     const requestedThemeId = searchParams.get("themeId");
 
     // 1. Ambil Global Setting
-    let globalSetting: any = await prisma.setting.findUnique({ where: { id: "default" } });
+    let globalSetting: Setting | null = await prisma.setting.findUnique({ where: { id: "default" } });
     
     if (!globalSetting) {
       globalSetting = await prisma.setting.create({
@@ -48,7 +59,7 @@ export async function GET(request: Request) {
     globalSetting = normalizeDeprecatedSettingFonts(globalSetting);
 
     // Get Global Styles
-    const globalStyles = buildGlobalStyles(globalSetting);
+    const globalStyles = buildGlobalStyles(globalSetting as GlobalSettings);
     return NextResponse.json(globalStyles);
   } catch (error) {
     console.error("GET /api/settings error:", error);
@@ -56,7 +67,7 @@ export async function GET(request: Request) {
   }
 }
 
-function buildGlobalStyles(globalSetting: any) {
+function buildGlobalStyles(globalSetting: GlobalSettings) {
   return {
         // Site Identity (Base Info)
         siteName: globalSetting?.siteName || "News Portal",
@@ -99,10 +110,10 @@ function buildGlobalStyles(globalSetting: any) {
         postWidgetTitleColor: globalSetting?.postWidgetTitleColor || globalSetting?.headingColor || "#1e293b",
         postContentColor: globalSetting?.postContentColor || globalSetting?.headingColor || "#374151",
         postMetaColor: globalSetting?.postMetaColor || globalSetting?.metaColor || "#94a3b8",
-        postLinkColor: (globalSetting as any)?.postLinkColor || (globalSetting as any)?.postHoverColor || globalSetting?.homeHoverColor || globalSetting?.globalAccentColor || "#2563eb",
-        postLinkHoverColor: (globalSetting as any)?.postLinkHoverColor || (globalSetting as any)?.postHoverColor || globalSetting?.homeHoverColor || globalSetting?.globalAccentColor || "#1d4ed8",
-        postBadgeTextColor: (globalSetting as any)?.postBadgeTextColor || globalSetting?.postMetaColor || globalSetting?.metaColor || "#374151",
-        postBadgeBgColor: (globalSetting as any)?.postBadgeBgColor || "#f3f4f6",
+        postLinkColor: globalSetting.postLinkColor || globalSetting.postHoverColor || globalSetting.homeHoverColor || globalSetting.globalAccentColor || "#2563eb",
+        postLinkHoverColor: globalSetting.postLinkHoverColor || globalSetting.postHoverColor || globalSetting.homeHoverColor || globalSetting.globalAccentColor || "#1d4ed8",
+        postBadgeTextColor: globalSetting.postBadgeTextColor || globalSetting.postMetaColor || globalSetting.metaColor || "#374151",
+        postBadgeBgColor: globalSetting.postBadgeBgColor || "#f3f4f6",
 
         // New Color Settings (Global)
         globalPrimaryColor: globalSetting?.globalPrimaryColor || "#2563eb",
@@ -245,10 +256,10 @@ function buildGlobalStyles(globalSetting: any) {
         notificationSmtpSecure: globalSetting?.notificationSmtpSecure ?? true,
         notificationEvents: globalSetting?.notificationEvents || { onNewPost: true, onPostRejected: true, onPostPublished: true },
         aiApiKeyConfigured: Boolean(
-          (globalSetting as any)?.aiOpenAiApiKeyEnc ||
+          globalSetting.aiOpenAiApiKeyEnc ||
             (typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim() !== ""),
         ),
-        aiApiKeySource: (globalSetting as any)?.aiOpenAiApiKeyEnc
+        aiApiKeySource: globalSetting.aiOpenAiApiKeyEnc
           ? "db"
           : typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim() !== ""
             ? "env"
@@ -276,7 +287,7 @@ export async function PUT(request: Request) {
     const existingSetting = normalizeDeprecatedSettingFonts(
       await prisma.setting.findUnique({ where: { id: "default" } }),
     ) || {};
-    const data: any = normalizeDeprecatedSettingFonts({
+    const data: SettingsDraft = normalizeDeprecatedSettingFonts({
       ...existingSetting,
       ...rawData,
     });
@@ -288,10 +299,10 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     const rawAiKey =
-      typeof (data as any).aiOpenAiApiKey === "string"
-        ? String((data as any).aiOpenAiApiKey)
-        : typeof (data as any).aiApiKey === "string"
-          ? String((data as any).aiApiKey)
+      typeof data.aiOpenAiApiKey === "string"
+        ? String(data.aiOpenAiApiKey)
+        : typeof data.aiApiKey === "string"
+          ? String(data.aiApiKey)
           : undefined;
     let aiKeyEnc: string | null | undefined = undefined;
     if (wantsToUpdateAiKey) {
@@ -314,15 +325,15 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const insertCodeHeadUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode((data as any).insertCodeHead, "head") : undefined;
-    const insertCodeBodyUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode((data as any).insertCodeBody, "body") : undefined;
-    const insertCodeFooterUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode((data as any).insertCodeFooter, "footer") : undefined;
-    const insertCodeHeadCreate = sanitizeInsertCode((data as any).insertCodeHead ?? "", "head");
-    const insertCodeBodyCreate = sanitizeInsertCode((data as any).insertCodeBody ?? "", "body");
-    const insertCodeFooterCreate = sanitizeInsertCode((data as any).insertCodeFooter ?? "", "footer");
+    const insertCodeHeadUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode(data.insertCodeHead, "head") : undefined;
+    const insertCodeBodyUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode(data.insertCodeBody, "body") : undefined;
+    const insertCodeFooterUpdate = wantsInsertCodeUpdate ? sanitizeInsertCode(data.insertCodeFooter, "footer") : undefined;
+    const insertCodeHeadCreate = sanitizeInsertCode(data.insertCodeHead ?? "", "head");
+    const insertCodeBodyCreate = sanitizeInsertCode(data.insertCodeBody ?? "", "body");
+    const insertCodeFooterCreate = sanitizeInsertCode(data.insertCodeFooter ?? "", "footer");
 
     // Validate baseFontSize to ensure it's a number
-    const baseFontSize = parseInt(data.baseFontSize);
+    const baseFontSize = parseInt(String(data.baseFontSize));
     if (isNaN(baseFontSize)) {
         data.baseFontSize = 16; // Default fallback
     } else {
@@ -330,14 +341,14 @@ export async function PUT(request: Request) {
     }
 
     // Validate Single Post numeric fields
-    const postRelatedCount = parseInt(data.postRelatedCount);
+    const postRelatedCount = parseInt(String(data.postRelatedCount));
     data.postRelatedCount = isNaN(postRelatedCount) ? 2 : postRelatedCount;
 
-    const postRelatedPosition = parseInt(data.postRelatedPosition);
+    const postRelatedPosition = parseInt(String(data.postRelatedPosition));
     data.postRelatedPosition = isNaN(postRelatedPosition) ? 2 : postRelatedPosition;
 
     // Validate Font Sizes
-    const postInlineRelatedTitleFontSize = parseInt(data.postInlineRelatedTitleFontSize);
+    const postInlineRelatedTitleFontSize = parseInt(String(data.postInlineRelatedTitleFontSize));
     data.postInlineRelatedTitleFontSize = isNaN(postInlineRelatedTitleFontSize) ? 16 : postInlineRelatedTitleFontSize;
     data.postInlineRelatedTitleFont = typeof data.postInlineRelatedTitleFont === "string" && data.postInlineRelatedTitleFont.trim() !== ""
       ? data.postInlineRelatedTitleFont
@@ -355,7 +366,7 @@ export async function PUT(request: Request) {
       ? data.postInlineRelatedHeadingLetterSpacing.trim()
       : "0";
 
-    const postInlineRelatedFontSize = parseInt(data.postInlineRelatedFontSize);
+    const postInlineRelatedFontSize = parseInt(String(data.postInlineRelatedFontSize));
     data.postInlineRelatedFontSize = isNaN(postInlineRelatedFontSize) ? 14 : postInlineRelatedFontSize;
     data.postInlineRelatedTitleFontWeight = typeof data.postInlineRelatedTitleFontWeight === "string" && data.postInlineRelatedTitleFontWeight.trim() !== ""
       ? data.postInlineRelatedTitleFontWeight
@@ -368,18 +379,18 @@ export async function PUT(request: Request) {
       ? data.postInlineAdPositions
       : "3";
 
-    const postInlineRelatedGridColumns = parseInt(data.postInlineRelatedGridColumns);
+    const postInlineRelatedGridColumns = parseInt(String(data.postInlineRelatedGridColumns));
     data.postInlineRelatedGridColumns = isNaN(postInlineRelatedGridColumns)
       ? 2
       : Math.min(4, Math.max(1, postInlineRelatedGridColumns));
-    const postInlineRelatedCardColumns = parseInt(data.postInlineRelatedCardColumns);
+    const postInlineRelatedCardColumns = parseInt(String(data.postInlineRelatedCardColumns));
     data.postInlineRelatedCardColumns = isNaN(postInlineRelatedCardColumns)
       ? 1
       : Math.min(2, Math.max(1, postInlineRelatedCardColumns));
     data.postImageWatermarkUrl = typeof data.postImageWatermarkUrl === "string" ? data.postImageWatermarkUrl.trim() : "";
-    const postImageWatermarkOpacity = parseInt(data.postImageWatermarkOpacity);
+    const postImageWatermarkOpacity = parseInt(String(data.postImageWatermarkOpacity));
     data.postImageWatermarkOpacity = isNaN(postImageWatermarkOpacity) ? 35 : Math.min(100, Math.max(0, postImageWatermarkOpacity));
-    const postImageWatermarkSize = parseInt(data.postImageWatermarkSize);
+    const postImageWatermarkSize = parseInt(String(data.postImageWatermarkSize));
     data.postImageWatermarkSize = isNaN(postImageWatermarkSize) ? 24 : Math.min(80, Math.max(5, postImageWatermarkSize));
     data.postImageWatermarkPosition =
       typeof data.postImageWatermarkPosition === "string" &&
@@ -393,7 +404,7 @@ export async function PUT(request: Request) {
       "postImageWatermarkPaddingLeft",
     ] as const;
     for (const field of watermarkPaddingFields) {
-      const parsedValue = parseInt(data[field]);
+      const parsedValue = parseInt(String(data[field]));
       data[field] = isNaN(parsedValue) ? 24 : Math.min(240, Math.max(0, parsedValue));
     }
 
@@ -646,7 +657,7 @@ export async function PUT(request: Request) {
         notificationEmailFrom: data.notificationEmailFrom || "",
         notificationEvents: data.notificationEvents || { onNewPost: true, onPostRejected: true, onPostPublished: true },
         ...(wantsToUpdateAiKey ? { aiOpenAiApiKeyEnc: aiKeyEnc } : {}),
-      } as any,
+      } as Prisma.SettingUpdateInput,
       create: {
         id: "default",
         
@@ -841,13 +852,13 @@ export async function PUT(request: Request) {
         notificationEmailFrom: data.notificationEmailFrom || "",
         notificationEmailTo: data.notificationEmailTo || "",
         notificationSmtpHost: data.notificationSmtpHost || "",
-        notificationSmtpPort: parseInt(data.notificationSmtpPort) || 587,
+        notificationSmtpPort: parseInt(String(data.notificationSmtpPort)) || 587,
         notificationSmtpUser: data.notificationSmtpUser || "",
         notificationSmtpPass: data.notificationSmtpPass || "",
         notificationSmtpSecure: data.notificationSmtpSecure ?? true,
         notificationEvents: data.notificationEvents || { onNewPost: true, onPostRejected: true, onPostPublished: true },
         ...(wantsToUpdateAiKey ? { aiOpenAiApiKeyEnc: aiKeyEnc } : {}),
-      } as any
+      } as Prisma.SettingCreateInput
     });
 
     const activeThemeId = updatedSetting.activeTheme || data.activeTheme || "classic";

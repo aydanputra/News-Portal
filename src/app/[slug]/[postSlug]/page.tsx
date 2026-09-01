@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma, type Setting } from "@prisma/client";
 import { getThemeDefaultPostBlocks } from "@/lib/post-builder-theme-registry";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Metadata, ResolvingMetadata } from "next";
@@ -11,10 +11,10 @@ import { resolveSinglePostThemeId } from "@/lib/theme-registry";
 import { getThemeSinglePostComponent } from "@/lib/theme-registry.server";
 import TrackView from "@/components/TrackView";
 import { unstable_cache } from "next/cache";
-import { cache } from "react";
+import { cache, type ComponentType } from "react";
 import { getCachedCategories } from "@/lib/data";
 import { toPublicPostPreviewList } from "@/lib/post-preview";
-import { collectWidgetsRecursive, getOrder, hasId } from "@/lib/block-utils";
+import { collectWidgetsRecursive, getOrder, hasId, type BuilderBlock } from "@/lib/block-utils";
 
 export const revalidate = 600;
 export const dynamicParams = true;
@@ -395,18 +395,18 @@ const getDateRangeStart = (range: unknown): Date | null => {
 async function getData(slug: string, categorySlug: string) {
   const [postRaw, setting, categories] = await Promise.all([
     getPostBySlug(slug, categorySlug),
-    getSettings(),
+    getSettings() as Promise<Setting>,
     getCachedCategories(),
   ]);
-  const activeTheme = (setting as any)?.activeTheme || "classic";
+  const activeTheme = setting.activeTheme || "classic";
   const [{ headerConfig, footerConfig }, sourceBlocksByLocation] = await Promise.all([
     getHeaderFooterBlocks(activeTheme),
     getBuilderSourceBlocks(activeTheme),
   ]);
 
-  const rawBlocks = Array.isArray((sourceBlocksByLocation as any)?.post) ? (sourceBlocksByLocation as any).post : [];
-  const blocks = rawBlocks.length === 0 ? getThemeDefaultPostBlocks(activeTheme) : rawBlocks;
-  const effectiveBlocks = blocks.map((block: any) => {
+  const rawBlocks: BuilderBlock[] = Array.isArray(sourceBlocksByLocation?.post) ? sourceBlocksByLocation.post : [];
+  const blocks: BuilderBlock[] = rawBlocks.length === 0 ? getThemeDefaultPostBlocks(activeTheme) : rawBlocks;
+  const effectiveBlocks: BuilderBlock[] = blocks.map((block) => {
     if (block?.type !== "section") return block;
     const resolvedChildren = resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, "post");
     const blockConfig = block?.config && typeof block.config === "object" ? block.config : {};
@@ -423,12 +423,12 @@ async function getData(slug: string, categorySlug: string) {
   const post = postRaw;
 
   // Fetch Block Data (Popular Posts, etc)
-  const blockData: Record<string, any[]> = {};
-  const inlineRelatedEnabled = Boolean((setting as any)?.postInlineRelated);
-  const inlineRelatedPositions = parseInlineRelatedPositions((setting as any)?.postRelatedPositions);
-  const inlineRelatedCount = Math.max(1, Number.parseInt(String((setting as any)?.postRelatedCount || "2"), 10) || 2);
+  const blockData: Record<string, unknown[]> = {};
+  const inlineRelatedEnabled = Boolean(setting.postInlineRelated);
+  const inlineRelatedPositions = parseInlineRelatedPositions(setting.postRelatedPositions);
+  const inlineRelatedCount = Math.max(1, Number.parseInt(String(setting.postRelatedCount || 2), 10) || 2);
   const inlineRelatedLimit = inlineRelatedPositions.length * inlineRelatedCount;
-  const inlineRelatedDateStart = getDateRangeStart((setting as any)?.postInlineRelatedDateRange);
+  const inlineRelatedDateStart = getDateRangeStart(setting.postInlineRelatedDateRange);
   
   if (blocks.length > 0) {
       // Collect all fetch promises
@@ -441,7 +441,7 @@ async function getData(slug: string, categorySlug: string) {
                const promise = (async () => {
                    try {
                        if (widget.type === 'sidebar_widget') {
-                           const config = widget.config || {};
+                           const config: Record<string, any> = widget.config || {};
                            const baseCount = parseInt(config.limit || config.count) || 5;
                            const tabletCount = parseInt(config.tabletLimit || config.limit || config.count) || baseCount;
                            const mobileCount = parseInt(config.mobileLimit || config.tabletLimit || config.limit || config.count) || tabletCount;
@@ -466,21 +466,21 @@ async function getData(slug: string, categorySlug: string) {
                                blockData[widget.id] = await getCategoryListWithCounts(count);
                            }
                        } else if (widget.type === 'tag_cloud') {
-                           const config = widget.config || {};
+                           const config: Record<string, any> = widget.config || {};
                            const baseCount = parseInt(config.count || config.limit) || 20;
                            const tabletCount = parseInt(config.tabletCount || config.tabletLimit || config.count || config.limit) || baseCount;
                            const mobileCount = parseInt(config.mobileCount || config.mobileLimit || config.tabletCount || config.tabletLimit || config.count || config.limit) || tabletCount;
                            const count = Math.max(baseCount, tabletCount, mobileCount);
                            blockData[widget.id] = await getTagCloud(count);
                        } else if (widget.type === 'post_related_posts' && post) {
-                           const config = widget.config || {};
+                           const config: Record<string, any> = widget.config || {};
                            const filterType = config.filterType || 'category';
                            const baseLimit = parseInt(config.limit || config.count) || 3;
                            const tabletLimit = parseInt(config.tabletLimit || config.limit || config.count) || baseLimit;
                            const mobileLimit = parseInt(config.mobileLimit || config.tabletLimit || config.limit || config.count) || tabletLimit;
                            const limit = Math.max(baseLimit, tabletLimit, mobileLimit);
                            
-                           let widgetRelatedPosts: any[] = [];
+                           let widgetRelatedPosts: Record<string, unknown>[] = [];
                            if (filterType === 'tag' && post.tags && post.tags.length > 0) {
                                 const tagIds = post.tags.map((t) => t.id);
                                 const cached = unstable_cache(
@@ -619,7 +619,7 @@ async function getData(slug: string, categorySlug: string) {
 
       (async () => {
           if (!inlineRelatedEnabled || !post) return [];
-          const filterType = String((setting as any)?.postInlineRelatedFilterType || "category");
+          const filterType = String(setting.postInlineRelatedFilterType || "category");
           const baseWhere: Prisma.PostWhereInput = {
               published: true,
               status: { not: "ARCHIVED" },
@@ -832,7 +832,7 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
   };
 
   const imageUrl = toAbsoluteUrl(post.image || post.featuredImage?.fileUrl);
-  const logoUrl = toAbsoluteUrl((setting as any)?.logoUrl);
+  const logoUrl = toAbsoluteUrl(setting.logoUrl);
   const descriptionRaw =
     String(post.metaDesc || post.subtitle || "").trim() ||
     (typeof post.content === "string" ? post.content.replace(/<[^>]*>?/gm, "").slice(0, 200).trim() : "");
@@ -849,7 +849,7 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
     author: { "@type": "Person", name: post.author?.name || "Redaksi" },
     publisher: {
       "@type": "Organization",
-      name: (setting as any)?.siteName || "Portal Berita",
+      name: setting.siteName || "Portal Berita",
       logo: logoUrl ? { "@type": "ImageObject", url: logoUrl } : undefined,
     },
     articleSection: post.category?.name,
@@ -860,7 +860,7 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
   };
 
   const resolvedSinglePostTheme = resolveSinglePostThemeId(activeTheme, Boolean(blocks && blocks.length > 0));
-  const SinglePostComponent: any = await getThemeSinglePostComponent(resolvedSinglePostTheme);
+  const SinglePostComponent: ComponentType<Record<string, unknown>> = await getThemeSinglePostComponent(resolvedSinglePostTheme);
   const body = (
     <SinglePostComponent
       post={post}

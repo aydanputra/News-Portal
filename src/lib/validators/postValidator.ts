@@ -150,11 +150,17 @@ export const postSchema = z.object({
   }
 });
 
+export type PostInput = z.infer<typeof postSchema>;
+
+export type ValidatePostResult =
+  | { success: true; data: PostInput }
+  | { success: false; errors: Array<{ field?: string; message: string }> };
+
 // ==========================================
 // Helper Function
 // ==========================================
 
-export async function validatePost(data: any) {
+export async function validatePost(data: unknown): Promise<ValidatePostResult> {
   try {
     const validData = await postSchema.parseAsync(data);
     return { success: true, data: validData };

@@ -5,7 +5,7 @@ import { PostType, PostStatus, Prisma } from "@prisma/client";
 import { logActivity } from "@/lib/audit";
 import { resolvePostTransition } from "@/lib/post-workflow";
 import { sanitizeContent } from "@/lib/sanitizer";
-import { validatePost } from "@/lib/validators/postValidator";
+import { validatePost, type PostInput } from "@/lib/validators/postValidator";
 import { normalizePostTypeMedia } from "@/lib/post-type-media";
 import { requireUser } from "@/lib/server-auth";
 import { revalidateTag } from "next/cache";
@@ -184,9 +184,7 @@ export async function POST(request: Request) {
     }
     
     // Use validated data with proper typing
-    // Force cast to any to bypass complex TS inference issues with Zod unions for now, or refine types later
-    // The Zod validation guarantees the structure, so this is safe at runtime
-    const validData = validation.data as any;
+    const validData: PostInput = validation.data;
     
     const {
       title,
@@ -213,7 +211,7 @@ export async function POST(request: Request) {
       reviewEditorIds,
       authorId,
       approvedById,
-    } = validData as any;
+    } = validData;
     const normalizedMedia = normalizePostTypeMedia({ type, videoUrl, gallery });
 
     const normalizedCategoryIds = Array.isArray(categoryIds) ? categoryIds : [];
@@ -269,18 +267,14 @@ export async function POST(request: Request) {
       }
     }
 
-    if ((!finalImage || finalImage === "") && (type as PostType) === PostType.VIDEO && typeof normalizedMedia.videoUrl === "string" && normalizedMedia.videoUrl.trim() !== "") {
+    if ((!finalImage || finalImage === "") && type === PostType.VIDEO && typeof normalizedMedia.videoUrl === "string" && normalizedMedia.videoUrl.trim() !== "") {
       const thumbnail = getYouTubeThumbnailUrl(normalizedMedia.videoUrl, "hqdefault");
       if (thumbnail) finalImage = thumbnail;
     }
 
     // Prepare Tags
     // Use proper Prisma format for connectOrCreate
-    // The previous implementation was pushing to an array and then assigning it to connectOrCreate.
-    // However, Prisma connectOrCreate expects a list of objects in `connectOrCreate` field.
-    
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let tagConnect = undefined;
+    let tagConnect: Prisma.PostCreateInput["tags"];
     if (tags && Array.isArray(tags) && tags.length > 0) {
       tagConnect = {
          connectOrCreate: tags.map(tagName => ({
@@ -304,7 +298,7 @@ export async function POST(request: Request) {
       canManageAttribution && typeof approvedById === "string" && approvedById.trim() !== ""
         ? approvedById.trim()
         : "";
-    const postData: any = {
+    const postData: Prisma.PostCreateInput = {
         title,
         subtitle,
         slug,
@@ -321,9 +315,9 @@ export async function POST(request: Request) {
         views: 0,
         author: { connect: { id: selectedAuthorId } },
         category: { connect: { id: primaryCategoryId } },
-        type: (type as PostType) || PostType.ARTICLE,
+        type,
         videoUrl: normalizedMedia.videoUrl,
-        gallery: normalizedMedia.gallery,
+        gallery: normalizedMedia.gallery ?? Prisma.DbNull,
         focusKeyword,
         canonicalUrl: canonicalUrl || null,
         metaTitle,
@@ -354,7 +348,7 @@ export async function POST(request: Request) {
     });
 
     const normalizedReviewEditorIds =
-      Array.isArray(reviewEditorIds) ? reviewEditorIds.map((v: any) => String(v || "").trim()).filter(Boolean) : [];
+      Array.isArray(reviewEditorIds) ? reviewEditorIds.map((v) => String(v || "").trim()).filter(Boolean) : [];
     if (newStatus === "IN_REVIEW" && normalizedReviewEditorIds.length > 0) {
       try {
         await prisma.postReviewTarget.createMany({
