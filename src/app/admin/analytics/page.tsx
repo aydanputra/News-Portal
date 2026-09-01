@@ -3,9 +3,52 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Activity, Eye, FileText, RefreshCw, TrendingUp } from "lucide-react";
+import { Activity, CalendarRange, ChevronDown, Eye, FileText, RefreshCw, TrendingUp } from "lucide-react";
 
 type TrendGranularity = "day" | "week" | "month" | "year";
+
+type ProductivityRange = "day" | "week" | "month";
+
+type ProductivityMonthly = {
+  articles: number;
+  views: number;
+};
+
+type ProductivityAuthor = {
+  id: string;
+  name: string;
+  articles: number;
+  views: number;
+  monthly: Record<string, ProductivityMonthly>;
+};
+
+type ProductivityMonth = {
+  key: string;
+  label: string;
+};
+
+type ProductivityWriter = {
+  id: string;
+  name: string;
+};
+
+type ProductivitySeriesItem = {
+  key: string;
+  label: string;
+  articles: number;
+  views: number;
+};
+
+type ProductivityResponse = {
+  start: string;
+  end: string;
+  totalArticles: number;
+  totalViews: number;
+  months: ProductivityMonth[];
+  authors: ProductivityAuthor[];
+  writers: ProductivityWriter[];
+  series?: ProductivitySeriesItem[];
+};
 
 type LeaderItem = {
   id: string;
@@ -68,6 +111,47 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("id-ID").format(Number.isFinite(value) ? value : 0);
 }
 
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("id-ID", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(Number.isFinite(value) ? value : 0);
+}
+
+const MONTH_OPTIONS = [
+  { value: "1", label: "Januari" },
+  { value: "2", label: "Februari" },
+  { value: "3", label: "Maret" },
+  { value: "4", label: "April" },
+  { value: "5", label: "Mei" },
+  { value: "6", label: "Juni" },
+  { value: "7", label: "Juli" },
+  { value: "8", label: "Agustus" },
+  { value: "9", label: "September" },
+  { value: "10", label: "Oktober" },
+  { value: "11", label: "November" },
+  { value: "12", label: "Desember" },
+];
+
+function buildYearOptions(count = 6) {
+  const current = new Date().getFullYear();
+  const options: { value: string; label: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const year = current - i;
+    options.push({ value: String(year), label: String(year) });
+  }
+  return options;
+}
+
+function formatTrendDateRange(start: string, end: string) {
+  const s = new Date(start);
+  const e = new Date(end);
+  if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return "-";
+  const startStr = s.toLocaleDateString("id-ID", { day: "numeric", month: "short" });
+  const endStr = e.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  return `${startStr} - ${endStr}`;
+}
+
 function formatDateTime(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "-";
@@ -88,11 +172,46 @@ function formatMonth(value: Date) {
   return value.toLocaleDateString("id-ID", { month: "short", year: "numeric" });
 }
 
-function formatRangeLabel(days: number) {
-  if (days === 1) return "Hari Ini";
-  if (days === 365) return "1 Tahun";
-  return `${days} Hari`;
+function toLocalIsoDay(value: Date) {
+  const y = value.getFullYear();
+  const m = String(value.getMonth() + 1).padStart(2, "0");
+  const d = String(value.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
+
+function addDaysLocal(value: Date, days: number) {
+  const date = new Date(value);
+  date.setDate(date.getDate() + days);
+  return date;
+}
+
+function addMonthsLocal(value: Date, months: number) {
+  const date = new Date(value);
+  date.setMonth(date.getMonth() + months);
+  return date;
+}
+
+function addYearsLocal(value: Date, years: number) {
+  const date = new Date(value);
+  date.setFullYear(date.getFullYear() + years);
+  return date;
+}
+
+type DateRangePreset = {
+  id: string;
+  label: string;
+  compute: (today: Date) => { start: Date; end: Date };
+};
+
+const DATE_RANGE_PRESETS: DateRangePreset[] = [
+  { id: "today", label: "Hari ini", compute: (t) => ({ start: t, end: t }) },
+  { id: "last7", label: "7 hari terakhir", compute: (t) => ({ start: addDaysLocal(t, -6), end: t }) },
+  { id: "last30", label: "30 Hari Terakhir", compute: (t) => ({ start: addDaysLocal(t, -29), end: t }) },
+  { id: "monthToDate", label: "Awal bulan hingga saat ini", compute: (t) => ({ start: startOfMonth(t), end: t }) },
+  { id: "last12", label: "12 bulan terakhir", compute: (t) => ({ start: addMonthsLocal(t, -12), end: t }) },
+  { id: "yearToDate", label: "Awal tahun hingga saat ini", compute: (t) => ({ start: startOfYear(t), end: t }) },
+  { id: "last3y", label: "3 tahun terakhir", compute: (t) => ({ start: addYearsLocal(t, -3), end: t }) },
+];
 
 function normalizePublicPath(path: string | null | undefined) {
   const value = String(path || "").trim();
@@ -322,12 +441,31 @@ function LeaderboardList({
 }
 
 export default function AdminAnalyticsPage() {
-  const [selectedDays, setSelectedDays] = useState<1 | 7 | 30 | 365>(7);
+  const [rangeStart, setRangeStart] = useState<string>(() => toLocalIsoDay(addDaysLocal(new Date(), -6)));
+  const [rangeEnd, setRangeEnd] = useState<string>(() => toLocalIsoDay(new Date()));
+  const [rangeOpen, setRangeOpen] = useState(false);
+  const [draftStart, setDraftStart] = useState(rangeStart);
+  const [draftEnd, setDraftEnd] = useState(rangeEnd);
   const [granularity, setGranularity] = useState<TrendGranularity>("day");
   const [data, setData] = useState<AnalyticsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [productivityYear, setProductivityYear] = useState<string>(() => String(new Date().getFullYear()));
+  const [productivityMonth, setProductivityMonth] = useState<string>(() => String(new Date().getMonth() + 1));
+  const [productivityAuthor, setProductivityAuthor] = useState<string>("");
+  const [productivityRange, setProductivityRange] = useState<ProductivityRange>("day");
+  const [productivity, setProductivity] = useState<ProductivityResponse | null>(null);
+  const [productivityLoading, setProductivityLoading] = useState(false);
+
+  const applyRange = useCallback((start: string, end: string) => {
+    setRangeStart(start);
+    setRangeEnd(end);
+    setDraftStart(start);
+    setDraftEnd(end);
+    setRangeOpen(false);
+  }, []);
 
   const load = useCallback(
     async (background = false) => {
@@ -335,7 +473,7 @@ export default function AdminAnalyticsPage() {
       else setLoading(true);
 
       try {
-        const res = await fetch(`/api/analytics/overview?days=${selectedDays}`, {
+        const res = await fetch(`/api/analytics/overview?start=${rangeStart}&end=${rangeEnd}`, {
           cache: "no-store",
         });
         const json = await res.json();
@@ -351,7 +489,7 @@ export default function AdminAnalyticsPage() {
         setRefreshing(false);
       }
     },
-    [selectedDays],
+    [rangeStart, rangeEnd],
   );
 
   useEffect(() => {
@@ -364,6 +502,55 @@ export default function AdminAnalyticsPage() {
     }, 20000);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  const loadProductivity = useCallback(async () => {
+    setProductivityLoading(true);
+    try {
+      const params = new URLSearchParams({
+        year: productivityYear,
+        month: productivityMonth,
+      });
+      if (productivityAuthor) {
+        params.set("author", productivityAuthor);
+        params.set("range", productivityRange);
+      }
+
+      const res = await fetch(`/api/analytics/productivity?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.error || "Gagal memuat produktivitas");
+      }
+      setProductivity(json);
+    } catch {
+      // Biarkan data sebelumnya tetap tampil; tidak perlu banner error global.
+    } finally {
+      setProductivityLoading(false);
+    }
+  }, [productivityYear, productivityMonth, productivityAuthor, productivityRange]);
+
+  useEffect(() => {
+    void loadProductivity();
+  }, [loadProductivity]);
+
+  const topProductivityAuthors = useMemo(() => (productivity?.authors ?? []).slice(0, 10), [productivity]);
+  const maxProductivityViews = useMemo(
+    () => Math.max(1, ...topProductivityAuthors.map((author) => author.views)),
+    [topProductivityAuthors],
+  );
+
+  const productivitySeries = useMemo(() => productivity?.series ?? [], [productivity]);
+  const maxProductivitySeriesViews = useMemo(
+    () => Math.max(1, ...productivitySeries.map((item) => item.views)),
+    [productivitySeries],
+  );
+
+  const isSingleProductivityAuthor = productivityAuthor !== "";
+  const showProductivitySeries = isSingleProductivityAuthor && productivitySeries.length > 0;
+  const productivityChartMax = showProductivitySeries ? maxProductivitySeriesViews : maxProductivityViews;
+  const productivityRangeLabel =
+    productivityRange === "day" ? "Harian" : productivityRange === "week" ? "Mingguan" : "Bulanan";
 
   const groupedTrend = useMemo(() => {
     const trend = data?.trend || [];
@@ -424,6 +611,10 @@ export default function AdminAnalyticsPage() {
       height: `${Math.max((item.views / maxViews) * 100, item.views > 0 ? 8 : 2)}%`,
     }));
   }, [data?.trend, granularity]);
+
+  const chartMaxViews = useMemo(() => {
+    return groupedTrend.reduce((max, item) => Math.max(max, item.views), 0) || 1;
+  }, [groupedTrend]);
 
   const chartMetaLabel = useMemo(() => {
     if (granularity === "day") return "Harian";
@@ -494,7 +685,7 @@ export default function AdminAnalyticsPage() {
                   Terakhir diperbarui: <span className="font-bold text-[var(--fg-primary)]">{formatDateTime(data.generatedAt)}</span>
                 </div>
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2">
-                  Range aktif: <span className="font-bold text-[var(--fg-primary)]">{formatRangeLabel(selectedDays)}</span>
+                  Range aktif: <span className="font-bold text-[var(--fg-primary)]">{formatTrendDateRange(data.range.start, data.range.end)}</span>
                 </div>
               </div>
             </div>
@@ -509,23 +700,101 @@ export default function AdminAnalyticsPage() {
                 Refresh Sekarang
               </button>
 
-              <div className="mt-3 overflow-x-auto">
-                <div className="flex min-w-max items-center justify-center gap-2 lg:justify-center">
-                {[1, 7, 30, 365].map((days) => (
-                  <button
-                    key={days}
-                    type="button"
-                    onClick={() => setSelectedDays(days as 1 | 7 | 30 | 365)}
-                    className={`rounded-xl px-3 py-2.5 text-sm font-bold transition-colors ${
-                      selectedDays === days
-                        ? "bg-[var(--accent)] text-black"
-                        : "border border-[var(--border)] bg-[var(--bg-surface)] text-[var(--fg-muted)] hover:bg-[var(--bg-base)]"
-                    }`}
-                  >
-                    {formatRangeLabel(days)}
-                  </button>
-                ))}
-                </div>
+              <div className="relative mt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftStart(rangeStart);
+                    setDraftEnd(rangeEnd);
+                    setRangeOpen((value) => !value);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2.5 text-sm font-bold text-[var(--fg-primary)] transition-colors hover:bg-[var(--bg-base)]"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <CalendarRange className="h-4 w-4 text-[var(--accent)]" />
+                    {formatTrendDateRange(rangeStart, rangeEnd)}
+                  </span>
+                  <ChevronDown className={`h-4 w-4 text-[var(--fg-muted)] transition-transform ${rangeOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {rangeOpen ? (
+                  <>
+                    <div className="fixed inset-0 z-20" onClick={() => setRangeOpen(false)} />
+                    <div className="absolute right-0 top-full z-30 mt-2 w-full min-w-[300px] max-w-[360px] overflow-hidden rounded-[16px] border border-[var(--border)] bg-[var(--bg-elevated)] shadow-[0_12px_40px_rgba(15,23,42,0.16)]">
+                      <div className="border-b border-[var(--border)] px-4 py-3">
+                        <div className="text-sm font-bold text-[var(--fg-primary)]">Date Range</div>
+                        <div className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--fg-muted)]">Start and End Dates</div>
+                      </div>
+
+                      <div className="space-y-3 px-4 py-4">
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="block">
+                            <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-muted)]">Dari</span>
+                            <input
+                              type="date"
+                              value={draftStart}
+                              max={draftEnd}
+                              onChange={(event) => setDraftStart(event.target.value)}
+                              className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-2 text-sm font-semibold text-[var(--fg-primary)] outline-none focus:border-[var(--accent)]"
+                            />
+                          </label>
+                          <label className="block">
+                            <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--fg-muted)]">ke</span>
+                            <input
+                              type="date"
+                              value={draftEnd}
+                              min={draftStart}
+                              onChange={(event) => setDraftEnd(event.target.value)}
+                              className="w-full rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-2.5 py-2 text-sm font-semibold text-[var(--fg-primary)] outline-none focus:border-[var(--accent)]"
+                            />
+                          </label>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setRangeOpen(false)}
+                            className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2 text-sm font-bold text-[var(--fg-muted)] transition-colors hover:bg-[var(--bg-base)]"
+                          >
+                            Batal
+                          </button>
+                          <button
+                            type="button"
+                            disabled={!draftStart || !draftEnd || draftStart > draftEnd}
+                            onClick={() => applyRange(draftStart, draftEnd)}
+                            className="flex-1 rounded-xl bg-[var(--accent)] px-3 py-2 text-sm font-bold text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Terapkan
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-[var(--border)] bg-[var(--bg-surface)] px-2 py-2">
+                        {DATE_RANGE_PRESETS.map((preset) => {
+                          const { start, end } = preset.compute(new Date());
+                          const active = toLocalIsoDay(start) === rangeStart && toLocalIsoDay(end) === rangeEnd;
+                          return (
+                            <button
+                              key={preset.id}
+                              type="button"
+                              onClick={() => {
+                                const today = new Date();
+                                const computed = preset.compute(today);
+                                applyRange(toLocalIsoDay(computed.start), toLocalIsoDay(computed.end));
+                              }}
+                              className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[13px] font-semibold transition-colors ${
+                                active ? "bg-[var(--bg-base)] text-[var(--accent)]" : "text-[var(--fg-primary)] hover:bg-[var(--bg-base)]"
+                              }`}
+                            >
+                              <span>{preset.label}</span>
+                              {active ? <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" /> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
               </div>
             </div>
           </div>
@@ -582,14 +851,28 @@ export default function AdminAnalyticsPage() {
                   </div>
                 ) : (
                   <>
+                    <div className="mb-2 flex items-center justify-between gap-3">
+                      <div className="text-[11px] font-semibold text-[var(--fg-muted)]">
+                        {formatTrendDateRange(data.range.start, data.range.end)}
+                      </div>
+                      <div className="text-[11px] font-bold text-[var(--fg-muted)]">Views</div>
+                    </div>
                     <div className="overflow-x-auto">
                       <div className="flex h-[250px] min-w-[320px] items-end gap-3 border-b border-[var(--border)] px-1 pb-2">
                       {mobileTrendRows.map((bar) => {
                         const height = `${Math.max((bar.views / mobileTrendMax) * 100, bar.views > 0 ? 10 : 3)}%`;
                         return (
                           <div key={bar.key} className="flex h-full min-w-[38px] flex-1 flex-col justify-end gap-3">
-                            <div className="flex flex-1 items-end">
-                              <div className="w-full rounded-t-[10px] bg-[var(--accent)] shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]" style={{ height }} />
+                            <div className="relative flex flex-1 items-end">
+                              <div
+                                className="w-full rounded-t-[10px] bg-[var(--accent)] shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)]"
+                                style={{ height }}
+                                title={`${bar.fullLabel} — ${formatNumber(bar.views)} views`}
+                              >
+                                <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-[var(--fg-muted)]">
+                                  {formatCompactNumber(bar.views)}
+                                </span>
+                              </div>
                             </div>
                             <div className="line-clamp-1 text-center text-[10px] font-medium leading-4 text-[var(--fg-muted)]">
                               {bar.label}
@@ -626,21 +909,56 @@ export default function AdminAnalyticsPage() {
                 )}
               </div>
 
-              <div className="hidden overflow-x-auto sm:block">
+              <div className="hidden sm:block">
                 {groupedTrend.length === 0 ? (
                   <div className="flex h-[260px] items-center justify-center text-sm text-[var(--fg-muted)]">
                     Belum ada view realtime pada periode ini.
                   </div>
                 ) : (
-                  <div className="flex h-[300px] min-w-[640px] items-end gap-3">
-                    {groupedTrend.map((bar) => (
-                      <div key={bar.key} className="flex h-full min-w-[44px] flex-1 flex-col justify-end gap-2">
-                        <div className="flex flex-1 items-end">
-                          <div className="w-full rounded-t-[10px] bg-[var(--accent)]" style={{ height: bar.height }} />
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[640px]">
+                      <div className="mb-2 flex items-center justify-between gap-3">
+                        <div className="text-xs font-semibold text-[var(--fg-muted)]">
+                          {formatTrendDateRange(data.range.start, data.range.end)}
                         </div>
-                        <div className="line-clamp-2 text-center text-[11px] font-medium leading-4 text-[var(--fg-muted)]">{bar.label}</div>
+                        <div className="text-xs font-bold text-[var(--fg-muted)]">Views</div>
                       </div>
-                    ))}
+                      <div className="flex gap-2">
+                        <div className="flex h-[300px] w-12 shrink-0 flex-col justify-between py-0.5 text-right text-[10px] font-semibold text-[var(--fg-muted)]">
+                          <span>{formatCompactNumber(chartMaxViews)}</span>
+                          <span>{formatCompactNumber(chartMaxViews / 2)}</span>
+                          <span>0</span>
+                        </div>
+                        <div className="relative flex-1">
+                          <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                            <div className="border-t border-dashed border-[var(--border)]" />
+                            <div className="border-t border-dashed border-[var(--border)]" />
+                            <div className="border-t border-[var(--border)]" />
+                          </div>
+                          <div className="relative flex h-[300px] items-end gap-3">
+                            {groupedTrend.map((bar) => {
+                              const pct = `${Math.max((bar.views / chartMaxViews) * 100, bar.views > 0 ? 3 : 1)}%`;
+                              return (
+                                <div key={bar.key} className="flex h-full min-w-[44px] flex-1 flex-col justify-end gap-2">
+                                  <div className="relative flex flex-1 items-end">
+                                    <div
+                                      className="w-full rounded-t-[10px] bg-[var(--accent)] shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-opacity hover:opacity-80"
+                                      style={{ height: pct }}
+                                      title={`${bar.fullLabel} — ${formatNumber(bar.views)} views`}
+                                    >
+                                      <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[var(--fg-muted)]">
+                                        {formatCompactNumber(bar.views)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="line-clamp-2 text-center text-[11px] font-medium leading-4 text-[var(--fg-muted)]">{bar.label}</div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -657,6 +975,233 @@ export default function AdminAnalyticsPage() {
             </SectionCard>
           </div>
         </div>
+
+        <SectionCard
+          title="Monitoring Produktivitas Wartawan"
+          description={`Rekap artikel & view per penulis · ${formatTrendDateRange(
+            productivity?.start ?? data.range.start,
+            productivity?.end ?? data.range.end,
+          )}`}
+          action={
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+              <div className="relative w-full sm:w-auto">
+                <select
+                  value={productivityYear}
+                  onChange={(event) => setProductivityYear(event.target.value)}
+                  className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2 pr-9 text-[12px] font-bold text-[var(--fg-primary)] outline-none transition-colors hover:border-[var(--accent)] focus:border-[var(--accent)] sm:w-auto"
+                >
+                  {buildYearOptions().map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+              </div>
+
+              <div className="relative w-full sm:w-auto">
+                <select
+                  value={productivityMonth}
+                  onChange={(event) => setProductivityMonth(event.target.value)}
+                  className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2 pr-9 text-[12px] font-bold text-[var(--fg-primary)] outline-none transition-colors hover:border-[var(--accent)] focus:border-[var(--accent)] sm:w-auto"
+                >
+                  {MONTH_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+              </div>
+
+              <div className="relative w-full sm:w-auto">
+                <select
+                  value={productivityAuthor}
+                  onChange={(event) => setProductivityAuthor(event.target.value)}
+                  className="w-full appearance-none rounded-xl border border-[var(--border)] bg-[var(--bg-surface)] px-4 py-2 pr-9 text-[12px] font-bold text-[var(--fg-primary)] outline-none transition-colors hover:border-[var(--accent)] focus:border-[var(--accent)] sm:w-auto"
+                >
+                  <option value="">Semua Wartawan</option>
+                  {productivity?.writers.map((writer) => (
+                    <option key={writer.id} value={writer.id}>
+                      {writer.name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--fg-muted)]" />
+              </div>
+            </div>
+          }
+        >
+          <div className="mb-4 grid gap-3 sm:grid-cols-3">
+            <SummaryItem label="Jumlah Penulis" value={formatNumber(productivity?.authors.length ?? 0)} />
+            <SummaryItem label="Total Artikel" value={formatNumber(productivity?.totalArticles ?? 0)} />
+            <SummaryItem label="Total View" value={formatNumber(productivity?.totalViews ?? 0)} />
+          </div>
+
+          {productivityLoading && !productivity ? (
+            <div className="flex h-40 items-center justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+            </div>
+          ) : !productivity || productivity.authors.length === 0 ? (
+            <div className="text-sm text-[var(--fg-muted)]">Belum ada data produktivitas pada rentang ini.</div>
+          ) : (
+            <>
+              <div className="overflow-hidden rounded-[14px] border border-[var(--border)]">
+                <div className="grid grid-cols-[44px_1fr_88px_96px] items-center border-b border-[var(--border)] bg-[var(--bg-surface)] px-3 py-2.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--fg-muted)] md:grid-cols-[56px_1fr_120px_120px] md:px-4 md:text-[11px]">
+                  <div>No</div>
+                  <div>Penulis</div>
+                  <div className="text-right">Artikel</div>
+                  <div className="text-right">View</div>
+                </div>
+                {productivity.authors.map((author, index) => (
+                  <div
+                    key={author.id}
+                    className="grid grid-cols-[44px_1fr_88px_96px] items-center border-b border-[var(--border)] px-3 py-2.5 last:border-b-0 md:grid-cols-[56px_1fr_120px_120px] md:px-4"
+                  >
+                    <div className="text-[12px] font-semibold text-[var(--fg-muted)]">{index + 1}</div>
+                    <div className="truncate pr-2 text-[13px] font-bold text-[var(--fg-primary)] md:text-sm">{author.name}</div>
+                    <div className="text-right text-[13px] font-bold text-[var(--fg-primary)] md:text-sm">{formatNumber(author.articles)}</div>
+                    <div className="text-right text-[13px] font-semibold text-[var(--fg-muted)] md:text-sm">{formatNumber(author.views)}</div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </SectionCard>
+
+        <SectionCard
+          title="Visualisasi Produktivitas Wartawan"
+          description={
+            showProductivitySeries
+              ? `${productivity?.authors[0]?.name ?? "Wartawan"} · ${productivityRangeLabel}`
+              : "10 penulis teratas"
+          }
+          action={
+            productivityAuthor ? (
+              <div className="rounded-2xl bg-[var(--bg-surface)] p-1">
+                <div className="grid grid-cols-3 gap-1">
+                  {(
+                    [
+                      ["day", "Harian"],
+                      ["week", "Mingguan"],
+                      ["month", "Bulanan"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setProductivityRange(value)}
+                      className={`rounded-xl px-3 py-2 text-[11px] font-bold transition-colors ${
+                        productivityRange === value
+                          ? "bg-[var(--accent)] text-black"
+                          : "bg-transparent text-[var(--fg-muted)] hover:bg-[var(--bg-base)]"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : undefined
+          }
+        >
+          {productivityLoading && !productivity ? (
+            <div className="flex h-40 items-center justify-center">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--accent)] border-t-transparent" />
+            </div>
+          ) : !productivity || productivity.authors.length === 0 ? (
+            <div className="text-sm text-[var(--fg-muted)]">Belum ada data produktivitas pada rentang ini.</div>
+          ) : (
+            <>
+              <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-xs font-semibold text-[var(--fg-muted)]">
+                  {formatTrendDateRange(productivity.start, productivity.end)}
+                </div>
+                <div className="flex items-center gap-3 text-[11px] font-semibold text-[var(--fg-muted)]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-[#fb923c]" />
+                    View
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-[#c2410c]" />
+                    Artikel
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[640px]">
+                  <div className="flex gap-2">
+                      <div className="flex h-[300px] w-12 shrink-0 flex-col justify-between py-0.5 text-right text-[10px] font-semibold text-[var(--fg-muted)]">
+                        <span>{formatCompactNumber(productivityChartMax)}</span>
+                        <span>{formatCompactNumber(productivityChartMax / 2)}</span>
+                        <span>0</span>
+                      </div>
+                      <div className="relative flex-1">
+                        <div className="pointer-events-none absolute inset-0 flex flex-col justify-between">
+                          <div className="border-t border-dashed border-[var(--border)]" />
+                          <div className="border-t border-dashed border-[var(--border)]" />
+                          <div className="border-t border-dashed border-[var(--border)]" />
+                        </div>
+                        <div className="relative flex h-[300px] items-end gap-3">
+                          {showProductivitySeries
+                            ? productivitySeries.map((item) => {
+                                const viewsPct = Math.max((item.views / productivityChartMax) * 100, item.views > 0 ? 4 : 1);
+                                const articlesRatio = item.views > 0 ? Math.min(1, item.articles / item.views) : 0;
+                                const articlesPct = viewsPct * articlesRatio;
+                                return (
+                                  <div key={item.key} className="flex h-full min-w-[44px] flex-1 flex-col justify-end gap-2">
+                                    <div className="relative flex flex-1 items-end">
+                                      <div
+                                        className="relative w-full rounded-t-[10px] bg-[#fb923c] shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-opacity hover:opacity-90"
+                                        style={{ height: `${viewsPct}%` }}
+                                        title={`${item.label} — ${formatNumber(item.articles)} artikel, ${formatNumber(item.views)} view`}
+                                      >
+                                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold text-[var(--fg-muted)]">
+                                          {formatNumber(item.articles)} · {formatCompactNumber(item.views)}
+                                        </span>
+                                      </div>
+                                      <div
+                                        className="absolute bottom-0 left-1/2 w-[46%] -translate-x-1/2 rounded-t-[6px] bg-[#c2410c]"
+                                        style={{ height: `${articlesPct}%` }}
+                                      />
+                                    </div>
+                                    <div className="line-clamp-2 text-center text-[11px] font-medium leading-4 text-[var(--fg-muted)]">{item.label}</div>
+                                  </div>
+                                );
+                              })
+                            : topProductivityAuthors.map((author) => {
+                                const viewsPct = Math.max((author.views / productivityChartMax) * 100, author.views > 0 ? 4 : 1);
+                                const articlesRatio = author.views > 0 ? Math.min(1, author.articles / author.views) : 0;
+                                const articlesPct = viewsPct * articlesRatio;
+                                return (
+                                  <div key={author.id} className="flex h-full min-w-[56px] flex-1 flex-col justify-end gap-2">
+                                    <div className="relative flex flex-1 items-end">
+                                      <div
+                                        className="relative w-full rounded-t-[10px] bg-[#fb923c] shadow-[inset_0_-2px_0_rgba(0,0,0,0.08)] transition-opacity hover:opacity-90"
+                                        style={{ height: `${viewsPct}%` }}
+                                        title={`${author.name} — ${formatNumber(author.articles)} artikel, ${formatNumber(author.views)} view`}
+                                      >
+                                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-[10px] font-bold text-[var(--fg-muted)]">
+                                          {formatNumber(author.articles)} · {formatCompactNumber(author.views)}
+                                        </span>
+                                      </div>
+                                      <div
+                                        className="absolute bottom-0 left-1/2 w-[46%] -translate-x-1/2 rounded-t-[6px] bg-[#c2410c]"
+                                        style={{ height: `${articlesPct}%` }}
+                                      />
+                                    </div>
+                                    <div className="line-clamp-2 text-center text-[11px] font-medium leading-4 text-[var(--fg-muted)]">{author.name}</div>
+                                  </div>
+                                );
+                              })}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+            </>
+          )}
+        </SectionCard>
 
         <div className="grid gap-3 xl:grid-cols-2">
           <ListCard

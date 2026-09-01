@@ -50,6 +50,29 @@ export function getConfigTagExcludeSlugs(config: Record<string, unknown>): strin
   return normalizeSlugArray(config.excludeTagSlugs);
 }
 
+export function getDateRangeStart(range: unknown): Date | null {
+  const now = new Date();
+  switch (String(range || "all")) {
+    case "week": {
+      const date = new Date(now);
+      date.setDate(date.getDate() - 7);
+      return date;
+    }
+    case "month": {
+      const date = new Date(now);
+      date.setMonth(date.getMonth() - 1);
+      return date;
+    }
+    case "year": {
+      const date = new Date(now);
+      date.setFullYear(date.getFullYear() - 1);
+      return date;
+    }
+    default:
+      return null;
+  }
+}
+
 export function getSingleCategoryArchiveSlug(config: Record<string, unknown>): string | null {
   const includeSlugs = getConfigCategoryIncludeSlugs(config);
   return includeSlugs.length === 1 ? includeSlugs[0] : null;

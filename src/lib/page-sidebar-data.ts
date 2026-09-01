@@ -21,15 +21,44 @@ const POST_CARD_SELECT = {
   featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
 } as const;
 
-async function getPopularPosts(count: number) {
+function getDateRangeStart(range: unknown): Date | null {
+  const now = new Date();
+  switch (String(range || "all")) {
+    case "week": {
+      const date = new Date(now);
+      date.setDate(date.getDate() - 7);
+      return date;
+    }
+    case "month": {
+      const date = new Date(now);
+      date.setMonth(date.getMonth() - 1);
+      return date;
+    }
+    case "year": {
+      const date = new Date(now);
+      date.setFullYear(date.getFullYear() - 1);
+      return date;
+    }
+    default:
+      return null;
+  }
+}
+
+async function getPopularPosts(count: number, range?: unknown) {
   const take = Math.max(1, Math.min(20, Number.isFinite(count) ? Math.floor(count) : 5));
   const now = new Date();
+  const rangeStart = getDateRangeStart(range);
+  const where: any = {
+    published: true,
+    status: { not: "ARCHIVED" },
+  };
+  if (rangeStart) {
+    where.publishedAt = { gte: rangeStart, lte: now };
+  } else {
+    where.OR = [{ publishedAt: { lte: now } }, { publishedAt: null }];
+  }
   return prisma.post.findMany({
-    where: {
-      published: true,
-      status: { not: "ARCHIVED" },
-      OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
-    },
+    where,
     orderBy: [
       { views: "desc" },
       { publishedAt: "desc" },
@@ -151,7 +180,7 @@ export async function getPageSidebarData(activeTheme: string) {
         const count = Math.max(baseCount, tabletCount, mobileCount);
 
         if (config.widgetType === "popular_posts") {
-          blockData[widget.id] = await getPopularPosts(count);
+          blockData[widget.id] = await getPopularPosts(count, config.popularDateRange);
         } else if (config.widgetType === "recent_posts") {
           blockData[widget.id] = await getRecentPosts(count);
         } else if (config.widgetType === "category_list") {

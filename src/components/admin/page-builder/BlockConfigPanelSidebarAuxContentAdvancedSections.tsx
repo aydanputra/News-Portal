@@ -70,6 +70,24 @@ export function BlockConfigPanelSidebarWidgetContentSection({
         </div>
       )}
 
+      {currentSidebarWidgetType === "popular_posts" && (
+        <div>
+          <label className="text-xs font-medium text-[var(--fg-secondary)] block mb-1.5">
+            Rentang Tanggal Populer - {deviceLabel}
+          </label>
+          <select
+            className="w-full bg-[var(--bg-elevated)] border border-[var(--border)] rounded-lg p-2.5 text-sm text-[var(--fg-primary)] focus:ring-2 focus:ring-[color:var(--accent)/0.2] focus:border-[var(--accent)] outline-none transition-all hover:bg-[var(--bg-base)]"
+            value={getConfigString("popularDateRange", "all")}
+            onChange={(e) => updateChildConfig("popularDateRange", e.target.value)}
+          >
+            <option value="week">Seminggu Terakhir</option>
+            <option value="month">Sebulan Terakhir</option>
+            <option value="year">Setahun Terakhir</option>
+            <option value="all">Sepanjang Waktu</option>
+          </select>
+        </div>
+      )}
+
       {isSidebarAdSlotType && (
         <div>
           <label className="text-xs font-medium text-[var(--fg-secondary)] block mb-1.5">Kode Iklan / HTML</label>

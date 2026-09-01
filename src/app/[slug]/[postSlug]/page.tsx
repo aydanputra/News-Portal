@@ -203,17 +203,23 @@ const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
   return cached();
 });
 
-const getPopularPosts = cache(async (count: number) => {
+const getPopularPosts = cache(async (count: number, range?: unknown) => {
   const take = Math.max(1, Math.min(20, Number.isFinite(count) ? Math.floor(count) : 5));
   const cached = unstable_cache(
     async () => {
       const now = new Date();
+      const rangeStart = getDateRangeStart(range);
+      const where: any = {
+        published: true,
+        status: { not: "ARCHIVED" },
+      };
+      if (rangeStart) {
+        where.publishedAt = { gte: rangeStart, lte: now };
+      } else {
+        where.OR = [{ publishedAt: { lte: now } }, { publishedAt: null }];
+      }
       const rows = await prisma.post.findMany({
-        where: {
-          published: true,
-          status: { not: "ARCHIVED" },
-          OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
-        },
+        where,
         orderBy: [
           { views: "desc" },
           { publishedAt: "desc" },
@@ -238,7 +244,7 @@ const getPopularPosts = cache(async (count: number) => {
       });
       return toPublicPostPreviewList(rows);
     },
-    [`popular-posts:${take}`],
+    [`popular-posts:${take}:${String(range || "all")}`],
     { tags: ["posts"], revalidate: 300 },
   );
   return cached();
@@ -456,7 +462,7 @@ async function getData(slug: string, categorySlug: string) {
                              inheritedSidebarLocation !== "post";
          
                            if (config.widgetType === 'popular_posts') {
-                               const popularData = await getPopularPosts(count);
+                               const popularData = await getPopularPosts(count, config.popularDateRange);
                                blockData[widget.id] = popularData;
                            } else if (config.widgetType === 'recent_posts') {
                                blockData[widget.id] = useSourceSidebarDataset

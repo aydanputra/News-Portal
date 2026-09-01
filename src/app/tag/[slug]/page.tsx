@@ -19,6 +19,7 @@ import {
   getConfigCategoryIncludeSlugs,
   getConfigTagExcludeSlugs,
   getConfigTagIncludeSlugs,
+  getDateRangeStart,
 } from "@/lib/category-filters";
 import { buildCanonicalPath, buildPublicPageMetadata } from "@/lib/public-metadata";
 
@@ -120,6 +121,7 @@ const getWidgetPosts = cache(async (opts: {
   excludeTagSlugs?: string[];
   categorySlugs?: string[];
   excludeCategorySlugs?: string[];
+  popularDateRange?: string;
 }) => {
   const fetchAll = opts.limit === null || opts.limit === undefined || !Number.isFinite(opts.limit);
   const limit = fetchAll ? null : Math.max(1, Math.floor(opts.limit as number));
@@ -128,15 +130,21 @@ const getWidgetPosts = cache(async (opts: {
   const excludeTagSlugs = Array.isArray(opts.excludeTagSlugs) ? opts.excludeTagSlugs.filter(Boolean) : [];
   const categorySlugs = Array.isArray(opts.categorySlugs) ? opts.categorySlugs.filter(Boolean) : [];
   const excludeCategorySlugs = Array.isArray(opts.excludeCategorySlugs) ? opts.excludeCategorySlugs.filter(Boolean) : [];
-  const key = `archive-widget-posts:${fetchAll ? "all" : limit}:${sort}:${tagSlugs.slice().sort().join(",")}:${excludeTagSlugs.slice().sort().join(",")}:${categorySlugs.slice().sort().join(",")}:${excludeCategorySlugs.slice().sort().join(",")}`;
+  const popularDateRange = typeof opts.popularDateRange === "string" ? opts.popularDateRange : "all";
+  const key = `archive-widget-posts:${fetchAll ? "all" : limit}:${sort}:${tagSlugs.slice().sort().join(",")}:${excludeTagSlugs.slice().sort().join(",")}:${categorySlugs.slice().sort().join(",")}:${excludeCategorySlugs.slice().sort().join(",")}:${popularDateRange}`;
 
   const runQuery = async () => {
     const now = new Date();
+    const rangeStart = getDateRangeStart(popularDateRange);
     const whereClause: any = {
       published: true,
       status: { not: "ARCHIVED" },
-      OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
     };
+    if (rangeStart) {
+      whereClause.publishedAt = { gte: rangeStart, lte: now };
+    } else {
+      whereClause.OR = [{ publishedAt: { lte: now } }, { publishedAt: null }];
+    }
 
     if (tagSlugs.length > 0 || excludeTagSlugs.length > 0) {
       applyTagFiltersToWhere(whereClause, tagSlugs, excludeTagSlugs);
@@ -313,7 +321,7 @@ async function getData(slug: string) {
           const excludeTagSlugs = getConfigTagExcludeSlugs(config);
           const categorySlugs = tagSlugs.length > 0 ? [] : getConfigCategoryIncludeSlugs(config);
           const excludeCategorySlugs = getConfigCategoryExcludeSlugs(config);
-          blockData[widget.id] = await getWidgetPosts({ limit: takeLimit, sort, tagSlugs, excludeTagSlugs, categorySlugs, excludeCategorySlugs });
+          blockData[widget.id] = await getWidgetPosts({ limit: takeLimit, sort, tagSlugs, excludeTagSlugs, categorySlugs, excludeCategorySlugs, popularDateRange: widget.type === "sidebar_widget" && config.widgetType === "popular_posts" ? config.popularDateRange : undefined });
       }
   };
 

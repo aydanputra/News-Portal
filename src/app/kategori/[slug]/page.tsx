@@ -20,6 +20,7 @@ import {
   getConfigCategoryIncludeSlugs,
   getConfigTagExcludeSlugs,
   getConfigTagIncludeSlugs,
+  getDateRangeStart,
 } from "@/lib/category-filters";
 import { buildCanonicalPath, buildPublicPageMetadata } from "@/lib/public-metadata";
 
@@ -140,6 +141,7 @@ const getWidgetPosts = cache(async (opts: {
   categorySlugs?: string[];
   excludeCategorySlugs?: string[];
   contextCategorySlugs?: string[];
+  popularDateRange?: string;
 }) => {
   const fetchAll = opts.limit === null || opts.limit === undefined || !Number.isFinite(opts.limit);
   const limit = fetchAll ? null : Math.max(1, Math.floor(opts.limit as number));
@@ -149,15 +151,21 @@ const getWidgetPosts = cache(async (opts: {
   const categorySlugs = Array.isArray(opts.categorySlugs) ? opts.categorySlugs.filter(Boolean) : [];
   const excludeCategorySlugs = Array.isArray(opts.excludeCategorySlugs) ? opts.excludeCategorySlugs.filter(Boolean) : [];
   const contextCategorySlugs = Array.isArray(opts.contextCategorySlugs) ? opts.contextCategorySlugs.filter(Boolean) : [];
-  const key = `archive-widget-posts:${fetchAll ? "all" : limit}:${sort}:${tagSlugs.slice().sort().join(",")}:${excludeTagSlugs.slice().sort().join(",")}:${categorySlugs.slice().sort().join(",")}:${excludeCategorySlugs.slice().sort().join(",")}:${contextCategorySlugs.slice().sort().join(",")}`;
+  const popularDateRange = typeof opts.popularDateRange === "string" ? opts.popularDateRange : "all";
+  const key = `archive-widget-posts:${fetchAll ? "all" : limit}:${sort}:${tagSlugs.slice().sort().join(",")}:${excludeTagSlugs.slice().sort().join(",")}:${categorySlugs.slice().sort().join(",")}:${excludeCategorySlugs.slice().sort().join(",")}:${contextCategorySlugs.slice().sort().join(",")}:${popularDateRange}`;
 
   const runQuery = async () => {
     const now = new Date();
+    const rangeStart = getDateRangeStart(popularDateRange);
     const whereClause: any = {
       published: true,
       status: { not: "ARCHIVED" },
-      OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
     };
+    if (rangeStart) {
+      whereClause.publishedAt = { gte: rangeStart, lte: now };
+    } else {
+      whereClause.OR = [{ publishedAt: { lte: now } }, { publishedAt: null }];
+    }
 
     if (contextCategorySlugs.length > 0) {
       applyCategoryFiltersToWhere(whereClause, contextCategorySlugs, []);
@@ -390,6 +398,7 @@ async function getData(slug: string) {
             categorySlugs,
             excludeCategorySlugs,
             contextCategorySlugs: archiveScopedWidgetTypes.has(widget.type) ? archiveCategorySlugs : [],
+            popularDateRange: widget.type === "sidebar_widget" && config.widgetType === "popular_posts" ? config.popularDateRange : undefined,
           }), { name: category.name, slug: category.slug });
       }
   };

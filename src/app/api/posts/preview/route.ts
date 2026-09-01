@@ -136,15 +136,21 @@ async function getHeaderFooterBlocks(activeTheme: string) {
   };
 }
 
-async function getPopularPosts(count: number) {
+async function getPopularPosts(count: number, range?: unknown) {
   const take = Math.max(1, Math.min(20, Number.isFinite(count) ? Math.floor(count) : 5));
   const now = new Date();
+  const rangeStart = getDateRangeStart(range);
+  const where: any = {
+    published: true,
+    status: { not: "ARCHIVED" },
+  };
+  if (rangeStart) {
+    where.publishedAt = { gte: rangeStart, lte: now };
+  } else {
+    where.OR = [{ publishedAt: { lte: now } }, { publishedAt: null }];
+  }
   return prisma.post.findMany({
-    where: {
-      published: true,
-      status: { not: "ARCHIVED" },
-      OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
-    },
+    where,
     orderBy: [
       { views: "desc" },
       { publishedAt: "desc" },
@@ -380,7 +386,7 @@ export async function POST(request: NextRequest) {
               inheritedSidebarLocation !== "post";
 
             if (config.widgetType === "popular_posts") {
-              blockData[widget.id] = await getPopularPosts(count);
+              blockData[widget.id] = await getPopularPosts(count, config.popularDateRange);
             } else if (config.widgetType === "recent_posts") {
               blockData[widget.id] = useSourceSidebarDataset
                 ? await getRecentPosts(count)

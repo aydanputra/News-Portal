@@ -14,6 +14,7 @@ import {
   getConfigCategoryIncludeSlugs,
   getConfigTagExcludeSlugs,
   getConfigTagIncludeSlugs,
+  getDateRangeStart,
 } from "@/lib/category-filters";
 
 export const revalidate = 60;
@@ -326,10 +327,8 @@ async function getData() {
     const excludeCategorySlugs = getConfigCategoryExcludeSlugs(cfg);
 
     const sortOrderRaw = cfg.sortOrder ? String(cfg.sortOrder) : "";
-    const sortOrder =
-      block.type === "sidebar_widget" && cfg.widgetType === "popular_posts"
-        ? "popular"
-        : sortOrderRaw || "latest";
+    const isPopularPostsWidget = block.type === "sidebar_widget" && cfg.widgetType === "popular_posts";
+    const sortOrder = isPopularPostsWidget ? "popular" : sortOrderRaw || "latest";
 
     return JSON.stringify({
       tags: includeTagSlugs.slice().sort(),
@@ -337,6 +336,7 @@ async function getData() {
       includeCategories: includeCategorySlugs.slice().sort(),
       excludeCategories: excludeCategorySlugs.slice().sort(),
       sortOrder,
+      ...(isPopularPostsWidget ? { popularDateRange: String(cfg.popularDateRange || "all") } : {}),
     });
   };
 
@@ -355,11 +355,17 @@ async function getData() {
 
     const blockOffset = offsetEnabledTypes.has(block.type) ? Math.max(0, Number(cfg.offset) || 0) : 0;
 
+    const isPopularPostsWidget = block.type === "sidebar_widget" && cfg.widgetType === "popular_posts";
+    const popularDateStart = isPopularPostsWidget ? getDateRangeStart(cfg.popularDateRange) : null;
     const whereClause: any = {
       published: true,
       status: { not: "ARCHIVED" },
-      OR: [{ publishedAt: { lte: now } }, { publishedAt: null }],
     };
+    if (popularDateStart) {
+      whereClause.publishedAt = { gte: popularDateStart, lte: now };
+    } else {
+      whereClause.OR = [{ publishedAt: { lte: now } }, { publishedAt: null }];
+    }
 
     if (cfg.filterType === "tag") {
       const includeTagSlugs = getConfigTagIncludeSlugs(cfg);

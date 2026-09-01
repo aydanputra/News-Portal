@@ -375,6 +375,12 @@ html.public-dark .public-theme.public-homepage {
   font-synthesis: inherit !important;
 }
 
+.public-theme .post-content-body .prose em,
+.public-theme .post-content-body .prose i {
+  font-style: italic !important;
+  font-synthesis: style weight;
+}
+
 .public-theme .post-content-body .prose > *:not(.inline-related-root) h1,
 .public-theme .post-content-body .prose > *:not(.inline-related-root) h2,
 .public-theme .post-content-body .prose > *:not(.inline-related-root) h3,

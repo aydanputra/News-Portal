@@ -6,7 +6,7 @@ import { prisma } from "@/lib/prisma";
 export const dynamic = "force-dynamic";
 
 const DEFAULT_RANGE_DAYS = 7;
-const MAX_RANGE_DAYS = 365;
+const MAX_RANGE_DAYS = 1100;
 const ANALYTICS_CACHE_TTL_SECONDS = 60;
 
 function startOfDay(value: Date) {
