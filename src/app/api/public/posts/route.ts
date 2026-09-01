@@ -5,6 +5,7 @@ import { z } from "zod";
 import { applyCategoryFiltersToWhere, applyTagFiltersToWhere, normalizeSlugArray } from "@/lib/category-filters";
 
 export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 const searchParamsSchema = z.object({
   slug: z.string().trim().min(1).optional(),
@@ -71,12 +72,11 @@ export async function GET(request: Request) {
     const now = new Date();
 
     const baseWhereClause = {
+      published: true,
+      status: { not: "ARCHIVED" as const },
       OR: [
-        { status: "PUBLISHED" as const },
-        { 
-          status: "SCHEDULED" as const,
-          publishedAt: { lte: now }
-        }
+        { publishedAt: { lte: now } },
+        { publishedAt: null }
       ]
     };
 
@@ -141,7 +141,7 @@ export async function GET(request: Request) {
     }
 
     // Build Order Clause
-    let orderBy: any = { publishedAt: "desc" };
+    let orderBy: any = [{ publishedAt: "desc" }, { updatedAt: "desc" }];
     if (sortOrder === "oldest") {
       orderBy = { publishedAt: "asc" };
     } else if (sortOrder === "popular") {

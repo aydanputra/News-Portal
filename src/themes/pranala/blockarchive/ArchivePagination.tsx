@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import React from "react";
 
@@ -6,7 +8,49 @@ interface ArchivePaginationProps {
   currentPage: number;
   totalPages: number;
   basePath: string;
+  onPageChange?: (page: number) => void;
 }
+
+interface NavButtonProps {
+  href: string;
+  onClick?: () => void;
+  className?: string;
+  style?: React.CSSProperties;
+  ariaLabel?: string;
+  ariaCurrent?: "page";
+  title?: string;
+  children: React.ReactNode;
+}
+
+const NavButton = ({ href, onClick, className, style, ariaLabel, ariaCurrent, title, children }: NavButtonProps) => {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={className}
+        style={style}
+        aria-label={ariaLabel}
+        aria-current={ariaCurrent}
+        title={title}
+      >
+        {children}
+      </button>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className={className}
+      style={style}
+      aria-label={ariaLabel}
+      aria-current={ariaCurrent}
+      title={title}
+    >
+      {children}
+    </Link>
+  );
+};
 
 const buildPageHref = (basePath: string, page: number) => {
   if (page <= 1) return basePath;
@@ -81,8 +125,9 @@ const buildMobileVisibleItems = (currentPage: number, totalPages: number) => {
   return items;
 };
 
-export default function ArchivePagination({ block, currentPage, totalPages, basePath }: ArchivePaginationProps) {
+export default function ArchivePagination({ block, currentPage, totalPages, basePath, onPageChange }: ArchivePaginationProps) {
   const config = block?.config || {};
+  const useClientNav = typeof onPageChange === "function";
   const maxVisible = Math.max(3, Math.min(9, Number(config.maxVisiblePages) || 5));
   const showPrevNext = config.showPrevNext !== false;
   const showPaginationBox = config.showPaginationBox !== false;
@@ -179,18 +224,19 @@ export default function ArchivePagination({ block, currentPage, totalPages, base
         aria-label="Pagination"
       >
           {showPrevNext && currentPage > 1 && (
-            <Link
+            <NavButton
               href={buildPageHref(basePath, currentPage - 1)}
+              onClick={useClientNav ? () => onPageChange?.(currentPage - 1) : undefined}
               className={`${navButtonClass} hover:-translate-y-px hover:shadow-sm lg:min-w-[7.25rem]`}
               style={secondaryButtonStyle}
-              aria-label={prevLabel}
+              ariaLabel={prevLabel}
               title={prevLabel}
             >
               <span className="lg:hidden">
                 <ArrowLeftIcon />
               </span>
               <span className="hidden lg:inline">{prevLabel}</span>
-            </Link>
+            </NavButton>
           )}
 
           {mobileVisibleItems.map((item, index) => {
@@ -209,10 +255,11 @@ export default function ArchivePagination({ block, currentPage, totalPages, base
 
             const isActive = item === currentPage;
             return (
-              <Link
+              <NavButton
                 key={`mobile-${item}`}
                 href={buildPageHref(basePath, item)}
-                aria-current={isActive ? "page" : undefined}
+                onClick={useClientNav ? () => onPageChange?.(item) : undefined}
+                ariaCurrent={isActive ? "page" : undefined}
                 className={`${navButtonClass} hover:-translate-y-px hover:shadow-sm md:hidden`}
                 style={
                   isActive
@@ -226,7 +273,7 @@ export default function ArchivePagination({ block, currentPage, totalPages, base
                 }
               >
                 {item}
-              </Link>
+              </NavButton>
             );
           })}
 
@@ -246,10 +293,11 @@ export default function ArchivePagination({ block, currentPage, totalPages, base
 
             const isActive = item === currentPage;
             return (
-              <Link
+              <NavButton
                 key={item}
                 href={buildPageHref(basePath, item)}
-                aria-current={isActive ? "page" : undefined}
+                onClick={useClientNav ? () => onPageChange?.(item) : undefined}
+                ariaCurrent={isActive ? "page" : undefined}
                 className={`${navButtonClass} hidden hover:-translate-y-px hover:shadow-sm md:inline-flex`}
                 style={
                   isActive
@@ -263,23 +311,24 @@ export default function ArchivePagination({ block, currentPage, totalPages, base
                 }
               >
                 {item}
-              </Link>
+              </NavButton>
             );
           })}
 
           {showPrevNext && currentPage < totalPages && (
-            <Link
+            <NavButton
               href={buildPageHref(basePath, currentPage + 1)}
+              onClick={useClientNav ? () => onPageChange?.(currentPage + 1) : undefined}
               className={`${navButtonClass} hover:-translate-y-px hover:shadow-sm lg:min-w-[7.25rem]`}
               style={secondaryButtonStyle}
-              aria-label={nextLabel}
+              ariaLabel={nextLabel}
               title={nextLabel}
             >
               <span className="lg:hidden">
                 <ArrowRightIcon />
               </span>
               <span className="hidden lg:inline">{nextLabel}</span>
-            </Link>
+            </NavButton>
           )}
       </nav>
     </div>

@@ -23,6 +23,22 @@ import {
 import { buildCanonicalPath, buildPublicPageMetadata } from "@/lib/public-metadata";
 
 export const revalidate = 60;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const tags = await prisma.tag.findMany({
+      orderBy: { posts: { _count: "desc" } },
+      take: 100,
+      select: { slug: true },
+    });
+    return tags
+      .filter((t) => typeof t.slug === "string" && t.slug.trim() !== "")
+      .map((t) => ({ slug: t.slug }));
+  } catch {
+    return [];
+  }
+}
 
 const getTagBySlug = cache(async (slug: string) => {
   const cached = unstable_cache(
@@ -166,7 +182,7 @@ const getWidgetPosts = cache(async (opts: {
   return toPublicPostPreviewList(await cached());
 });
 
-async function getData(slug: string, page: number) {
+async function getData(slug: string) {
   // 1. Ambil Tag
   const [tag, setting] = await Promise.all([getTagBySlug(slug), getSettings()]);
 
@@ -206,7 +222,7 @@ async function getData(slug: string, page: number) {
       { publishedAt: null }
     ]
   };
-  const safePage = Math.max(1, page);
+  const safePage = 1;
   const cachedTagArchive = unstable_cache(
     async () => {
       const totalPosts = await prisma.post.count({ where });
@@ -318,6 +334,7 @@ async function getData(slug: string, page: number) {
     totalPosts,
     totalPages,
     currentPage,
+    pageSize,
     sourceBlocksByLocation: {
       ...sourceBlocksByLocation,
       archive: blocksToRender || sourceBlocksByLocation.archive || [],
@@ -326,11 +343,10 @@ async function getData(slug: string, page: number) {
 }
 
 export async function generateMetadata(
-  props: { params: Promise<{ slug: string }>; searchParams?: Promise<{ page?: string }> },
+  props: { params: Promise<{ slug: string }> },
   parent: ResolvingMetadata,
 ): Promise<Metadata> {
   const params = await props.params;
-  const searchParams = props.searchParams ? await props.searchParams : undefined;
   const slug = decodeURIComponent(params.slug);
   const tag = await getTagBySlug(slug);
 
@@ -340,11 +356,8 @@ export async function generateMetadata(
     };
   }
 
-  const page = Math.max(1, Number(searchParams?.page) || 1);
   const parentMetadata = await parent;
-  const canonicalPath = buildCanonicalPath(`/tag/${tag.slug}`, {
-    page: page > 1 ? page : undefined,
-  });
+  const canonicalPath = buildCanonicalPath(`/tag/${tag.slug}`);
 
   return buildPublicPageMetadata({
     title: `Tag: #${tag.name}`,
@@ -354,12 +367,10 @@ export async function generateMetadata(
   });
 }
 
-export default async function TagPage(props: { params: Promise<{ slug: string }>, searchParams?: Promise<{ page?: string }> }) {
+export default async function TagPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const searchParams = props.searchParams ? await props.searchParams : undefined;
   const slug = decodeURIComponent(params.slug);
-  const page = Math.max(1, Number(searchParams?.page) || 1);
-  const [data, menusByLocation] = await Promise.all([getData(slug, page), getPublicMenusByLocation()]);
+  const [data, menusByLocation] = await Promise.all([getData(slug), getPublicMenusByLocation()]);
 
   if (!data) {
     notFound();
@@ -397,6 +408,8 @@ export default async function TagPage(props: { params: Promise<{ slug: string }>
         menusByLocation={menusByLocation}
         headerConfig={data.headerConfig}
         footerConfig={data.footerConfig}
+        pageSize={data.pageSize}
+        archiveFilter={{ tags: [data.tag.slug] }}
       />
     </>
   );

@@ -24,6 +24,20 @@ import {
 import { buildCanonicalPath, buildPublicPageMetadata } from "@/lib/public-metadata";
 
 export const revalidate = 60;
+export const dynamicParams = true;
+
+export async function generateStaticParams() {
+  try {
+    const categories = await prisma.category.findMany({
+      select: { slug: true },
+    });
+    return categories
+      .filter((c) => typeof c.slug === "string" && c.slug.trim() !== "")
+      .map((c) => ({ slug: c.slug }));
+  } catch {
+    return [];
+  }
+}
 
 const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
   const cached = unstable_cache(
@@ -59,9 +73,9 @@ const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
 const getAllCategoryEdges = cache(async () => {
   const cached = unstable_cache(
     async () => {
-      return await prisma.category.findMany({ select: { id: true, parentId: true } });
+      return await prisma.category.findMany({ select: { id: true, parentId: true, slug: true } });
     },
-    ["categories:edges"],
+    ["categories:edges:v2"],
     { tags: ["categories"], revalidate: 3600 },
   );
   return cached();
@@ -210,18 +224,17 @@ const applyArchiveDisplayCategory = <T extends Record<string, any>>(
   }));
 };
 
-async function getData(slug: string, page: number) {
+async function getData(slug: string) {
   const [category, setting] = await Promise.all([getCategoryBySlug(slug), getSettings()]);
 
   if (!category) return null;
 
   const categoryIds = await getDescendantCategoryIds(category.id);
-  const archiveCategoryRows = await prisma.category.findMany({
-    where: { id: { in: categoryIds } },
-    select: { slug: true },
-  });
-  const archiveCategorySlugs = archiveCategoryRows
-    .map((row) => (typeof row.slug === "string" ? row.slug.trim() : ""))
+  const categoryIdSet = new Set(categoryIds);
+  const categoryEdges = await getAllCategoryEdges();
+  const archiveCategorySlugs = categoryEdges
+    .filter((edge) => categoryIdSet.has(edge.id))
+    .map((edge) => (typeof edge.slug === "string" ? edge.slug.trim() : ""))
     .filter(Boolean);
   const activeTheme = (setting as any)?.activeTheme || "classic";
   const [{ headerConfig, footerConfig }, archiveBlocks, sourceBlocksByLocation, categories] = await Promise.all([
@@ -265,7 +278,7 @@ async function getData(slug: string, page: number) {
       }
     ]
   };
-  const safePage = Math.max(1, page);
+  const safePage = 1;
   const cachedCategoryArchive = unstable_cache(
     async () => {
       const totalPosts = await prisma.post.count({ where });
@@ -295,7 +308,7 @@ async function getData(slug: string, page: number) {
       return { posts, totalPosts, totalPages, currentPage };
     },
     [`category-archive:${category.id}:${pageSize}:${safePage}`],
-    { tags: ["posts", `category-${category.slug}`], revalidate },
+    { tags: ["posts", `category-${category.slug}`], revalidate: 300 },
   );
 
   const { posts, totalPosts, totalPages, currentPage } = await cachedCategoryArchive();
@@ -398,6 +411,8 @@ async function getData(slug: string, page: number) {
     totalPosts,
     totalPages,
     currentPage,
+    pageSize,
+    archiveCategorySlugs,
     sourceBlocksByLocation: {
       ...sourceBlocksByLocation,
       archive: blocksToRender || sourceBlocksByLocation.archive || [],
@@ -406,11 +421,10 @@ async function getData(slug: string, page: number) {
 }
 
 export async function generateMetadata(
-  props: { params: Promise<{ slug: string }>; searchParams?: Promise<{ page?: string }> },
+  props: { params: Promise<{ slug: string }> },
   parent: ResolvingMetadata,
 ): Promise<Metadata> {
   const params = await props.params;
-  const searchParams = props.searchParams ? await props.searchParams : undefined;
   const slug = decodeURIComponent(params.slug);
   const category = await getCategoryBySlug(slug);
 
@@ -420,11 +434,8 @@ export async function generateMetadata(
     };
   }
 
-  const page = Math.max(1, Number(searchParams?.page) || 1);
   const parentMetadata = await parent;
-  const canonicalPath = buildCanonicalPath(`/kategori/${category.slug}`, {
-    page: page > 1 ? page : undefined,
-  });
+  const canonicalPath = buildCanonicalPath(`/kategori/${category.slug}`);
 
   return buildPublicPageMetadata({
     title: category.name,
@@ -434,12 +445,10 @@ export async function generateMetadata(
   });
 }
 
-export default async function CategoryPage(props: { params: Promise<{ slug: string }>, searchParams?: Promise<{ page?: string }> }) {
+export default async function CategoryPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const searchParams = props.searchParams ? await props.searchParams : undefined;
   const slug = decodeURIComponent(params.slug);
-  const page = Math.max(1, Number(searchParams?.page) || 1);
-  const [data, menusByLocation] = await Promise.all([getData(slug, page), getPublicMenusByLocation()]);
+  const [data, menusByLocation] = await Promise.all([getData(slug), getPublicMenusByLocation()]);
 
   if (!data) {
     notFound();
@@ -477,6 +486,9 @@ export default async function CategoryPage(props: { params: Promise<{ slug: stri
         menusByLocation={menusByLocation}
         headerConfig={data.headerConfig}
         footerConfig={data.footerConfig}
+        pageSize={data.pageSize}
+        archiveFilter={{ categories: data.archiveCategorySlugs }}
+        archiveDisplayCategory={{ name: data.category.name, slug: data.category.slug }}
       />
     </>
   );

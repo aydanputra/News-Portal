@@ -4,7 +4,7 @@ import Footer from "../components/Footer";
 import ArchiveHeader from "../blockarchive/ArchiveHeader";
 import ArchivePostGrid from "../blockarchive/ArchivePostGrid";
 import ArchivePostList from "../blockarchive/ArchivePostList";
-import ArchivePagination from "../blockarchive/ArchivePagination";
+import ArchiveClientController from "../blockarchive/ArchiveClientController";
 import ArchiveEmptyState from "../blockarchive/ArchiveEmptyState";
 import Section from "../blocks/Section";
 import NewsGrid from "../blocks/NewsGrid";
@@ -34,6 +34,9 @@ interface ArchiveProps {
   menusByLocation?: any;
   headerConfig?: any;
   footerConfig?: any;
+  pageSize?: number;
+  archiveFilter?: { categories?: string[]; tags?: string[] };
+  archiveDisplayCategory?: { name: string; slug: string } | null;
 }
 
 const parseLayout = (layout?: string) => {
@@ -158,6 +161,9 @@ export default function PranalaArchive({
   menusByLocation,
   headerConfig,
   footerConfig,
+  pageSize = 12,
+  archiveFilter,
+  archiveDisplayCategory = null,
 }: ArchiveProps) {
   const siteName = setting?.siteName || "Portal Berita";
 
@@ -241,13 +247,33 @@ export default function PranalaArchive({
     : "1.4";
   const visibleBlocks = (blocks || []).filter((block) => block?.isVisible !== false);
 
+  const collectResolvedWidgets = (blocksList: any[]): any[] => {
+    const out: any[] = [];
+    for (const block of blocksList || []) {
+      if (!block || block.isVisible === false) continue;
+      if (block.type === "section") {
+        const children = resolveSectionChildrenWithSidebarSource(block, sourceBlocksByLocation, "archive");
+        out.push(...collectResolvedWidgets(children));
+      } else {
+        out.push(block);
+      }
+    }
+    return out;
+  };
+
+  const allResolvedWidgets = collectResolvedWidgets(visibleBlocks);
+  const archiveListWidget = allResolvedWidgets.find(
+    (w) => w?.type === "archive_post_grid" || w?.type === "archive_post_list"
+  );
+  const archivePaginationWidget = allResolvedWidgets.find((w) => w?.type === "archive_pagination");
+
   const renderWidgetWithSpacing = (
     widget: any,
     content: React.ReactNode,
     growClass = "",
     directions?: { mobile?: string; tablet?: string; desktop?: string }
   ) => {
-    if (!widget) return null;
+    if (!widget || content == null || content === false) return null;
     const normalizeAlign = (val: any) => (val === "center" || val === "right" || val === "left" ? val : "left");
     const normalizeVAlign = (val: any) => (val === "bottom" ? "bottom" : val === "center" || val === "middle" ? "center" : "top");
     const toSelf = (val: string, prefix = "") => (val === "center" ? `${prefix}self-center` : val === "bottom" ? `${prefix}self-end` : `${prefix}self-start`);
@@ -383,11 +409,48 @@ export default function PranalaArchive({
           />
         );
       case "archive_post_grid":
+        if (widget.id === archiveListWidget?.id) {
+          return (
+            <ArchiveClientController
+              listBlock={widget}
+              paginationBlock={archivePaginationWidget}
+              initialPosts={posts}
+              pageSize={pageSize}
+              initialTotalPages={totalPages}
+              basePath={archiveBasePath}
+              archiveType={archiveType}
+              archiveFilter={archiveFilter || {}}
+              archiveDisplayCategory={archiveDisplayCategory}
+              accentColor={accent}
+              borderRadius={archiveRadius}
+              setting={setting}
+            />
+          );
+        }
         return <ArchivePostGrid block={widget} posts={posts} />;
       case "archive_post_list":
+        if (widget.id === archiveListWidget?.id) {
+          return (
+            <ArchiveClientController
+              listBlock={widget}
+              paginationBlock={archivePaginationWidget}
+              initialPosts={posts}
+              pageSize={pageSize}
+              initialTotalPages={totalPages}
+              basePath={archiveBasePath}
+              archiveType={archiveType}
+              archiveFilter={archiveFilter || {}}
+              archiveDisplayCategory={archiveDisplayCategory}
+              customTitle={widget.title}
+              accentColor={accent}
+              borderRadius={archiveRadius}
+              setting={setting}
+            />
+          );
+        }
         return <ArchivePostList block={widget} posts={posts} customTitle={widget.title} accentColor={accent} borderRadius={archiveRadius} setting={setting} />;
       case "archive_pagination":
-        return <ArchivePagination block={widget} currentPage={currentPage} totalPages={totalPages} basePath={archiveBasePath} />;
+        return null;
       case "archive_empty_state":
         return <ArchiveEmptyState block={widget} isEmpty={posts.length === 0} />;
       default:
