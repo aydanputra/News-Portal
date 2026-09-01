@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { getThemeDefaultPostBlocks } from "@/lib/post-builder-theme-registry";
 import { notFound, permanentRedirect } from "next/navigation";
 import { Metadata, ResolvingMetadata } from "next";
@@ -13,6 +14,7 @@ import { unstable_cache } from "next/cache";
 import { cache } from "react";
 import { getCachedCategories } from "@/lib/data";
 import { toPublicPostPreviewList } from "@/lib/post-preview";
+import { collectWidgetsRecursive, getOrder, hasId } from "@/lib/block-utils";
 
 export const revalidate = 600;
 export const dynamicParams = true;
@@ -59,7 +61,7 @@ export async function generateStaticParams() {
 const getPostBySlug = cache(async (slug: string, categorySlug: string) => {
   const cached = unstable_cache(
     async () => {
-      const post: any = await prisma.post.findFirst({
+      const post = await prisma.post.findFirst({
         where: {
           slug,
           published: true,
@@ -94,7 +96,7 @@ const getPostBySlug = cache(async (slug: string, categorySlug: string) => {
           tags: { select: { id: true, name: true, slug: true } },
           featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
           _count: { select: { comments: true } },
-        } as any,
+        },
       });
       if (!post) return null;
       if (post.category?.slug !== categorySlug) return null;
@@ -183,12 +185,12 @@ const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
       } as const;
       const [headerRows, footerRows] = await Promise.all([
         prisma.homepageBlock.findMany({
-          where: { location: "header", isActive: true, themeId: activeTheme as any },
+          where: { location: "header", isActive: true, themeId: activeTheme },
           orderBy: { order: "asc" },
           select: publicBlockSelect,
         }),
         prisma.homepageBlock.findMany({
-          where: { location: "footer", themeId: activeTheme as any },
+          where: { location: "footer", themeId: activeTheme },
           orderBy: { order: "asc" },
           select: publicBlockSelect,
         }),
@@ -247,7 +249,7 @@ const getRecentPosts = cache(async (count: number, excludePostId?: string) => {
   const excludeId = typeof excludePostId === "string" && excludePostId.trim() !== "" ? excludePostId : "";
   const cached = unstable_cache(
     async () => {
-      const where: any = {
+      const where: Prisma.PostWhereInput = {
         published: true,
         status: { not: "ARCHIVED" },
       };
@@ -358,13 +360,6 @@ const getCategoryListWithCounts = cache(async (limit: number) => {
   return cached();
 });
 
-const isVisible = (block: any) => block?.isVisible !== false;
-const getOrder = (block: any) => (typeof block?.order === "number" ? block.order : 0);
-const getChildren = (block: any) => {
-  const children = block?.config?.children;
-  if (!Array.isArray(children)) return [];
-  return [...children].filter(isVisible);
-};
 const parseInlineRelatedPositions = (value: unknown): number[] => {
   if (typeof value !== "string") return [2];
   const parsed = value
@@ -395,19 +390,6 @@ const getDateRangeStart = (range: unknown): Date | null => {
     default:
       return null;
   }
-};
-
-const collectWidgetsRecursive = (blocks: any[]): any[] => {
-  const result: any[] = [];
-  for (const block of blocks) {
-    if (!isVisible(block)) continue;
-    if (block.type === "section") {
-      result.push(...collectWidgetsRecursive(getChildren(block)));
-      continue;
-    }
-    result.push(block);
-  }
-  return result;
 };
 
 async function getData(slug: string, categorySlug: string) {
@@ -453,7 +435,7 @@ async function getData(slug: string, categorySlug: string) {
       const fetchPromises: Promise<void>[] = [];
 
       const widgets = collectWidgetsRecursive([...effectiveBlocks].sort((a, b) => getOrder(a) - getOrder(b)));
-      const uniqueWidgets = Array.from(new Map(widgets.filter((widget) => widget?.id).map((widget) => [widget.id, widget])).values());
+      const uniqueWidgets = Array.from(new Map(widgets.filter(hasId).map((widget) => [widget.id, widget])).values());
       for (const widget of uniqueWidgets) {
                // Push fetch logic to promise array
                const promise = (async () => {
@@ -500,7 +482,7 @@ async function getData(slug: string, categorySlug: string) {
                            
                            let widgetRelatedPosts: any[] = [];
                            if (filterType === 'tag' && post.tags && post.tags.length > 0) {
-                                const tagIds = post.tags.map((t: any) => t.id);
+                                const tagIds = post.tags.map((t) => t.id);
                                 const cached = unstable_cache(
                                   async () => {
                                     return await prisma.post.findMany({
@@ -638,7 +620,7 @@ async function getData(slug: string, categorySlug: string) {
       (async () => {
           if (!inlineRelatedEnabled || !post) return [];
           const filterType = String((setting as any)?.postInlineRelatedFilterType || "category");
-          const baseWhere: any = {
+          const baseWhere: Prisma.PostWhereInput = {
               published: true,
               status: { not: "ARCHIVED" },
               id: { not: post.id },
@@ -648,9 +630,9 @@ async function getData(slug: string, categorySlug: string) {
               baseWhere.publishedAt = { gte: inlineRelatedDateStart };
           }
 
-          const where: any = { ...baseWhere };
+          const where: Prisma.PostWhereInput = { ...baseWhere };
           if (filterType === "tag" && Array.isArray(post.tags) && post.tags.length > 0) {
-              where.tags = { some: { id: { in: post.tags.map((tag: any) => tag.id) } } };
+              where.tags = { some: { id: { in: post.tags.map((tag) => tag.id) } } };
           } else {
               where.categoryId = post.categoryId;
           }
@@ -769,8 +751,8 @@ export async function generateMetadata(
   const ogImageRaw = post.image || post.featuredImage?.fileUrl;
   const ogImageUrl = toAbsoluteUrl(ogImageRaw);
   const ogImageAlt =
-    typeof (post as any)?.featuredImageAlt === "string" && (post as any).featuredImageAlt.trim() !== ""
-      ? (post as any).featuredImageAlt.trim()
+    typeof post.featuredImageAlt === "string" && post.featuredImageAlt.trim() !== ""
+      ? post.featuredImageAlt.trim()
       : typeof post.title === "string" && post.title.trim()
         ? post.title
         : "Gambar berita";
@@ -778,16 +760,16 @@ export async function generateMetadata(
     ogImageUrl
       ? [{
           url: ogImageUrl,
-          width: typeof (post as any)?.featuredImage?.width === "number" ? (post as any).featuredImage.width : undefined,
-          height: typeof (post as any)?.featuredImage?.height === "number" ? (post as any).featuredImage.height : undefined,
+          width: typeof post.featuredImage?.width === "number" ? post.featuredImage.width : undefined,
+          height: typeof post.featuredImage?.height === "number" ? post.featuredImage.height : undefined,
           alt: ogImageAlt,
         }]
       : [];
   const images = [...ogImage, ...previousImages];
   const postUrl = new URL(`/${categorySlug}/${post.slug}`, metadataBase).toString();
   const canonicalUrl =
-    typeof (post as any)?.canonicalUrl === "string" && (post as any).canonicalUrl.trim() !== ""
-      ? (post as any).canonicalUrl.trim()
+    typeof post.canonicalUrl === "string" && post.canonicalUrl.trim() !== ""
+      ? post.canonicalUrl.trim()
       : postUrl;
 
   return {
@@ -800,9 +782,9 @@ export async function generateMetadata(
       url: canonicalUrl,
       images: images,
       type: "article",
-      publishedTime: toIsoString((post as any)?.publishedAt),
+      publishedTime: toIsoString(post.publishedAt),
       authors: [post.author?.name || "Redaksi"],
-      tags: post.tags?.map((t: any) => t.name) || [],
+      tags: post.tags?.map((t) => t.name) || [],
     },
     twitter: {
       card: "summary_large_image",
@@ -811,9 +793,9 @@ export async function generateMetadata(
       images: images,
     },
     keywords:
-      typeof (post as any)?.focusKeyword === "string" && (post as any).focusKeyword.trim() !== ""
-        ? (post as any).focusKeyword.trim()
-        : Array.isArray(post.tags) ? post.tags.map((t: any) => t.name).filter(Boolean).join(", ") : undefined,
+      typeof post.focusKeyword === "string" && post.focusKeyword.trim() !== ""
+        ? post.focusKeyword.trim()
+        : Array.isArray(post.tags) ? post.tags.map((t) => t.name).filter(Boolean).join(", ") : undefined,
   };
 }
 
@@ -862,8 +844,8 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
     headline: post.title,
     description: descriptionRaw,
     image: imageUrl ? [imageUrl] : undefined,
-    datePublished: toIsoString((post as any)?.publishedAt),
-    dateModified: toIsoString((post as any)?.updatedAt),
+    datePublished: toIsoString(post.publishedAt),
+    dateModified: toIsoString(post.updatedAt),
     author: { "@type": "Person", name: post.author?.name || "Redaksi" },
     publisher: {
       "@type": "Organization",
@@ -872,9 +854,9 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
     },
     articleSection: post.category?.name,
     keywords:
-      typeof (post as any)?.focusKeyword === "string" && (post as any).focusKeyword.trim() !== ""
-        ? (post as any).focusKeyword.trim()
-        : Array.isArray(post.tags) ? post.tags.map((t: any) => t.name).filter(Boolean).join(", ") : undefined,
+      typeof post.focusKeyword === "string" && post.focusKeyword.trim() !== ""
+        ? post.focusKeyword.trim()
+        : Array.isArray(post.tags) ? post.tags.map((t) => t.name).filter(Boolean).join(", ") : undefined,
   };
 
   const resolvedSinglePostTheme = resolveSinglePostThemeId(activeTheme, Boolean(blocks && blocks.length > 0));

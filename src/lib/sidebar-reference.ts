@@ -1,5 +1,7 @@
 export type SidebarSourceLocation = "home" | "post" | "archive";
 
+import { getChildren, isVisible } from "@/lib/block-utils";
+
 export type SidebarSourceBlocksMap = Partial<Record<SidebarSourceLocation, any[]>>;
 
 const SIDEBAR_SOURCE_LOCATIONS: SidebarSourceLocation[] = ["home", "post", "archive"];
@@ -36,13 +38,6 @@ export function getSidebarColumnIndex(layout: unknown): number | null {
   if (widths.length !== 2 || widths[0] === widths[1]) return null;
   return widths[0] < widths[1] ? 0 : 1;
 }
-
-const isVisible = (block: any) => block?.isVisible !== false;
-
-const getChildren = (block: any): any[] => {
-  const children = block?.config?.children;
-  return Array.isArray(children) ? children.filter(isVisible) : [];
-};
 
 function deepCloneBlock<T>(value: T): T {
   if (Array.isArray(value)) {

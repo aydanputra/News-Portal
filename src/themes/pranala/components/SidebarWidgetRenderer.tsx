@@ -130,8 +130,8 @@ export default function SidebarWidgetRenderer({
   const effectiveRenderContext =
     widget?.config?.inheritedSidebarSource === true && inheritedSidebarLocation
       ? getWidgetRenderContextFromBuilderLocation(inheritedSidebarLocation === "archive" ? "archive" : "home")
-      : isSidebarAuxiliaryWidget && (renderContext === "single-post" || renderContext === "archive")
-        ? getWidgetRenderContextFromBuilderLocation(renderContext === "archive" ? "archive" : "home")
+      : isSidebarAuxiliaryWidget && renderContext === "archive"
+        ? "homepage"
       : renderContext;
 
   const defaults = resolveWidgetStyleDefaults(setting, effectiveRenderContext);

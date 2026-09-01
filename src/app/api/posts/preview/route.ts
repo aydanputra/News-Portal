@@ -5,6 +5,7 @@ import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { getPublicMenusByLocation } from "@/lib/public-menus";
 import { getSettings } from "@/lib/settings";
 import { getCachedCategories } from "@/lib/data";
+import { collectWidgetsRecursive, getOrder, hasId } from "@/lib/block-utils";
 
 type PreviewPayload = {
   postId?: string;
@@ -47,33 +48,6 @@ const POST_CARD_SELECT = {
   author: { select: { name: true, avatar: true, banner: true } },
   featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
 } as const;
-
-function isVisible(block: any) {
-  return block?.isVisible !== false;
-}
-
-function getOrder(block: any) {
-  return typeof block?.order === "number" ? block.order : 0;
-}
-
-function getChildren(block: any) {
-  const children = block?.config?.children;
-  if (!Array.isArray(children)) return [];
-  return [...children].filter(isVisible);
-}
-
-function collectWidgetsRecursive(blocks: any[]): any[] {
-  const result: any[] = [];
-  for (const block of blocks) {
-    if (!isVisible(block)) continue;
-    if (block?.type === "section") {
-      result.push(...collectWidgetsRecursive(getChildren(block)));
-      continue;
-    }
-    result.push(block);
-  }
-  return result;
-}
 
 function parseInlineRelatedPositions(value: unknown): number[] {
   if (typeof value !== "string") return [2];
@@ -386,7 +360,7 @@ export async function POST(request: NextRequest) {
 
     if (blocks.length > 0) {
       const widgets = collectWidgetsRecursive([...blocks].sort((a, b) => getOrder(a) - getOrder(b)));
-      const uniqueWidgets = Array.from(new Map(widgets.filter((widget) => widget?.id).map((widget) => [widget.id, widget])).values());
+      const uniqueWidgets = Array.from(new Map(widgets.filter(hasId).map((widget) => [widget.id, widget])).values());
 
       await Promise.all(uniqueWidgets.map(async (widget) => {
         try {

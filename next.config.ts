@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
   images: {
     formats: ['image/avif', 'image/webp'],
     qualities: [75, 90],
-    minimumCacheTTL: 31536000, // 1 tahun - gambar bersifat immutable (UUID)
+    minimumCacheTTL: 31536000, // 1 tahun — aman: nama file upload selalu UUID (ganti gambar = URL baru)
     deviceSizes: [640, 750, 828, 1080, 1200, 1920], // Standar breakpoint
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // Thumbnail kecil
     remotePatterns: (() => {

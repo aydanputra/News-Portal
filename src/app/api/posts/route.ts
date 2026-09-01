@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getYouTubeThumbnailUrl, slugify } from "@/lib/utils";
-import { PostType, PostStatus } from "@prisma/client";
+import { PostType, PostStatus, Prisma } from "@prisma/client";
 import { logActivity } from "@/lib/audit";
 import { resolvePostTransition } from "@/lib/post-workflow";
 import { sanitizeContent } from "@/lib/sanitizer";
@@ -9,6 +9,7 @@ import { validatePost } from "@/lib/validators/postValidator";
 import { normalizePostTypeMedia } from "@/lib/post-type-media";
 import { requireUser } from "@/lib/server-auth";
 import { revalidateTag } from "next/cache";
+import { internalError } from "@/lib/api-error";
 
 function toPlain(html: string): string {
   if (!html) return "";
@@ -51,15 +52,17 @@ export async function GET(request: Request) {
     }
 
     // Filter berdasarkan Role
-    const baseWhere: any = {};
+    const baseWhere: Prisma.PostWhereInput = {};
     if (user.role === "WRITER") {
       baseWhere.authorId = user.id;
     }
 
-    const where: any = { ...baseWhere };
+    const where: Prisma.PostWhereInput = { ...baseWhere };
     const typeKey = typeParam.toUpperCase();
     const typeEnum =
-      typeKey && typeKey !== "ALL" && (PostType as any)[typeKey] ? (PostType as any)[typeKey] : null;
+      typeKey && typeKey !== "ALL" && typeKey in PostType
+        ? PostType[typeKey as keyof typeof PostType]
+        : null;
     if (typeEnum) {
       where.type = typeEnum;
     }
@@ -78,7 +81,6 @@ export async function GET(request: Request) {
 
     if (categoryParam !== "all" && categoryParam !== "") {
       where.category = {
-        ...(where.category || {}),
         slug: { equals: categoryParam, mode: "insensitive" },
       };
     }
@@ -87,7 +89,7 @@ export async function GET(request: Request) {
       where.title = { contains: q, mode: "insensitive" };
     }
 
-    const baseCountWhere: any = { ...baseWhere };
+    const baseCountWhere: Prisma.PostWhereInput = { ...baseWhere };
     if (typeEnum) {
       baseCountWhere.type = typeEnum;
     }
@@ -153,8 +155,7 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    console.error("GET /api/posts error:", error);
-    return NextResponse.json({ error: "Gagal mengambil data" }, { status: 500 });
+    return internalError(error, { route: "GET /api/posts" });
   }
 }
 
@@ -174,7 +175,7 @@ export async function POST(request: Request) {
     if (!validation.success) {
       const details = Array.isArray(validation.errors) ? validation.errors : [];
       const summary = details.length > 0
-        ? `: ${details.slice(0, 3).map((d: any) => d?.message).filter(Boolean).join(" | ")}${details.length > 3 ? ` (+${details.length - 3} lainnya)` : ""}`
+        ? `: ${details.slice(0, 3).map((d) => d?.message).filter(Boolean).join(" | ")}${details.length > 3 ? ` (+${details.length - 3} lainnya)` : ""}`
         : "";
       return NextResponse.json(
         { error: `Validasi Gagal${summary}`, details: validation.errors },
@@ -244,8 +245,9 @@ export async function POST(request: Request) {
         userRole: user.role,
         publishedAt: publishedAt
       });
-    } catch (error: any) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Status transisi tidak valid";
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     const { status: newStatus, published: isPublished, publishedAt: finalPublishedAt } = transition;
@@ -355,7 +357,7 @@ export async function POST(request: Request) {
       Array.isArray(reviewEditorIds) ? reviewEditorIds.map((v: any) => String(v || "").trim()).filter(Boolean) : [];
     if (newStatus === "IN_REVIEW" && normalizedReviewEditorIds.length > 0) {
       try {
-        await (prisma as any).postReviewTarget.createMany({
+        await prisma.postReviewTarget.createMany({
           data: normalizedReviewEditorIds.map((editorId: string) => ({ postId: post.id, editorId })),
           skipDuplicates: true,
         });
@@ -480,8 +482,7 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json(post);
-  } catch (error: any) {
-    console.error("CREATE POST ERROR:", error);
-    return NextResponse.json({ error: error?.message || "Gagal membuat berita" }, { status: 500 });
+  } catch (error: unknown) {
+    return internalError(error, { route: "POST /api/posts" });
   }
 }

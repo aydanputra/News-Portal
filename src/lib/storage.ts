@@ -3,6 +3,7 @@ import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client
 import fs from "fs";
 import path from "path";
 import { writeFile, unlink } from "fs/promises";
+import { env } from "@/lib/env";
 
 export interface StorageProvider {
   upload(file: File | Buffer, key: string, mimeType: string): Promise<string>;
@@ -85,17 +86,25 @@ export class S3Storage implements StorageProvider {
   private publicUrlBase?: string;
 
   constructor() {
-    this.region = process.env.S3_REGION || "us-east-1";
-    this.bucket = process.env.S3_BUCKET || "news-portal";
-    this.endpoint = process.env.S3_ENDPOINT; // Optional for MinIO/R2
-    this.publicUrlBase = process.env.S3_PUBLIC_URL; // e.g., https://pub-xxx.r2.dev
+    this.region = env.S3_REGION || "us-east-1";
+    this.bucket = env.S3_BUCKET || "news-portal";
+    this.endpoint = env.S3_ENDPOINT; // Optional for MinIO/R2
+    this.publicUrlBase = env.S3_PUBLIC_URL; // e.g., https://pub-xxx.r2.dev
+
+    const accessKeyId = env.S3_ACCESS_KEY;
+    const secretAccessKey = env.S3_SECRET_KEY;
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error(
+        "[Storage] S3 dipilih tetapi S3_ACCESS_KEY / S3_SECRET_KEY belum dikonfigurasi",
+      );
+    }
 
     this.client = new S3Client({
       region: this.region,
       endpoint: this.endpoint,
       credentials: {
-        accessKeyId: process.env.S3_ACCESS_KEY || "dummy",
-        secretAccessKey: process.env.S3_SECRET_KEY || "dummy",
+        accessKeyId,
+        secretAccessKey,
       },
       forcePathStyle: !!this.endpoint, // Needed for MinIO
     });
@@ -146,12 +155,12 @@ export class S3Storage implements StorageProvider {
 }
 
 function resolveStorageProviderName(): StorageProviderName {
-  const explicitProvider = String(process.env.STORAGE_PROVIDER || "").trim().toLowerCase();
+  const explicitProvider = String(env.STORAGE_PROVIDER || "").trim().toLowerCase();
   if (explicitProvider === "local") return "local";
   if (explicitProvider === "s3") return "s3";
 
   // Backward-compatible fallback: if old S3 envs are still present, keep honoring them.
-  return process.env.S3_ACCESS_KEY ? "s3" : "local";
+  return env.S3_ACCESS_KEY ? "s3" : "local";
 }
 
 export function getStorageKeyFromUrl(fileUrl: string): string | null {
@@ -168,7 +177,7 @@ export function getStorageKeyFromUrl(fileUrl: string): string | null {
       return parsed.pathname.replace(/^\/+/, "");
     }
 
-    const publicBase = String(process.env.S3_PUBLIC_URL || "").trim();
+    const publicBase = String(env.S3_PUBLIC_URL || "").trim();
     if (publicBase) {
       const normalizedBase = publicBase.endsWith("/") ? publicBase.slice(0, -1) : publicBase;
       if (raw.startsWith(normalizedBase + "/")) {

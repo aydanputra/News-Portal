@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { prisma } from "@/lib/prisma";
 import { unstable_cache } from "next/cache";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600; // sitemap di-cache 1 jam (konsisten dengan unstable_cache di bawah)
 
 function stripTrailingSlash(url: string) {
   return String(url || "").replace(/\/+$/, "");

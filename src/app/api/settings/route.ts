@@ -1,10 +1,13 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { revalidateTag, revalidatePath } from "next/cache";
 import { assertRateLimit } from "@/lib/api-guards";
 import { requireAdmin } from "@/lib/server-auth";
 import { sanitizeInsertCode } from "@/lib/sanitizer";
 import { encryptAiKey } from "@/lib/ai-key-crypto";
+import { env } from "@/lib/env";
+import { internalError } from "@/lib/api-error";
 import {
   mergeThemeConfigWithSettings,
   normalizeDeprecatedSettingFonts,
@@ -35,18 +38,26 @@ export async function GET(request: Request) {
     const targetThemeId = requestedThemeId || globalSetting.activeTheme || "classic";
 
     // 3. Ambil Theme Config
-    // @ts-ignore
     const themeConfig = await prisma.themeConfig.findUnique({
       where: { themeId: targetThemeId },
     });
 
-    if (requestedThemeId && themeConfig && (themeConfig as any).config) {
-      globalSetting = mergeThemeConfigWithSettings(globalSetting, (themeConfig as any).config);
+    if (requestedThemeId && themeConfig && themeConfig.config) {
+      globalSetting = mergeThemeConfigWithSettings(globalSetting, themeConfig.config);
     }
     globalSetting = normalizeDeprecatedSettingFonts(globalSetting);
 
     // Get Global Styles
-    const globalStyles = {
+    const globalStyles = buildGlobalStyles(globalSetting);
+    return NextResponse.json(globalStyles);
+  } catch (error) {
+    console.error("GET /api/settings error:", error);
+    return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
+  }
+}
+
+function buildGlobalStyles(globalSetting: any) {
+  return {
         // Site Identity (Base Info)
         siteName: globalSetting?.siteName || "News Portal",
         siteDescription: globalSetting?.siteDescription || "",
@@ -128,7 +139,6 @@ export async function GET(request: Request) {
         postInlineRelatedHeadingLetterSpacing: globalSetting?.postInlineRelatedHeadingLetterSpacing || "0",
         postInlineRelatedFontSize: globalSetting?.postInlineRelatedFontSize || 14,
         postInlineRelatedBgColor: globalSetting?.postInlineRelatedBgColor || "#f9fafb",
-        // @ts-ignore
         postInlineRelatedHeaderBgColor: globalSetting?.postInlineRelatedHeaderBgColor || "#f9fafb", // Add this
         postInlineRelatedTitleColor: globalSetting?.postInlineRelatedTitleColor || "#1e293b",
         postInlineRelatedTextColor: globalSetting?.postInlineRelatedTextColor || "#1f2937",
@@ -243,13 +253,7 @@ export async function GET(request: Request) {
           : typeof process.env.OPENAI_API_KEY === "string" && process.env.OPENAI_API_KEY.trim() !== ""
             ? "env"
             : "none",
-    };
-
-    return NextResponse.json(globalStyles);
-  } catch (error) {
-    console.error("GET /api/settings error:", error);
-    return NextResponse.json({ error: "Failed to fetch settings" }, { status: 500 });
-  }
+  };
 }
 
 export async function PUT(request: Request) {
@@ -289,17 +293,19 @@ export async function PUT(request: Request) {
         : typeof (data as any).aiApiKey === "string"
           ? String((data as any).aiApiKey)
           : undefined;
+    let aiKeyEnc: string | null | undefined = undefined;
     if (wantsToUpdateAiKey) {
-      if (!process.env.MASTER_KEY || process.env.MASTER_KEY.trim() === "") {
+      const masterKey = env.MASTER_KEY?.trim();
+      if (!masterKey) {
         return NextResponse.json({ error: "MASTER_KEY not configured" }, { status: 500 });
       }
+      aiKeyEnc =
+        typeof rawAiKey === "string"
+          ? rawAiKey.trim() === ""
+            ? null
+            : encryptAiKey(rawAiKey.trim(), masterKey)
+          : undefined;
     }
-    const aiKeyEnc =
-      wantsToUpdateAiKey && typeof rawAiKey === "string"
-        ? rawAiKey.trim() === ""
-          ? null
-          : encryptAiKey(rawAiKey.trim(), process.env.MASTER_KEY as string)
-        : undefined;
 
     const wantsInsertCodeUpdate = ["insertCodeHead", "insertCodeBody", "insertCodeFooter"].some((key) =>
       Object.prototype.hasOwnProperty.call(rawData, key),
@@ -442,7 +448,6 @@ export async function PUT(request: Request) {
     const globalMutedTextColor = data.globalMutedTextColor || data.metaColor || "#9ca3af";
 
     // ELSE Update Global Styles AND Sync to Post/Home Specifics
-    // @ts-ignore
     const updatedSetting = await prisma.setting.upsert({
       where: { id: "default" },
       update: {
@@ -608,7 +613,6 @@ export async function PUT(request: Request) {
         
         // COLOR FIX: Use the cleaned variables
         postInlineRelatedBgColor: postInlineRelatedBgColor,
-        // @ts-ignore
         postInlineRelatedHeaderBgColor: postInlineRelatedHeaderBgColor,
         postInlineRelatedTitleColor: postInlineRelatedTitleColor,
         postInlineRelatedTextColor: postInlineRelatedTextColor,
@@ -804,7 +808,6 @@ export async function PUT(request: Request) {
         
         // COLOR FIX: Use the cleaned variables
         postInlineRelatedBgColor: postInlineRelatedBgColor,
-        // @ts-ignore
         postInlineRelatedHeaderBgColor: postInlineRelatedHeaderBgColor,
         postInlineRelatedTitleColor: postInlineRelatedTitleColor,
         postInlineRelatedTextColor: postInlineRelatedTextColor,
@@ -848,7 +851,7 @@ export async function PUT(request: Request) {
     });
 
     const activeThemeId = updatedSetting.activeTheme || data.activeTheme || "classic";
-    const existingThemeConfig = await (prisma as any).themeConfig.findUnique({
+    const existingThemeConfig = await prisma.themeConfig.findUnique({
       where: { themeId: activeThemeId },
     });
     const mergedThemeConfig: Record<string, unknown> = {
@@ -866,10 +869,10 @@ export async function PUT(request: Request) {
     mergedThemeConfig.globalBorderRadius = data.globalBorderRadius;
     mergedThemeConfig.postGlobalBorderRadius = data.globalBorderRadius;
 
-    await (prisma as any).themeConfig.upsert({
+    await prisma.themeConfig.upsert({
       where: { themeId: activeThemeId },
-      update: { config: mergedThemeConfig },
-      create: { themeId: activeThemeId, config: mergedThemeConfig },
+      update: { config: mergedThemeConfig as Prisma.InputJsonObject },
+      create: { themeId: activeThemeId, config: mergedThemeConfig as Prisma.InputJsonObject },
     });
 
     // Revalidate Settings Cache (Immediate Update)
@@ -878,18 +881,7 @@ export async function PUT(request: Request) {
     revalidatePath("/", "layout"); // Refresh root layout (fonts/vars)
 
     return NextResponse.json(updatedSetting);
-  } catch (error: any) {
-    console.error("==========================================");
-    console.error("SETTINGS API UPDATE ERROR DETAIL:");
-    console.error("Message:", error.message);
-    console.error("Code:", error.code);
-    console.error("Meta:", error.meta);
-    console.error("Stack:", error.stack);
-    console.error("==========================================");
-    
-    return NextResponse.json({ 
-        error: error.message || "Gagal update settings",
-        details: error.code ? `Prisma Error Code: ${error.code}` : undefined
-    }, { status: 500 });
+  } catch (error: unknown) {
+    return internalError(error, { route: "PUT /api/settings" });
   }
 }

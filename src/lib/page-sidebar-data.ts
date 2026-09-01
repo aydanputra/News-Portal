@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { extractFirstSidebarChildren, resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import { getThemeDefaultPostBlocks } from "@/lib/post-builder-theme-registry";
+import { collectWidgetsRecursive, getOrder, hasId } from "@/lib/block-utils";
 
 const POST_CARD_SELECT = {
   id: true,
@@ -19,27 +20,6 @@ const POST_CARD_SELECT = {
   author: { select: { name: true, avatar: true, banner: true } },
   featuredImage: { select: { id: true, fileUrl: true, width: true, height: true } },
 } as const;
-
-const isVisible = (block: any) => block?.isVisible !== false;
-const getOrder = (block: any) => (typeof block?.order === "number" ? block.order : 0);
-const getChildren = (block: any) => {
-  const children = block?.config?.children;
-  if (!Array.isArray(children)) return [];
-  return [...children].filter(isVisible);
-};
-
-function collectWidgetsRecursive(blocks: any[]): any[] {
-  const result: any[] = [];
-  for (const block of blocks) {
-    if (!isVisible(block)) continue;
-    if (block?.type === "section") {
-      result.push(...collectWidgetsRecursive(getChildren(block)));
-      continue;
-    }
-    result.push(block);
-  }
-  return result;
-}
 
 async function getPopularPosts(count: number) {
   const take = Math.max(1, Math.min(20, Number.isFinite(count) ? Math.floor(count) : 5));
@@ -158,7 +138,7 @@ export async function getPageSidebarData(activeTheme: string) {
 
   const sidebarWidgets = extractFirstSidebarChildren([...effectiveBlocks].sort((a, b) => getOrder(a) - getOrder(b)));
   const widgets = collectWidgetsRecursive(sidebarWidgets);
-  const uniqueWidgets = Array.from(new Map(widgets.filter((widget) => widget?.id).map((widget) => [widget.id, widget])).values());
+  const uniqueWidgets = Array.from(new Map(widgets.filter(hasId).map((widget) => [widget.id, widget])).values());
   const blockData: Record<string, any[]> = {};
 
   await Promise.all(

@@ -168,7 +168,7 @@ async function fetchSettingsUncached() {
   }
 
   const activeTheme = setting.activeTheme || "classic";
-  const themeConfig = await (prisma as any).themeConfig.findUnique({
+  const themeConfig = await prisma.themeConfig.findUnique({
     where: { themeId: activeTheme },
   });
 

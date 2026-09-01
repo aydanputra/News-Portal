@@ -17,6 +17,7 @@ import {
 } from "@/lib/font-utils";
 import { getYouTubeEmbedUrl } from "@/lib/utils";
 import { buildPostWatermarkedImageUrl } from "@/lib/post-image-watermark";
+import { getOrder, isVisible } from "@/lib/block-utils";
 
 interface PranalaSinglePostProps {
   post: any;
@@ -79,8 +80,6 @@ const getColSpan = (width: number) => {
   }
 };
 
-const isVisible = (block: any) => block?.isVisible !== false;
-const getOrder = (block: any) => (typeof block?.order === "number" ? block.order : 0);
 const isTruthy = (value: unknown) => value === true || value === "true" || value === 1 || value === "1";
 const formatLongDateId = (value?: string | Date | null) => {
   if (!value) return "";
