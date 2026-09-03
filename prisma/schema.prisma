@@ -311,6 +311,8 @@ model Notification {
   link      String?
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([userId, read])
 }
 
 model Tag {
@@ -337,6 +339,8 @@ model Media {
   ads          Advertisement[]
   uploadedBy   User            @relation(fields: [uploadedById], references: [id])
   posts        Post[]          @relation("PostFeaturedImage")
+
+  @@index([createdAt])
 }
 
 model Advertisement {
