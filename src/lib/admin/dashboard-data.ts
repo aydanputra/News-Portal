@@ -49,21 +49,12 @@ export async function getDashboardDataForUser(user: DashboardUser): Promise<Dash
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const [
-    totalPosts,
-    totalPublished,
-    totalDrafts,
-    totalInReview,
-    totalScheduled,
-    totalPublishedToday,
-    recentPosts,
-    inReviewPosts,
-  ] = await Promise.all([
-    prisma.post.count({ where: baseWhere }),
-    prisma.post.count({ where: { ...baseWhere, status: "PUBLISHED", published: true } }),
-    prisma.post.count({ where: { ...baseWhere, status: "DRAFT" } }),
-    prisma.post.count({ where: { ...baseWhere, status: "IN_REVIEW" } }),
-    prisma.post.count({ where: { ...baseWhere, status: "SCHEDULED" } }),
+  const [statusCounts, totalPublishedToday, recentPosts, inReviewPosts] = await Promise.all([
+    prisma.post.groupBy({
+      by: ["status", "published"],
+      where: baseWhere,
+      _count: { _all: true },
+    }),
     prisma.post.count({
       where: {
         ...(user.role === "WRITER" ? { authorId: user.id } : {}),
@@ -113,6 +104,21 @@ export async function getDashboardDataForUser(user: DashboardUser): Promise<Dash
       },
     }),
   ]);
+
+  // Satu groupBy menggantikan 5 count terpisah (totalPosts/totalPublished/totalDrafts/totalInReview/totalScheduled)
+  // agar query DB berkurang tanpa mengubah hasil.
+  const statusCountMap = new Map<string, number>();
+  for (const row of statusCounts) {
+    statusCountMap.set(`${row.status}|${row.published}`, row._count._all);
+  }
+  const countByStatus = (status: string) =>
+    (statusCountMap.get(`${status}|true`) ?? 0) + (statusCountMap.get(`${status}|false`) ?? 0);
+
+  const totalPosts = statusCounts.reduce((acc, row) => acc + row._count._all, 0);
+  const totalPublished = statusCountMap.get("PUBLISHED|true") ?? 0;
+  const totalDrafts = countByStatus("DRAFT");
+  const totalInReview = countByStatus("IN_REVIEW");
+  const totalScheduled = countByStatus("SCHEDULED");
 
   return {
     role: user.role,

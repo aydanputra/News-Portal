@@ -360,111 +360,106 @@ export async function POST(request: Request) {
       }
     }
 
-    // External Notification (Telegram/Email)
-    if (newStatus === "IN_REVIEW" || newStatus === "PUBLISHED") {
-      const { notifyWorkflowUpdate } = await import("@/lib/external-notifications");
-      
-      // Get all editors for notification
-      const editors = await prisma.user.findMany({
-        where: { role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
-        select: { id: true }
-      });
-      const editorIds = editors.map(e => e.id);
-      const editorIdsForNotif = normalizedReviewEditorIds.length > 0 ? normalizedReviewEditorIds : editorIds;
-
-      notifyWorkflowUpdate({
-        title: post.title,
-        authorName: user.name,
-        newStatus: post.status,
-        postId: post.id,
-        authorId: user.id,
-        editorIds: editorIdsForNotif
-      }).catch(err => console.error("[Notification] Delayed notify error:", err));
-    }
-
-    // Internal Notification (Bell): editor/admin targets
-    if (newStatus === "IN_REVIEW") {
+    // Notifikasi (external + bell + scheduled) dan sinkronisasi viewsBase dijalankan
+    // di background supaya response tidak menunggu operasi non-kritis setelah create.
+    void (async () => {
       try {
-        const recipients =
-          normalizedReviewEditorIds.length > 0
-            ? (
-                await prisma.user.findMany({
-                  where: {
-                    id: { in: normalizedReviewEditorIds },
-                    role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] },
-                    status: "ACTIVE",
-                  },
-                  select: { id: true },
-                })
-              ).map((e) => e.id)
-            : (
-                await prisma.user.findMany({
-                  where: { role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
-                  select: { id: true },
-                })
-              ).map((e) => e.id);
-
-        if (recipients.length > 0) {
-          const titleNotif = "Artikel Baru Menunggu Review";
-          const messageNotif = `Artikel "${post.title}" dikirim oleh ${user.name}.`;
-          await prisma.notification.createMany({
-            data: recipients.map((uid) => ({
-              userId: uid,
-              title: titleNotif,
-              message: messageNotif,
-              link: `/admin/posts/${post.id}/edit`,
-            })),
-          });
-        }
-      } catch (err) {
-        console.error("[Notification] Failed to create editor bell notifications:", err);
-      }
-    }
-
-    // Internal Notification (Bell): scheduled soon (<= 1 hour)
-    if (newStatus === "SCHEDULED" && finalPublishedAt) {
-      try {
-        const now = Date.now();
-        const due = new Date(finalPublishedAt).getTime();
-        const diffMs = due - now;
-        if (Number.isFinite(diffMs) && diffMs > 0 && diffMs <= 60 * 60 * 1000) {
+        // External Notification (Telegram/Email)
+        // Ambil daftar editor aktif sekali, dipakai ulang untuk bell notification di bawah.
+        let activeEditorIds: string[] = [];
+        if (newStatus === "IN_REVIEW" || newStatus === "PUBLISHED") {
           const editors = await prisma.user.findMany({
             where: { role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
             select: { id: true },
           });
-          const recipients = editors.map((e) => e.id);
-          if (recipients.length > 0) {
-            await prisma.notification.createMany({
-              data: recipients.map((uid) => ({
-                userId: uid,
-                title: "Artikel Dijadwalkan Dalam Waktu Dekat",
-                message: `Artikel "${post.title}" dijadwalkan terbit pada ${new Date(finalPublishedAt).toLocaleString("id-ID")}.`,
-                link: `/admin/posts/${post.id}/edit`,
-              })),
-            });
+          activeEditorIds = editors.map((e) => e.id);
+
+          const editorIdsForNotif = normalizedReviewEditorIds.length > 0 ? normalizedReviewEditorIds : activeEditorIds;
+
+          const { notifyWorkflowUpdate } = await import("@/lib/external-notifications");
+          notifyWorkflowUpdate({
+            title: post.title,
+            authorName: user.name,
+            newStatus: post.status,
+            postId: post.id,
+            authorId: user.id,
+            editorIds: editorIdsForNotif,
+          }).catch((err) => console.error("[Notification] Delayed notify error:", err));
+        }
+
+        // Internal Notification (Bell): editor/admin targets
+        if (newStatus === "IN_REVIEW") {
+          try {
+            const recipients =
+              normalizedReviewEditorIds.length > 0
+                ? activeEditorIds.filter((id) => normalizedReviewEditorIds.includes(id))
+                : activeEditorIds;
+
+            if (recipients.length > 0) {
+              const titleNotif = "Artikel Baru Menunggu Review";
+              const messageNotif = `Artikel "${post.title}" dikirim oleh ${user.name}.`;
+              await prisma.notification.createMany({
+                data: recipients.map((uid) => ({
+                  userId: uid,
+                  title: titleNotif,
+                  message: messageNotif,
+                  link: `/admin/posts/${post.id}/edit`,
+                })),
+              });
+            }
+          } catch (err) {
+            console.error("[Notification] Failed to create editor bell notifications:", err);
+          }
+        }
+
+        // Internal Notification (Bell): scheduled soon (<= 1 hour)
+        if (newStatus === "SCHEDULED" && finalPublishedAt) {
+          try {
+            const now = Date.now();
+            const due = new Date(finalPublishedAt).getTime();
+            const diffMs = due - now;
+            if (Number.isFinite(diffMs) && diffMs > 0 && diffMs <= 60 * 60 * 1000) {
+              const editors = await prisma.user.findMany({
+                where: { role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
+                select: { id: true },
+              });
+              const recipients = editors.map((e) => e.id);
+              if (recipients.length > 0) {
+                await prisma.notification.createMany({
+                  data: recipients.map((uid) => ({
+                    userId: uid,
+                    title: "Artikel Dijadwalkan Dalam Waktu Dekat",
+                    message: `Artikel "${post.title}" dijadwalkan terbit pada ${new Date(finalPublishedAt).toLocaleString("id-ID")}.`,
+                    link: `/admin/posts/${post.id}/edit`,
+                  })),
+                });
+              }
+            }
+          } catch (err) {
+            console.error("[Notification] Failed to create scheduled bell notifications:", err);
+          }
+        }
+
+        if (normalizedViewsBase > 0) {
+          try {
+            await prisma.$executeRaw`UPDATE "Post" SET "viewsBase" = ${normalizedViewsBase} WHERE "id" = ${post.id}`;
+          } catch (error) {
+            console.error("POST /api/posts update viewsBase error:", error);
           }
         }
       } catch (err) {
-        console.error("[Notification] Failed to create scheduled bell notifications:", err);
+        console.error("[Notification] Background notification error:", err);
       }
-    }
+    })();
 
-    if (normalizedViewsBase > 0) {
-      try {
-        await prisma.$executeRaw`UPDATE "Post" SET "viewsBase" = ${normalizedViewsBase} WHERE "id" = ${post.id}`;
-      } catch (error) {
-        console.error("POST /api/posts update viewsBase error:", error);
-      }
-    }
-
-    // Log Activity
-    await logActivity(
+    // Log Activity (background, tidak memblokir response)
+    logActivity(
       user.id,
       "CREATE_POST",
       "Membuat berita baru",
-      post.id, // resourceId
-      { title: post.title, status: newStatus } // details
-    );
+      post.id,
+      { title: post.title, status: newStatus }
+    ).catch((err) => console.error("[Audit] Failed to write activity:", err));
 
     // Revalidate Cache
     if (isPublished) {

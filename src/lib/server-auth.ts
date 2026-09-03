@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { verifyToken } from "@/lib/auth";
@@ -7,7 +8,9 @@ import { AUTH_COOKIE_NAME } from "@/lib/auth-cookie";
 
 type Role = "SUPER_ADMIN" | "ADMIN" | "EDITOR" | "WRITER";
 
-export async function requireUser() {
+// Dibungkus React.cache() agar dalam satu render tree (mis. layout + page)
+// query user hanya dijalankan sekali, tidak berulang per pemanggil.
+export const requireUser = cache(async function requireUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIE_NAME)?.value;
   const payload = verifyToken(token || "");
@@ -27,7 +30,7 @@ export async function requireUser() {
     name: string;
     avatar: string | null;
   };
-}
+});
 
 export async function requireAdmin() {
   const user = await requireUser();

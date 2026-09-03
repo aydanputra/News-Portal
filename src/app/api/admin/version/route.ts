@@ -198,10 +198,13 @@ export async function GET(_request: Request) {
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const payload = await resolveVersionPayload();
 
-    return NextResponse.json({
-      ...payload,
-      user: { id: user.id, role: user.role },
-    });
+    return NextResponse.json(
+      {
+        ...payload,
+        user: { id: user.id, role: user.role },
+      },
+      { headers: { "Cache-Control": "private, max-age=300" } },
+    );
   } catch {
     return NextResponse.json({ error: "Failed to check version" }, { status: 500 });
   }

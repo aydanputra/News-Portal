@@ -79,13 +79,15 @@ export async function GET(
         return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
-    // Akses kontrol: konten non-publish hanya untuk user berwenang
+    // Akses kontrol: konten non-publish hanya untuk user berwenang.
+    // Gunakan post yang sudah di-fetch agar tidak ada query findUnique ganda.
     if (post.status !== "PUBLISHED") {
       if (!user) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
-      const access = await checkAccess(id, user);
-      if (access.error) {
+      const isPrivileged =
+        user.role === "SUPER_ADMIN" || user.role === "ADMIN" || user.role === "EDITOR";
+      if (!isPrivileged && (post as any).authorId !== user.id) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
       }
     }
@@ -183,6 +185,7 @@ export async function PUT(
       reviewEditorIds,
     } = validData;
     const normalizedMedia = normalizePostTypeMedia({ type, videoUrl, gallery });
+    const sanitizedContent = sanitizeContent(content || "");
     // Note: rejectionReason is not in validator yet, grab it from body for now as it's admin specific
     const rejectionReason = (body as any).rejectionReason;
 
@@ -218,6 +221,26 @@ export async function PUT(
 
     const { status: newStatus, published: isPublished, publishedAt: finalPublishedAt } = transition;
 
+    // Notifikasi bell untuk penulis (REJECTED/PUBLISHED) dihitung di luar transaksi.
+    let authorNotif: { userId: string; title: string; message: string } | null = null;
+    if (newStatus !== access.post?.status && (user.role === "EDITOR" || user.role === "ADMIN")) {
+      if (access.post?.authorId && access.post.authorId !== user.id) {
+        if (newStatus === "REJECTED") {
+          authorNotif = {
+            userId: access.post.authorId,
+            title: "Berita Ditolak/Revisi",
+            message: `Berita "${title}" perlu revisi. Alasan: ${rejectionReason}`,
+          };
+        } else if (newStatus === "PUBLISHED") {
+          authorNotif = {
+            userId: access.post.authorId,
+            title: "Berita Terbit",
+            message: `Berita "${title}" telah diterbitkan.`,
+          };
+        }
+      }
+    }
+
     // 3. Sync Image Legacy jika featuredImageId ada
     let finalImage = image;
     
@@ -244,7 +267,7 @@ export async function PUT(
 
     // 4. Update Data (Dengan Transaction untuk Revision History & Notification)
     // @ts-ignore: Transaction type complexity
-    const updatedPost = await prisma.$transaction(async (tx) => {
+    const txPost = await prisma.$transaction(async (tx) => {
         // Prepare slug inside transaction scope
         let slug = access.post?.slug;
         const normalizedRequestedSlug =
@@ -281,50 +304,14 @@ export async function PUT(
             }
         });
 
-        // b. Create Notification Logic
-        if (newStatus !== access.post?.status) {
-            let notifMessage = "";
-            let notifTitle = "";
-            let notifUserId = ""; // Target user
-
-            // Skenario 1: Editor reject/approve tulisan Writer
-            if (user.role === "EDITOR" || user.role === "ADMIN") {
-                if (access.post?.authorId !== user.id) { // Jangan notif diri sendiri
-                    notifUserId = access.post?.authorId || "";
-                    if (newStatus === "REJECTED") {
-                        notifTitle = "Berita Ditolak/Revisi";
-                        notifMessage = `Berita "${title}" perlu revisi. Alasan: ${rejectionReason}`;
-                    } else if (newStatus === "PUBLISHED") {
-                        notifTitle = "Berita Terbit";
-                        notifMessage = `Berita "${title}" telah diterbitkan.`;
-                    }
-                }
-            }
-            
-            // Skenario 2: Writer mengajukan Review (DRAFT -> IN_REVIEW)
-            // TODO: Kirim ke semua Editor (Future Improvement)
-
-            if (notifUserId && notifTitle) {
-                // @ts-ignore
-                await tx.notification.create({
-                    data: {
-                        userId: notifUserId,
-                        title: notifTitle,
-                        message: notifMessage,
-                        link: `/admin/posts/${id}/edit`
-                    }
-                });
-            }
-        }
-
         // c. Update Post
         const updateData: any = {
                 title,
                 slug, // Explicitly update slug
                 subtitle,
-                content: sanitizeContent(content || ""),
+                content: sanitizedContent,
                 rejectionReason: newStatus === "REJECTED" ? rejectionReason : null,
-                excerpt: makeExcerpt(toPlain(sanitizeContent(content || "")), 180),
+                excerpt: makeExcerpt(toPlain(sanitizedContent), 180),
                 status: newStatus,
                 published: isPublished,
                 publishedAt: finalPublishedAt,
@@ -435,16 +422,6 @@ export async function PUT(
           );
         }
 
-        const postWithCategories = await tx.post.findUnique({
-          where: { id: baseUpdatedPost.id },
-          include: {
-            category: true,
-            postCategories: { include: { category: true } },
-            tags: true,
-            featuredImage: true,
-          },
-        });
-
         if (newStatus === "IN_REVIEW" && hasReviewEditorIdsKey) {
           try {
             await (tx as any).postReviewTarget.deleteMany({ where: { postId: id } });
@@ -459,131 +436,158 @@ export async function PUT(
           }
         }
 
-        return postWithCategories || baseUpdatedPost;
+        return baseUpdatedPost;
     });
 
-    // External Notification (Telegram/Email)
-    // Notify if status changed to critical states
-    if (newStatus !== access.post?.status && (newStatus === "IN_REVIEW" || newStatus === "PUBLISHED" || newStatus === "REJECTED")) {
-      const { notifyWorkflowUpdate } = await import("@/lib/external-notifications");
+    // Re-fetch full post setelah commit (di luar transaksi) supaya durasi transaksi lebih pendek.
+    const fullUpdatedPost = await prisma.post.findUnique({
+      where: { id },
+      include: {
+        category: true,
+        postCategories: { include: { category: true } },
+        tags: true,
+        featuredImage: true,
+      },
+    });
+    const updatedPost = fullUpdatedPost || txPost;
 
-      // Get all editors for notification
-      const editors = await prisma.user.findMany({
-        where: { role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
-        select: { id: true }
-      });
-      const editorIds = editors.map(e => e.id);
-      let editorIdsForNotif = editorIds;
-
-      if (normalizedReviewEditorIds.length > 0) {
-        editorIdsForNotif = normalizedReviewEditorIds;
-      } else {
-        try {
-          const targets = await (prisma as any).postReviewTarget.findMany({
-            where: { postId: updatedPost.id },
-            select: { editorId: true },
-          });
-          const targetIds = Array.isArray(targets)
-            ? Array.from(
-                new Set(targets.map((t: any) => String(t?.editorId || "").trim()).filter(Boolean)),
-              )
-            : [];
-          if (targetIds.length > 0) editorIdsForNotif = targetIds;
-        } catch (error) {
-          console.error("PUT /api/posts/[id] read reviewTargets error:", error);
-        }
-      }
-
-      notifyWorkflowUpdate({
-        title: updatedPost.title,
-        authorName: (updatedPost as any).author?.name || user.name,
-        oldStatus: access.post?.status,
-        newStatus: updatedPost.status,
-        rejectionReason: (body as any).rejectionReason,
-        postId: updatedPost.id,
-        authorId: updatedPost.authorId,
-        editorIds: editorIdsForNotif
-      }).catch(err => console.error("[Notification] Delayed notify error:", err));
-
-      // Internal Notification (Bell): editor/admin inbox
-      if (newStatus === "IN_REVIEW") {
-        try {
-          const recipients = await prisma.user.findMany({
-            where: {
-              id: { in: editorIdsForNotif },
-              role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] },
-              status: "ACTIVE",
-            },
-            select: { id: true },
-          });
-
-          let authorName = user.name;
-          if (updatedPost.authorId && updatedPost.authorId !== user.id) {
-            const author = await prisma.user.findUnique({
-              where: { id: updatedPost.authorId },
-              select: { name: true },
-            });
-            if (author?.name) authorName = author.name;
-          }
-
-          const titleNotif =
-            access.post?.status === "REJECTED" ? "Revisi Masuk untuk Review" : "Artikel Baru Menunggu Review";
-          const messageNotif =
-            access.post?.status === "REJECTED"
-              ? `Artikel "${updatedPost.title}" sudah direvisi oleh ${authorName}.`
-              : `Artikel "${updatedPost.title}" dikirim oleh ${authorName}.`;
-
-          if (recipients.length > 0) {
-            await prisma.notification.createMany({
-              data: recipients.map((r) => ({
-                userId: r.id,
-                title: titleNotif,
-                message: messageNotif,
-                link: `/admin/posts/${updatedPost.id}/edit`,
-              })),
-            });
-          }
-        } catch (err) {
-          console.error("[Notification] Failed to create editor bell notifications:", err);
-        }
-      }
+    // Notifikasi bell untuk penulis dijalankan fire-and-forget (tidak memblokir response).
+    if (authorNotif) {
+      void prisma.notification
+        .create({
+          data: {
+            userId: authorNotif.userId,
+            title: authorNotif.title,
+            message: authorNotif.message,
+            link: `/admin/posts/${id}/edit`,
+          },
+        })
+        .catch((err) => console.error("[Notification] Failed to create author bell notification:", err));
     }
 
-    // Internal Notification (Bell): scheduled soon (<= 1 hour)
-    if (newStatus !== access.post?.status && newStatus === "SCHEDULED" && finalPublishedAt) {
+    // Notifikasi (external + bell + scheduled) dijalankan di background
+    // supaya tidak memblokir response setelah transaksi selesai.
+    void (async () => {
       try {
-        const now = Date.now();
-        const due = new Date(finalPublishedAt).getTime();
-        const diffMs = due - now;
-        if (Number.isFinite(diffMs) && diffMs > 0 && diffMs <= 60 * 60 * 1000) {
-          const recipients = await prisma.user.findMany({
+        // External Notification (Telegram/Email)
+        if (newStatus !== access.post?.status && (newStatus === "IN_REVIEW" || newStatus === "PUBLISHED" || newStatus === "REJECTED")) {
+          const { notifyWorkflowUpdate } = await import("@/lib/external-notifications");
+
+          // Get all editors for notification
+          const editors = await prisma.user.findMany({
             where: { role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
-            select: { id: true },
+            select: { id: true }
           });
-          if (recipients.length > 0) {
-            await prisma.notification.createMany({
-              data: recipients.map((r) => ({
-                userId: r.id,
-                title: "Artikel Dijadwalkan Dalam Waktu Dekat",
-                message: `Artikel "${updatedPost.title}" dijadwalkan terbit pada ${new Date(finalPublishedAt).toLocaleString("id-ID")}.`,
-                link: `/admin/posts/${updatedPost.id}/edit`,
-              })),
-            });
+          const editorIds = editors.map(e => e.id);
+          let editorIdsForNotif = editorIds;
+
+          if (normalizedReviewEditorIds.length > 0) {
+            editorIdsForNotif = normalizedReviewEditorIds;
+          } else {
+            try {
+              const targets = await (prisma as any).postReviewTarget.findMany({
+                where: { postId: updatedPost.id },
+                select: { editorId: true },
+              });
+              const targetIds = Array.isArray(targets)
+                ? Array.from(
+                    new Set(targets.map((t: any) => String(t?.editorId || "").trim()).filter(Boolean)),
+                  )
+                : [];
+              if (targetIds.length > 0) editorIdsForNotif = targetIds;
+            } catch (error) {
+              console.error("PUT /api/posts/[id] read reviewTargets error:", error);
+            }
+          }
+
+          notifyWorkflowUpdate({
+            title: updatedPost.title,
+            authorName: (updatedPost as any).author?.name || user.name,
+            oldStatus: access.post?.status,
+            newStatus: updatedPost.status,
+            rejectionReason: (body as any).rejectionReason,
+            postId: updatedPost.id,
+            authorId: updatedPost.authorId,
+            editorIds: editorIdsForNotif
+          }).catch(err => console.error("[Notification] Delayed notify error:", err));
+
+          // Internal Notification (Bell): editor/admin inbox
+          if (newStatus === "IN_REVIEW") {
+            try {
+              const recipientSet = new Set(editorIdsForNotif);
+              const recipients = editorIds.filter((id) => recipientSet.has(id));
+
+              let authorName = user.name;
+              if (updatedPost.authorId && updatedPost.authorId !== user.id) {
+                const author = await prisma.user.findUnique({
+                  where: { id: updatedPost.authorId },
+                  select: { name: true },
+                });
+                if (author?.name) authorName = author.name;
+              }
+
+              const titleNotif =
+                access.post?.status === "REJECTED" ? "Revisi Masuk untuk Review" : "Artikel Baru Menunggu Review";
+              const messageNotif =
+                access.post?.status === "REJECTED"
+                  ? `Artikel "${updatedPost.title}" sudah direvisi oleh ${authorName}.`
+                  : `Artikel "${updatedPost.title}" dikirim oleh ${authorName}.`;
+
+              if (recipients.length > 0) {
+                await prisma.notification.createMany({
+                  data: recipients.map((uid) => ({
+                    userId: uid,
+                    title: titleNotif,
+                    message: messageNotif,
+                    link: `/admin/posts/${updatedPost.id}/edit`,
+                  })),
+                });
+              }
+            } catch (err) {
+              console.error("[Notification] Failed to create editor bell notifications:", err);
+            }
+          }
+        }
+
+        // Internal Notification (Bell): scheduled soon (<= 1 hour)
+        if (newStatus !== access.post?.status && newStatus === "SCHEDULED" && finalPublishedAt) {
+          try {
+            const now = Date.now();
+            const due = new Date(finalPublishedAt).getTime();
+            const diffMs = due - now;
+            if (Number.isFinite(diffMs) && diffMs > 0 && diffMs <= 60 * 60 * 1000) {
+              const recipients = await prisma.user.findMany({
+                where: { role: { in: ["EDITOR", "ADMIN", "SUPER_ADMIN"] }, status: "ACTIVE" },
+                select: { id: true },
+              });
+              if (recipients.length > 0) {
+                await prisma.notification.createMany({
+                  data: recipients.map((r) => ({
+                    userId: r.id,
+                    title: "Artikel Dijadwalkan Dalam Waktu Dekat",
+                    message: `Artikel "${updatedPost.title}" dijadwalkan terbit pada ${new Date(finalPublishedAt).toLocaleString("id-ID")}.`,
+                    link: `/admin/posts/${updatedPost.id}/edit`,
+                  })),
+                });
+              }
+            }
+          } catch (err) {
+            console.error("[Notification] Failed to create scheduled bell notifications:", err);
           }
         }
       } catch (err) {
-        console.error("[Notification] Failed to create scheduled bell notifications:", err);
+        console.error("[Notification] Background notification error:", err);
       }
-    }
+    })();
 
-    // Log Activity
-    await logActivity(
+    // Log Activity (background, tidak memblokir response)
+    logActivity(
       user.id,
       "UPDATE_POST",
       "Mengupdate berita",
       updatedPost.id,
       { title: updatedPost.title, status: newStatus }
-    );
+    ).catch((err) => console.error("[Audit] Failed to write activity:", err));
 
     // Revalidate Cache
     revalidateTag("homepage");

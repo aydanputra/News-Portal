@@ -30,19 +30,22 @@ export async function GET(request: Request) {
     label: MANAGED_TOOL_LABELS[id],
   }));
 
-  return NextResponse.json({
-    source: settings?.toolVisibility ? "super_admin" : "default",
-    host,
-    enabledTools,
-    enabledToolGroups,
-    toolVisibility,
-    canManage: user.role === "SUPER_ADMIN",
-    allTools: ALL_MANAGED_TOOL_IDS.map((id) => ({
-      id,
-      label: MANAGED_TOOL_LABELS[id],
-      description: MANAGED_TOOL_DESCRIPTIONS[id],
-    })),
-  });
+  return NextResponse.json(
+    {
+      source: settings?.toolVisibility ? "super_admin" : "default",
+      host,
+      enabledTools,
+      enabledToolGroups,
+      toolVisibility,
+      canManage: user.role === "SUPER_ADMIN",
+      allTools: ALL_MANAGED_TOOL_IDS.map((id) => ({
+        id,
+        label: MANAGED_TOOL_LABELS[id],
+        description: MANAGED_TOOL_DESCRIPTIONS[id],
+      })),
+    },
+    { headers: { "Cache-Control": "private, max-age=300" } },
+  );
 }
 
 export async function PUT(request: Request) {

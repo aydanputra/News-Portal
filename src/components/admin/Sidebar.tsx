@@ -51,7 +51,7 @@ export default function Sidebar({ roleOverride }: { roleOverride?: string | null
   useEffect(() => {
     if (!canSeeTools) return;
     let active = true;
-    fetch("/api/admin/tools/enabled", { cache: "no-store" })
+    fetch("/api/admin/tools/enabled")
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!active || !data) return;

@@ -1,4 +1,4 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
@@ -25,11 +25,21 @@ const poolLimit = isBuildPhase ? 2 : 10;
 
 const databaseUrl = withPoolParams(rawDatabaseUrl, poolLimit);
 
+// Query logging di development dimatikan secara default karena menambah overhead
+// dan membuat dashboard terasa lambat. Aktifkan hanya bila dibutuhkan via env.
+const logQuery = process.env.PRISMA_LOG_QUERY === "true";
+const prismaLogLevel: Prisma.LogLevel[] =
+  process.env.NODE_ENV === "development"
+    ? logQuery
+      ? ["query", "error", "warn"]
+      : ["error", "warn"]
+    : ["error"];
+
 export const prisma =
   globalForPrisma.prisma ||
   new PrismaClient({
     datasourceUrl: databaseUrl,
-    log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
+    log: prismaLogLevel,
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;

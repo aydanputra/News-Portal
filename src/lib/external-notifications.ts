@@ -255,7 +255,23 @@ export async function notifyWorkflowUpdate({
 }) {
   // 1. Ambil Pengaturan dari Database
   const settings = await prisma.setting.findUnique({ where: { id: "default" } }) as any;
-  
+
+  const events = settings?.notificationEvents || { onNewPost: true, onPostRejected: true, onPostPublished: true };
+  const eventEnabled =
+    newStatus === "IN_REVIEW" ? Boolean((events as any)?.onNewPost ?? true)
+    : newStatus === "PUBLISHED" ? Boolean((events as any)?.onPostPublished ?? true)
+    : newStatus === "REJECTED" ? Boolean((events as any)?.onPostRejected ?? true)
+    : false;
+  const telegramEnabled =
+    Boolean(settings?.notificationTelegramEnabled) ||
+    (!settings && Boolean(process.env.TELEGRAM_BOT_TOKEN) && Boolean(process.env.TELEGRAM_CHAT_ID));
+  const emailEnabled = Boolean(settings?.notificationEmailEnabled && settings.notificationSmtpHost);
+
+  // Tidak ada kanal/event aktif: hentikan lebih awal tanpa ambil ulang post & data user.
+  if (!eventEnabled || (!telegramEnabled && !emailEnabled)) {
+    return;
+  }
+
   const siteUrl = stripTrailingSlash(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000");
   const editUrl = `${siteUrl}/admin/posts/${postId}/edit`;
 
@@ -295,8 +311,7 @@ export async function notifyWorkflowUpdate({
       ? `${siteUrl}/${encodeURIComponent(categorySlug)}/${encodeURIComponent(postSlug)}`
       : siteUrl;
 
-  // 2. Cek apakah event ini diaktifkan
-  const events = settings?.notificationEvents || { onNewPost: true, onPostRejected: true, onPostPublished: true };
+  // 2. Cek target email
   const emailTargetAuthor = Boolean((events as any)?.emailTargetAuthor ?? true);
   const emailTargetEditors = Boolean((events as any)?.emailTargetEditors ?? true);
   const emailTargetAdmins = Boolean((events as any)?.emailTargetAdmins ?? true);
@@ -341,16 +356,23 @@ export async function notifyWorkflowUpdate({
     
     // Target: All Editors (Personal)
     if (editorIds && editorIds.length > 0) {
-      const editors = await (prisma.user as any).findMany({
+      const editorUsers = await (prisma.user as any).findMany({
         // @ts-ignore
-        where: { id: { in: editorIds }, telegramChatId: { not: null } },
+        where: { id: { in: editorIds } },
         // @ts-ignore
-        select: { telegramChatId: true }
+        select: { telegramChatId: true, email: true, role: true },
       });
-      // @ts-ignore
-      targetChatIds = editors.map(e => e.telegramChatId!).filter(Boolean);
+      targetChatIds = (editorUsers as any[]).map((e) => e?.telegramChatId).filter(Boolean);
 
-      const { editorEmails, adminEmails } = await collectRoleEmails(editorIds);
+      const editorEmails: string[] = [];
+      const adminEmails: string[] = [];
+      for (const u of editorUsers || []) {
+        const email = typeof u?.email === "string" ? u.email.trim() : "";
+        if (!email || !email.includes("@")) continue;
+        const role = String(u?.role || "");
+        if (role === "EDITOR") editorEmails.push(email);
+        if (role === "ADMIN" || role === "SUPER_ADMIN") adminEmails.push(email);
+      }
       if (emailTargetEditors) targetEmails.push(...editorEmails);
       if (emailTargetAdmins) targetEmails.push(...adminEmails);
     }
@@ -405,23 +427,22 @@ export async function notifyWorkflowUpdate({
               `🔗 <a href="${editUrl}">Edit Berita</a>`;
     
     // Target: Author (Personal)
+    const authorFallback = authorId && !dbPost?.author
+      ? await (prisma.user as any).findUnique({
+          where: { id: authorId },
+          select: { telegramChatId: true, email: true },
+        })
+      : null;
+
     if (dbPost?.author?.telegramChatId) {
       targetChatIds = [dbPost.author.telegramChatId];
-    } else if (authorId) {
-      const author = await (prisma.user as any).findUnique({
-        where: { id: authorId },
-        select: { telegramChatId: true },
-      });
-      if (author?.telegramChatId) targetChatIds = [author.telegramChatId];
+    } else if (authorFallback?.telegramChatId) {
+      targetChatIds = [authorFallback.telegramChatId];
     }
     if (emailTargetAuthor && dbPost?.author?.email) {
       targetEmails.push(dbPost.author.email);
-    } else if (emailTargetAuthor && authorId) {
-      const author = await (prisma.user as any).findUnique({
-        where: { id: authorId },
-        select: { email: true },
-      });
-      if (author?.email) targetEmails.push(author.email);
+    } else if (emailTargetAuthor && authorFallback?.email) {
+      targetEmails.push(authorFallback.email);
     }
 
     if (editorIds && editorIds.length > 0) {
