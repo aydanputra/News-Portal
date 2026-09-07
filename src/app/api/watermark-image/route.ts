@@ -7,6 +7,27 @@ import { lookup } from "node:dns/promises";
 
 export const dynamic = "force-dynamic";
 
+const MAX_CACHE_ENTRIES = 300;
+const renderedCache = new Map<string, { body: Uint8Array<ArrayBuffer>; contentType: string }>();
+
+function readCache(key: string) {
+  const hit = renderedCache.get(key);
+  if (!hit) return undefined;
+  renderedCache.delete(key);
+  renderedCache.set(key, hit);
+  return hit;
+}
+
+function writeCache(key: string, value: { body: Uint8Array<ArrayBuffer>; contentType: string }) {
+  renderedCache.delete(key);
+  renderedCache.set(key, value);
+  while (renderedCache.size > MAX_CACHE_ENTRIES) {
+    const oldestKey = renderedCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    renderedCache.delete(oldestKey);
+  }
+}
+
 const PRIVATE_IP_PATTERNS: RegExp[] = [
   /^127\./,
   /^10\./,
@@ -115,6 +136,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Parameter watermark tidak lengkap" }, { status: 400 });
     }
 
+    const cacheKey = `${sourceUrl}|${watermarkUrl}|${searchParams.get("sz") || ""}|${searchParams.get("op") || ""}|${searchParams.get("pos") || ""}|${searchParams.get("pt") || ""}|${searchParams.get("pr") || ""}|${searchParams.get("pb") || ""}|${searchParams.get("pl") || ""}`;
+    const cached = readCache(cacheKey);
+    if (cached) {
+      return new NextResponse(cached.body, {
+        headers: {
+          "Content-Type": cached.contentType,
+          "Cache-Control": "public, max-age=31536000, immutable",
+        },
+      });
+    }
+
     const [sourceBuffer, watermarkBuffer] = await Promise.all([
       readInputBuffer(sourceUrl),
       readInputBuffer(watermarkUrl),
@@ -214,10 +246,13 @@ export async function GET(request: NextRequest) {
     const contentType =
       outputFormat === "png" ? "image/png" : outputFormat === "jpeg" ? "image/jpeg" : "image/webp";
 
-    return new NextResponse(new Uint8Array(renderedImage), {
+    const body = new Uint8Array(renderedImage);
+    writeCache(cacheKey, { body, contentType });
+
+    return new NextResponse(body, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=31536000, stale-while-revalidate=86400",
+        "Cache-Control": "public, max-age=31536000, immutable",
       },
     });
   } catch (error) {

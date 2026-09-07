@@ -507,8 +507,8 @@ function InlineRelatedBlock({
           src={imageUrl}
           alt={item.title}
           fill
+          sizes="96px"
           className="object-cover transition-transform duration-300 group-hover:scale-[1.04]"
-          unoptimized
         />
       </div>
     );
@@ -659,7 +659,6 @@ function InlineRelatedBlock({
                           fill
                           sizes="(max-width: 768px) 100vw, 50vw"
                           className="!absolute !inset-0 !block !h-full !w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                          unoptimized
                         />
                       </div>
                     ) : null;
@@ -693,7 +692,6 @@ function InlineRelatedBlock({
                             fill
                             sizes="80px"
                             className="!absolute !inset-0 !block !h-full !w-full object-cover object-center transition-transform duration-500 group-hover:scale-105"
-                            unoptimized
                           />
                         </div>
                       ) : null;

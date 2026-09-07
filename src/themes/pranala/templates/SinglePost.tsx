@@ -439,7 +439,7 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
           </div>
         ) : imageUrl ? (
           <div className="relative w-full aspect-video overflow-hidden bg-[var(--bg-elevated)]" style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}>
-            <Image src={featuredImageSrc} alt={featuredImageAlt} fill className="object-cover" unoptimized />
+            <Image src={featuredImageSrc} alt={featuredImageAlt} fill priority sizes="(max-width: 768px) 100vw, 1250px" className="object-cover" unoptimized={featuredImageSrc.startsWith("/api/")} />
           </div>
         ) : null}
         <div

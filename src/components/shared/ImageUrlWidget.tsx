@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { sanitizeExternalUrl } from "@/lib/sanitizer";
 
 type ImageUrlWidgetConfig = {
@@ -82,46 +83,41 @@ export default function ImageUrlWidget({ config, block, title = "", customTitle 
   const borderRadius = normalizeCssSize(resolvedConfig?.borderRadius);
   const showShadow = resolvedConfig?.showShadow === true || resolvedConfig?.showShadow === "true";
   const shadowStyle = showShadow ? "0 10px 30px rgba(15, 23, 42, 0.14)" : undefined;
-  const hasCustomFrame = Boolean(imageWidth && imageHeight);
-  const imageStyle: React.CSSProperties = hasCustomFrame
-    ? { width: "100%", height: "100%", objectFit, display: "block" }
-    : {
-        width: imageWidth ?? "auto",
-        height: imageHeight ?? "auto",
-        maxWidth: imageWidth ? "100%" : "100%",
-        objectFit,
-        borderRadius,
-        boxShadow: shadowStyle,
-        display: "inline-block",
-        verticalAlign: "top",
-      };
-  const image = hasCustomFrame ? (
-    <div
-      className="inline-block max-w-full align-top"
-      style={{
-        width: imageWidth,
-        height: imageHeight,
-        overflow: "hidden",
-        borderRadius,
-        boxShadow: shadowStyle,
-      }}
-    >
+  const isExternal = /^https?:\/\//i.test(imageUrl);
+  const isApiImage = imageUrl.startsWith("/api/");
+  const containerStyle: React.CSSProperties = {
+    position: "relative",
+    width: imageWidth ?? "100%",
+    height: imageHeight,
+    aspectRatio: imageHeight ? undefined : "16 / 9",
+    maxWidth: "100%",
+    overflow: "hidden",
+    borderRadius,
+    boxShadow: shadowStyle,
+  };
+  const image = isExternal ? (
+    <div className="inline-block max-w-full align-top" style={containerStyle}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}
         alt={altText}
         loading="lazy"
-        className="block h-full w-full"
-        style={imageStyle}
+        className="absolute inset-0 h-full w-full"
+        style={{ objectFit }}
       />
     </div>
   ) : (
-    <img
-      src={imageUrl}
-      alt={altText}
-      loading="lazy"
-      className="inline-block h-auto max-w-full align-top"
-      style={imageStyle}
-    />
+    <div className="inline-block max-w-full align-top" style={containerStyle}>
+      <Image
+        src={imageUrl}
+        alt={altText}
+        fill
+        sizes="(max-width: 768px) 100vw, 50vw"
+        style={{ objectFit }}
+        unoptimized={isApiImage}
+        className="h-full w-full"
+      />
+    </div>
   );
   const wrapperClassName = `min-w-0 ${className}`.trim();
   const linkClassName = "inline-block max-w-full align-top";

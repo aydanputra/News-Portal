@@ -7,6 +7,8 @@ import { getAllImagesFromContent, getFirstImageFromContent, getPostImageUrl, nor
 import { getYouTubeEmbedUrl } from "@/lib/utils";
 import { buildPostWatermarkedImageUrl } from "@/lib/post-image-watermark";
 
+const isApiImageSrc = (src?: string) => Boolean(src && src.startsWith("/api/"));
+
 export default function PostFeaturedImageWidget({
   post,
   setting,
@@ -181,7 +183,7 @@ export default function PostFeaturedImageWidget({
                 setIsLightboxOpen(true);
               }}
             >
-              <Image src={getRenderImageUrl(item.src)} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
+              <Image src={getRenderImageUrl(item.src)} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized={isApiImageSrc(getRenderImageUrl(item.src))} />
               {item.caption && <div className="absolute inset-x-0 bottom-0 bg-black/55 px-3 py-2 text-xs text-white">{item.caption}</div>}
             </button>
           ))}
@@ -200,7 +202,7 @@ export default function PostFeaturedImageWidget({
                   setIsLightboxOpen(true);
                 }}
               >
-                <Image src={getRenderImageUrl(item.src)} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
+                <Image src={getRenderImageUrl(item.src)} alt={post?.title || `Gallery Image ${index + 1}`} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized={isApiImageSrc(getRenderImageUrl(item.src))} />
               </button>
               {item.caption && <figcaption className="text-xs text-[var(--fg-secondary)]">{item.caption}</figcaption>}
             </figure>
@@ -220,7 +222,7 @@ export default function PostFeaturedImageWidget({
               />
             ) : activeImage ? (
               <>
-                <Image src={getRenderImageUrl(activeImage)} alt={featuredImageAlt} fill sizes="100vw" style={{ objectFit, objectPosition }} unoptimized />
+                <Image src={getRenderImageUrl(activeImage)} alt={featuredImageAlt} fill priority sizes="100vw" style={{ objectFit, objectPosition }} unoptimized={isApiImageSrc(getRenderImageUrl(activeImage))} />
               </>
             ) : (
               <div className="w-full h-full flex items-center justify-center text-sm" style={{ backgroundColor: isPublicDarkMode ? "rgba(15, 23, 42, 0.58)" : "rgb(243 244 246)", color: isPublicDarkMode ? "var(--fg-secondary)" : "rgb(107 114 128)" }}>Featured Image</div>
@@ -242,7 +244,7 @@ export default function PostFeaturedImageWidget({
                   style={{ borderRadius: imageRadius }}
                   onClick={() => setCurrentGalleryIndex(index)}
                 >
-                  <Image src={item.src} alt={`Thumbnail ${index + 1}`} fill sizes="80px" className="object-cover" unoptimized />
+                  <Image src={item.src} alt={`Thumbnail ${index + 1}`} fill sizes="80px" className="object-cover" />
                 </button>
               ))}
             </div>
@@ -259,7 +261,7 @@ export default function PostFeaturedImageWidget({
           <button type="button" onClick={(e) => { e.stopPropagation(); setIsLightboxOpen(false); }} className="absolute top-4 right-4 rounded-full bg-black/70 hover:bg-black/85 text-white inline-flex items-center justify-center gap-1 px-3 py-2 text-xs border border-white/30 z-[10000]" aria-label="Tutup"><X size={18} /><span>Tutup</span></button>
           {imageGallery.length > 1 && <button type="button" onClick={(e) => { e.stopPropagation(); goPrevImage(); }} className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/70 hover:bg-black/85 text-white inline-flex items-center justify-center z-[10000]" aria-label="Gambar sebelumnya"><ChevronLeft size={20} /></button>}
           <div className="relative w-[min(92vw,1100px)] h-[min(72vh,760px)] md:h-[min(78vh,820px)]" onClick={(e) => e.stopPropagation()} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-            <Image src={getRenderImageUrl(activeImage)} alt={featuredImageAlt} fill sizes="100vw" className="object-contain" unoptimized />
+            <Image src={getRenderImageUrl(activeImage)} alt={featuredImageAlt} fill sizes="100vw" className="object-contain" unoptimized={isApiImageSrc(getRenderImageUrl(activeImage))} />
           </div>
           {imageGallery.length > 1 && <button type="button" onClick={(e) => { e.stopPropagation(); goNextImage(); }} className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-black/70 hover:bg-black/85 text-white inline-flex items-center justify-center z-[10000]" aria-label="Gambar selanjutnya"><ChevronRight size={20} /></button>}
           {imageGallery.length > 1 && (
@@ -274,7 +276,7 @@ export default function PostFeaturedImageWidget({
                     style={{ borderRadius: imageRadius }}
                     aria-label={`Pilih gambar ${idx + 1}`}
                   >
-                    <Image src={src} alt={`Thumbnail ${idx + 1}`} fill sizes="64px" className="object-cover" unoptimized />
+                    <Image src={src} alt={`Thumbnail ${idx + 1}`} fill sizes="64px" className="object-cover" />
                   </button>
                 ))}
               </div>
