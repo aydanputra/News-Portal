@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/server-auth";
+import { APP_VERSION } from "@/lib/app-version";
 
 export const dynamic = "force-dynamic";
 const VERSION_CACHE_TTL_MS = 1000 * 60 * 30;
@@ -111,6 +112,7 @@ async function resolveVersionPayload() {
     normalizeVersion(process.env.APP_VERSION) ||
     normalizeVersion(process.env.NEXT_PUBLIC_APP_VERSION) ||
     normalizeVersion(process.env.VERCEL_GIT_COMMIT_SHA) ||
+    APP_VERSION ||
     "unknown";
 
   const cacheKey = [

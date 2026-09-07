@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-auth";
 import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { validatePasswordStrength } from "@/lib/password-policy";
 
 // Helper: Get User
 async function getUser(id: string) {
@@ -101,7 +102,11 @@ export async function PUT(
       if (status) {
           updateData.status = status;
       }
-      if (password && password.length >= 8) {
+      if (typeof password === "string" && password.length > 0) {
+          const passwordCheck = validatePasswordStrength(password);
+          if (!passwordCheck.valid) {
+              return NextResponse.json({ error: passwordCheck.error }, { status: 400 });
+          }
           updateData.password = await bcrypt.hash(password, 10);
       }
 

@@ -88,7 +88,7 @@ const THEME_SETTING_PRESERVE_KEYS = [
   ...THEME_GLOBAL_STYLE_SYNC_KEYS,
 ] as const;
 
-const FONT_SETTING_KEYS = [
+export const FONT_SETTING_KEYS = [
   "headingFont",
   "bodyFont",
   "homeWidgetTitleFont",

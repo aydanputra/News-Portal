@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/server-auth";
 import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { validatePasswordStrength } from "@/lib/password-policy";
 
 // GET: List Users (Admin Only)
 export async function GET(request: Request) {
@@ -95,9 +96,10 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
-      // Password complexity check (min 8 chars)
-      if (password.length < 8) {
-          return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+      // Password complexity check
+      const passwordCheck = validatePasswordStrength(password);
+      if (!passwordCheck.valid) {
+          return NextResponse.json({ error: passwordCheck.error }, { status: 400 });
       }
 
       // Check Email Uniqueness

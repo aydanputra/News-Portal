@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import NextTopLoader from 'nextjs-toploader';
 import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
-import { getSettings } from "@/lib/settings";
-import { poppins } from "@/lib/fonts";
+import { getSettings, FONT_SETTING_KEYS } from "@/lib/settings";
+import { getThemeFontLoadFamilies } from "@/lib/font-utils";
+import { inter, poppins, sora } from "@/lib/fonts";
 import { sanitizeInsertCode, safeStyleTagCss } from "@/lib/sanitizer";
 
 function renderInsertCodeHead(snippet: unknown) {
@@ -178,6 +179,46 @@ function renderInsertCodeHead(snippet: unknown) {
   return [...scriptEls, ...metaEls, ...linkEls];
 }
 
+const SELF_HOSTED_FONTS = new Set(["inter", "poppins", "sora"]);
+
+// Bobot (weight) yang tersedia untuk setiap font Google. Font dengan rentang
+// bobot terbatas tidak bisa meminta 300/500/600; kalau dipaksa, seluruh
+// request css2 akan gagal (HTTP 400). Default dipakai untuk font dengan
+// dukungan bobot penuh.
+const REMOTE_FONT_WEIGHTS: Record<string, string> = {
+  merriweather: "300;400;700;900",
+  "playfair display": "400;500;600;700",
+  "pt serif": "400;700",
+  "pt sans": "400;700",
+  "crimson text": "400;600;700",
+  "libre baskerville": "400;700",
+  ubuntu: "300;400;500;700",
+};
+
+function buildRemoteFontLinks(settings: Record<string, unknown>) {
+  const families: string[] = [];
+  for (const key of FONT_SETTING_KEYS) {
+    const value = settings[key];
+    if (typeof value !== "string") continue;
+    families.push(...getThemeFontLoadFamilies(value));
+  }
+
+  const unique = [...new Set(families)].filter(
+    (name) => !SELF_HOSTED_FONTS.has(name.toLowerCase()),
+  );
+  if (unique.length === 0) return null;
+
+  const query = unique
+    .map((name) => {
+      const key = name.toLowerCase();
+      const weights = REMOTE_FONT_WEIGHTS[key] ?? "300;400;500;600;700";
+      return `family=${name.replace(/ /g, "+")}:wght@${weights}`;
+    })
+    .join("&");
+
+  return `https://fonts.googleapis.com/css2?${query}&display=swap`;
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   const settings = await getSettings();
   const siteUrl =
@@ -216,7 +257,7 @@ export default async function RootLayout({
   return (
     <html
       lang="id"
-      className={`${poppins.variable}`}
+      className={`${poppins.variable} ${inter.variable} ${sora.variable}`}
       suppressHydrationWarning
     >
       <head>
@@ -249,6 +290,17 @@ export default async function RootLayout({
             }}
           />
           {renderInsertCodeHead((settings as any)?.insertCodeHead)}
+          {(() => {
+            const href = buildRemoteFontLinks(settings as Record<string, unknown>);
+            if (!href) return null;
+            return (
+              <>
+                <link rel="preconnect" href="https://fonts.googleapis.com" />
+                <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+                <link href={href} rel="stylesheet" />
+              </>
+            );
+          })()}
       </head>
       <body className="antialiased">
         {insertCodeBody ? <div suppressHydrationWarning dangerouslySetInnerHTML={{ __html: insertCodeBody }} /> : null}

@@ -77,7 +77,27 @@ const nextConfig: NextConfig = {
     ];
   },
   async headers() {
+    const securityHeaders: Array<{ key: string; value: string }> = [
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()' },
+      // CSP minimal & aman: hanya blokir object/plugin, base-tag injection, dan clickjacking
+      // tanpa membatasi script/style/img/connect supaya aset eksternal (CDN, ads, analytics) tetap jalan.
+      { key: 'Content-Security-Policy', value: "object-src 'none'; base-uri 'self'; frame-ancestors 'self'" },
+    ];
+    if (process.env.NODE_ENV === 'production') {
+      securityHeaders.push({
+        key: 'Strict-Transport-Security',
+        value: 'max-age=63072000; includeSubDomains; preload',
+      });
+    }
+
     return [
+      {
+        source: '/(.*)',
+        headers: securityHeaders,
+      },
       {
         source: '/uploads/:path*',
         headers: [

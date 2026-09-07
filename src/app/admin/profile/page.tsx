@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { User, Lock, Save, Loader2, AlertTriangle, CheckCircle, Trash2, Globe, Twitter, Facebook, Instagram, Youtube, Linkedin, Twitch, Camera, Music2 } from "lucide-react";
+import { User, Lock, Save, Loader2, AlertTriangle, CheckCircle, Trash2, Globe, Twitter, Facebook, Instagram, Youtube, Linkedin, Twitch, Camera, Music2, ShieldCheck } from "lucide-react";
 import Image from "next/image";
 import MediaLibraryModal, { Media } from "@/app/admin/components/MediaLibraryModal";
 
-type TabType = "profile" | "social" | "password" | "delete";
+type TabType = "profile" | "social" | "password" | "twofactor" | "delete";
 
 export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
@@ -53,6 +53,15 @@ export default function ProfilePage() {
   // Form States - Delete
   const [deletePassword, setDeletePassword] = useState("");
 
+  // Form States - 2FA
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorQr, setTwoFactorQr] = useState("");
+  const [twoFactorSecret, setTwoFactorSecret] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
+  const [twoFactorPassword, setTwoFactorPassword] = useState("");
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+
   const fetchProfile = useCallback(async () => {
     try {
       const res = await fetch("/api/profile");
@@ -66,6 +75,7 @@ export default function ProfilePage() {
         setAvatar(data.avatar || "");
         setBanner(data.banner || "");
         setTelegramChatId(data.telegramChatId || "");
+        setTwoFactorEnabled(Boolean(data.twoFactorEnabled));
         if (data.socialAccounts) {
             setSocials((prev) => ({ ...prev, ...data.socialAccounts }));
         }
@@ -164,6 +174,21 @@ export default function ProfilePage() {
         setSaving(false);
         return;
     }
+    if (!/[a-z]/.test(password)) {
+        setError("Password harus mengandung huruf kecil");
+        setSaving(false);
+        return;
+    }
+    if (!/[A-Z]/.test(password)) {
+        setError("Password harus mengandung huruf besar");
+        setSaving(false);
+        return;
+    }
+    if (!/[0-9]/.test(password)) {
+        setError("Password harus mengandung angka");
+        setSaving(false);
+        return;
+    }
 
     try {
         const res = await fetch("/api/profile", {
@@ -216,9 +241,85 @@ export default function ProfilePage() {
       }
   };
 
+  const fetchTwoFactorSetup = async () => {
+    setTwoFactorLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/auth/2fa/setup");
+      const data = await res.json();
+      if (res.ok) {
+        setTwoFactorQr(data.qrDataUrl || "");
+        setTwoFactorSecret(data.secret || "");
+      } else {
+        setError(data.error || "Gagal memuat pengaturan 2FA");
+      }
+    } catch {
+      setError("Terjadi kesalahan sistem");
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleEnableTwoFactor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/auth/2fa/enable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: twoFactorCode }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTwoFactorEnabled(true);
+        setTwoFactorCode("");
+        setTwoFactorQr("");
+        setTwoFactorSecret("");
+        setRecoveryCodes(data.recoveryCodes || []);
+        setSuccess("2FA berhasil diaktifkan");
+      } else {
+        setError(data.error || "Gagal mengaktifkan 2FA");
+      }
+    } catch {
+      setError("Terjadi kesalahan sistem");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDisableTwoFactor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      const res = await fetch("/api/auth/2fa/disable", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: twoFactorPassword }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTwoFactorEnabled(false);
+        setTwoFactorPassword("");
+        setRecoveryCodes([]);
+        setSuccess("2FA berhasil dinonaktifkan");
+      } else {
+        setError(data.error || "Gagal menonaktifkan 2FA");
+      }
+    } catch {
+      setError("Terjadi kesalahan sistem");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const openMediaLibrary = (target: "avatar" | "banner") => {
-      setMediaTarget(target);
-      setShowMediaModal(true);
+    setMediaTarget(target);
+    setShowMediaModal(true);
   };
 
   const handleMediaSelect = (media: Media) => {
@@ -265,6 +366,13 @@ export default function ProfilePage() {
               >
                   <Lock size={18} />
                   Change Password
+              </button>
+              <button 
+                  onClick={() => { setActiveTab("twofactor"); setError(""); setSuccess(""); setRecoveryCodes([]); setTwoFactorQr(""); setTwoFactorSecret(""); }}
+                  className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-3 ${activeTab === "twofactor" ? "bg-[var(--accent)] text-white shadow-sm" : "text-[var(--fg-secondary)] hover:bg-[var(--bg-surface)] hover:text-[var(--fg-primary)]"}`}
+              >
+                  <ShieldCheck size={18} />
+                  Two-Factor Auth
               </button>
               <button 
                   onClick={() => { setActiveTab("delete"); setError(""); setSuccess(""); }}
@@ -506,6 +614,103 @@ export default function ProfilePage() {
                             </button>
                         </div>
                     </form>
+                </div>
+            )}
+
+            {/* TAB: TWO-FACTOR AUTH */}
+            {activeTab === "twofactor" && (
+                <div className="animate-in fade-in duration-300 max-w-lg">
+                    <h2 className="text-2xl font-bold text-[var(--fg-primary)] mb-6">Two-Factor Authentication</h2>
+                    <p className="text-sm text-[var(--fg-secondary)] mb-6 leading-relaxed">
+                        Tambahkan lapisan keamanan ekstra. Setelah aktif, login membutuhkan kode dari aplikasi autentikator (Google Authenticator, Authy, dll) selain password.
+                    </p>
+
+                    {twoFactorEnabled ? (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/10 border border-green-100 dark:border-green-900/30 rounded-xl">
+                                <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
+                                <span className="text-sm font-medium text-green-700 dark:text-green-400">2FA aktif di akun Anda.</span>
+                            </div>
+
+                            <form onSubmit={handleDisableTwoFactor} className="p-6 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl space-y-5">
+                                <div>
+                                    <label className="block text-sm font-bold text-[var(--fg-primary)] mb-2">Konfirmasi Password</label>
+                                    <input 
+                                        type="password" 
+                                        value={twoFactorPassword}
+                                        onChange={(e) => setTwoFactorPassword(e.target.value)}
+                                        className="input w-full"
+                                        placeholder="Password Anda"
+                                        required
+                                    />
+                                </div>
+                                <button type="submit" disabled={saving} className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                    {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                                    Nonaktifkan 2FA
+                                </button>
+                            </form>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {!twoFactorQr ? (
+                                <button 
+                                    type="button"
+                                    onClick={fetchTwoFactorSetup}
+                                    disabled={twoFactorLoading}
+                                    className="px-6 py-2.5 bg-[var(--accent)] hover:opacity-90 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2"
+                                >
+                                    {twoFactorLoading ? <Loader2 className="animate-spin w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                                    Mulai Pengaturan
+                                </button>
+                            ) : (
+                                <div className="p-6 bg-[var(--bg-surface)] border border-[var(--border)] rounded-xl space-y-6">
+                                    <div className="flex flex-col items-center gap-4">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img src={twoFactorQr} alt="QR 2FA" className="w-48 h-48 rounded-lg border border-[var(--border)]" />
+                                        {twoFactorSecret && (
+                                            <div className="text-center">
+                                                <p className="text-xs text-[var(--fg-muted)] mb-1">Kode manual (jika QR tidak terbaca):</p>
+                                                <code className="text-sm font-mono bg-[var(--bg-base)] px-3 py-1 rounded">{twoFactorSecret}</code>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <form onSubmit={handleEnableTwoFactor} className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-bold text-[var(--fg-primary)] mb-2">Kode 6 digit dari aplikasi</label>
+                                            <input 
+                                                type="text"
+                                                inputMode="numeric"
+                                                autoComplete="one-time-code"
+                                                maxLength={6}
+                                                value={twoFactorCode}
+                                                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, ""))}
+                                                className="input w-full text-center tracking-[0.5em] font-mono text-lg"
+                                                placeholder="000000"
+                                                required
+                                            />
+                                        </div>
+                                        <button type="submit" disabled={saving} className="px-6 py-2.5 bg-[var(--accent)] hover:opacity-90 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center gap-2">
+                                            {saving ? <Loader2 className="animate-spin w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
+                                            Aktifkan 2FA
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
+
+                            {recoveryCodes.length > 0 && (
+                                <div className="p-6 bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-xl">
+                                    <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400 mb-2">Simpan kode pemulihan Anda</h3>
+                                    <p className="text-xs text-amber-700 dark:text-amber-300 mb-4">Kode ini hanya ditampilkan sekali. Simpan di tempat aman.</p>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {recoveryCodes.map((code) => (
+                                            <code key={code} className="text-xs font-mono bg-white/60 dark:bg-black/20 px-2 py-1.5 rounded border border-amber-200 dark:border-amber-900/30">{code}</code>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             )}
 

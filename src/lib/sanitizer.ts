@@ -290,3 +290,16 @@ export function safeStyleTagCss(raw: string): string {
     .replace(/<\/style/gi, "<\\/style")
     .replace(/<\/script/gi, "<\\/script");
 }
+
+export function sanitizePlainText(raw: unknown, maxLength = 200): string {
+  if (typeof raw !== "string") return "";
+  const cleaned = sanitizeHtml(raw, {
+    allowedTags: [],
+    allowedAttributes: {},
+    disallowedTagsMode: "discard",
+  });
+  return cleaned
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .trim()
+    .slice(0, maxLength);
+}

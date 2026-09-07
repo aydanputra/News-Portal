@@ -2,13 +2,15 @@
 "use client";
 
 import { useState } from "react";
-import { Mail, Lock, ArrowRight, Loader2, LayoutDashboard } from "lucide-react";
+import { Mail, Lock, ArrowRight, Loader2, LayoutDashboard, ShieldCheck } from "lucide-react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [twoFactorStep, setTwoFactorStep] = useState(false);
+  const [twoFactorCode, setTwoFactorCode] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -25,8 +27,36 @@ export default function LoginPage() {
 
       if (!res.ok) {
         setError(data.error || "Gagal login");
+      } else if (data.requireTwoFactor) {
+        setTwoFactorStep(true);
       } else {
         // Gunakan navigasi penuh agar layout admin termuat komplet di request pertama.
+        window.location.replace("/admin/dashboard");
+      }
+    } catch {
+      setError("Terjadi kesalahan jaringan");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleTwoFactorSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/auth/2fa/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: twoFactorCode }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Kode 2FA salah");
+      } else {
         window.location.replace("/admin/dashboard");
       }
     } catch {
@@ -64,8 +94,8 @@ export default function LoginPage() {
             <div className="inline-flex lg:hidden items-center justify-center w-12 h-12 rounded-xl bg-blue-600 text-white mb-4 shadow-lg shadow-blue-600/30">
               <LayoutDashboard size={24} />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Selamat Datang Kembali</h1>
-            <p className="text-gray-500 mt-2">Masuk untuk mengakses dashboard admin</p>
+            <h1 className="text-2xl font-bold text-gray-900">{twoFactorStep ? "Verifikasi 2 Langkah" : "Selamat Datang Kembali"}</h1>
+            <p className="text-gray-500 mt-2">{twoFactorStep ? "Masukkan kode dari aplikasi autentikator Anda" : "Masuk untuk mengakses dashboard admin"}</p>
           </div>
           
           {error && (
@@ -74,61 +104,111 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700 block">Alamat Email</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <Mail size={20} />
+          {twoFactorStep ? (
+            <form onSubmit={handleTwoFactorSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 block">Kode 2FA</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <ShieldCheck size={20} />
+                  </div>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={twoFactorCode}
+                    onChange={(e) => setTwoFactorCode(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 placeholder-gray-400 tracking-widest"
+                    placeholder="000000"
+                    required
+                  />
                 </div>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 placeholder-gray-400"
-                  placeholder="name@example.com"
-                  required
-                />
+                <p className="text-xs text-gray-400">Atau gunakan kode recovery bila kehilangan akses aplikasi autentikator.</p>
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <label className="text-sm font-semibold text-gray-700 block">Password</label>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                  <Lock size={20} />
-                </div>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 placeholder-gray-400"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-            </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-600/30 transition-all font-bold flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="animate-spin" size={20} />
-                  <span>Memproses...</span>
-                </>
-              ) : (
-                <>
-                  <span>Masuk Dashboard</span>
-                  <ArrowRight size={20} />
-                </>
-              )}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-600/30 transition-all font-bold flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={20} />
+                    <span>Memverifikasi...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Verifikasi</span>
+                    <ArrowRight size={20} />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setTwoFactorStep(false); setTwoFactorCode(""); setError(""); }}
+                className="w-full text-sm text-gray-500 hover:text-blue-600 transition-colors"
+              >
+                ← Kembali
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 block">Alamat Email</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Mail size={20} />
+                  </div>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="name@example.com"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <label className="text-sm font-semibold text-gray-700 block">Password</label>
+                </div>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                    <Lock size={20} />
+                  </div>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-600/30 transition-all font-bold flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-600/30 hover:shadow-blue-600/50"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="animate-spin" size={20} />
+                    <span>Memproses...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Masuk Dashboard</span>
+                    <ArrowRight size={20} />
+                  </>
+                )}
+              </button>
+            </form>
+          )}
 
           <div className="mt-8 text-center">
             <a href="/" className="text-sm text-gray-500 hover:text-blue-600 flex items-center justify-center space-x-1 transition-colors">

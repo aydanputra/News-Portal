@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/server-auth";
 import { AUTH_COOKIE_NAME, AUTH_COOKIE_OPTIONS } from "@/lib/auth-cookie";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import { validatePasswordStrength } from "@/lib/password-policy";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export async function GET() {
         banner: rawUser.banner,
         socialAccounts: rawUser.socialAccounts,
         telegramChatId: rawUser.telegramChatId,
+        twoFactorEnabled: rawUser.twoFactorEnabled,
     };
 
     return NextResponse.json(profile);
@@ -81,8 +83,9 @@ export async function PUT(request: Request) {
     if (telegramChatId !== undefined) updateData.telegramChatId = telegramChatId;
     
     if (password) {
-        if (password.length < 8) {
-            return NextResponse.json({ error: "Password must be at least 8 characters" }, { status: 400 });
+        const passwordCheck = validatePasswordStrength(password);
+        if (!passwordCheck.valid) {
+            return NextResponse.json({ error: passwordCheck.error }, { status: 400 });
         }
         const hashedPassword = await bcrypt.hash(password, 10);
         updateData.password = hashedPassword;

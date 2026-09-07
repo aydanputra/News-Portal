@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 
 const SECRET_KEY = process.env.JWT_SECRET;
@@ -24,8 +24,8 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 
 // 3. Fungsi Membuat Tiket (Sign JWT)
 // Tiket berisi: ID User, Email, dan Role
-export function createToken(payload: object): string {
-  return jwt.sign(payload, ACTUAL_SECRET, { expiresIn: "1d" }); // Tiket berlaku 1 hari
+export function createToken(payload: object, expiresIn: SignOptions["expiresIn"] = "1d"): string {
+  return jwt.sign(payload, ACTUAL_SECRET, { expiresIn }); // Default tiket berlaku 1 hari
 }
 
 // 4. Fungsi Cek Tiket (Verify JWT)

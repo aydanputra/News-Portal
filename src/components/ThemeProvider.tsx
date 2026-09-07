@@ -29,6 +29,8 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
   //    next/font CSS variable so they never trigger an external request.
   const SELF_HOSTED_FONT_FAMILIES: Record<string, string> = {
     poppins: "var(--font-poppins)",
+    inter: "var(--font-inter)",
+    sora: "var(--font-sora)",
   };
 
   const mapSelfHostedFont = (fontFamily: string): string => {

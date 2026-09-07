@@ -76,6 +76,12 @@ model User {
   socialAccounts Json?
   telegramChatId String? // New: For personal notifications
 
+  // Two-Factor Authentication (opt-in)
+  twoFactorEnabled   Boolean   @default(false)
+  twoFactorSecret    String?   // encrypted TOTP secret
+  twoFactorRecovery  String?   // encrypted JSON array of hashed recovery codes
+  twoFactorEnabledAt DateTime?
+
   // Relations
   uploadedMedia Media[]
   posts         Post[]

@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { storage } from "@/lib/storage";
 import { assertRateLimit } from "@/lib/api-guards";
+import { sanitizePlainText } from "@/lib/sanitizer";
 import {
   detectImageType,
   detectDocType,
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     // 2. Ambil File
     const formData = await request.formData();
     const file = formData.get("file") as File;
-    const uploadAltText = String(formData.get("altText") || "").trim();
+    const uploadAltText = sanitizePlainText(formData.get("altText"), 500);
 
     if (!file) {
       return NextResponse.json({ error: "File tidak ditemukan" }, { status: 400 });
@@ -88,7 +89,7 @@ export async function POST(request: Request) {
     let finalMimeType: string;
     let width: number | null = null;
     let height: number | null = null;
-    let displayFileName = file.name;
+    let displayFileName = sanitizePlainText(file.name);
 
     if (isImage) {
         try {
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
             
             finalFileName = `${uuidv4()}.webp`;
             finalMimeType = 'image/webp';
-            displayFileName = `${path.parse(file.name).name || "image"}.webp`;
+            displayFileName = `${sanitizePlainText(path.parse(file.name).name) || "image"}.webp`;
             width = metadata.width || null;
             height = metadata.height || null;
 
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
         const ext = DOC_EXTENSION_BY_MIME[file.type] || ".bin";
         finalFileName = `${uuidv4()}${ext}`;
         finalMimeType = file.type;
-        displayFileName = file.name;
+        displayFileName = sanitizePlainText(file.name);
     }
 
     const key = `${keyDir}/${finalFileName}`;

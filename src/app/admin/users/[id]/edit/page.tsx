@@ -65,7 +65,12 @@ export default function EditUserPage({ params }: { params: Promise<{ id: string 
         bio,
         telegramChatId
       };
-      if (password && password.length >= 8) {
+      if (password) {
+          if (password.length < 8 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+              setError("Password minimal 8 karakter serta mengandung huruf kecil, huruf besar, dan angka");
+              setLoading(false);
+              return;
+          }
           payload.password = password;
       }
 
