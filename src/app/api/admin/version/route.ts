@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireUser } from "@/lib/server-auth";
-import { APP_VERSION } from "@/lib/app-version";
+import { APP_VERSION, APP_RELEASED_AT, APP_CHANGELOG } from "@/lib/app-version";
 
 export const dynamic = "force-dynamic";
 const VERSION_CACHE_TTL_MS = 1000 * 60 * 30;
@@ -24,6 +24,8 @@ type VersionCacheEntry = {
     updateAvailable: boolean;
     changelogUrl: string | null;
     releasedAt: string | null;
+    localReleasedAt: string;
+    changelog: { version: string; date: string; notes: string[] }[];
   };
 };
 
@@ -186,6 +188,8 @@ async function resolveVersionPayload() {
     updateAvailable: latestVersion ? isNewer(latestVersion, currentVersion) : false,
     changelogUrl: latest?.url || null,
     releasedAt: latest?.publishedAt || null,
+    localReleasedAt: APP_RELEASED_AT,
+    changelog: APP_CHANGELOG,
   };
   versionCache.set(cacheKey, {
     expiresAt: Date.now() + VERSION_CACHE_TTL_MS,

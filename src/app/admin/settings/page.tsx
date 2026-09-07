@@ -111,6 +111,8 @@ export default function SettingsPage() {
     updateAvailable: boolean;
     changelogUrl: string | null;
     releasedAt: string | null;
+    localReleasedAt: string | null;
+    changelog: Array<{ version: string; date: string; notes: string[] }>;
   } | null>(null);
   const [systemTools, setSystemTools] = useState<{
     source?: "super_admin" | "default";
@@ -191,6 +193,8 @@ export default function SettingsPage() {
           updateAvailable: Boolean(versionJson?.updateAvailable),
           changelogUrl: typeof versionJson?.changelogUrl === "string" ? versionJson.changelogUrl : null,
           releasedAt: typeof versionJson?.releasedAt === "string" ? versionJson.releasedAt : null,
+          localReleasedAt: typeof versionJson?.localReleasedAt === "string" ? versionJson.localReleasedAt : null,
+          changelog: Array.isArray(versionJson?.changelog) ? versionJson.changelog : [],
         });
       }
 
@@ -385,6 +389,10 @@ export default function SettingsPage() {
                     <span className="font-bold text-[var(--fg-primary)]">{systemVersion?.currentVersion || "unknown"}</span>
                   </div>
                   <div>
+                    <span className="font-semibold text-[var(--fg-secondary)]">Tanggal rilis:</span>{" "}
+                    <span className="font-bold text-[var(--fg-primary)]">{systemVersion?.localReleasedAt || systemVersion?.releasedAt || "-"}</span>
+                  </div>
+                  <div>
                     <span className="font-semibold text-[var(--fg-secondary)]">Versi terbaru:</span>{" "}
                     <span className="font-bold text-[var(--fg-primary)]">{systemVersion?.latestVersion || "-"}</span>
                   </div>
@@ -396,6 +404,22 @@ export default function SettingsPage() {
                       <span className="font-bold text-emerald-700">Terbaru</span>
                     )}
                   </div>
+                  {systemVersion?.changelog?.length ? (
+                    <div className="mt-2 space-y-2 border-t border-[var(--border)] pt-2">
+                      {systemVersion.changelog.map((entry) => (
+                        <div key={`${entry.version}-${entry.date}`}>
+                          <div className="font-semibold text-[var(--fg-secondary)]">
+                            Catatan rilis v{entry.version} · {entry.date}
+                          </div>
+                          <ul className="mt-1 list-disc pl-5 space-y-0.5">
+                            {entry.notes.map((note) => (
+                              <li key={note}>{note}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
                   {systemVersion?.changelogUrl ? (
                     <div className="pt-2">
                       <a

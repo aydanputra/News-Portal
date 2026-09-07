@@ -5,7 +5,7 @@ import DashboardStats from "@/components/admin/dashboard/DashboardStats";
 import DashboardRecentTable from "@/components/admin/dashboard/DashboardRecentTable";
 import { requireUser } from "@/lib/server-auth";
 import { getDashboardDataForUser } from "@/lib/admin/dashboard-data";
-import { APP_VERSION } from "@/lib/app-version";
+import { APP_VERSION, APP_RELEASED_AT } from "@/lib/app-version";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -220,8 +220,11 @@ export default async function DashboardPage() {
                 <span className="badge bg-emerald-500/10 text-emerald-500">Terhubung</span>
                 </div>
                 <div className="flex items-center justify-between">
-                <span className="text-sm text-[var(--fg-secondary)]">Versi</span>
-                  <span className="text-xs font-mono text-[var(--fg-muted)]">v{APP_VERSION}</span>
+                  <span className="text-sm text-[var(--fg-secondary)]">Versi</span>
+                  <div className="text-right">
+                    <div className="text-xs font-mono text-[var(--fg-muted)]">v{APP_VERSION}</div>
+                    <div className="text-[11px] text-[var(--fg-muted)]">Rilis {APP_RELEASED_AT}</div>
+                  </div>
                 </div>
               </div>
             </div>
