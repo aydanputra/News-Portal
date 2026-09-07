@@ -25,6 +25,7 @@ Desktop.ini
 # deploy/import temp artifacts
 *.tgz
 *.tar
+*.tar.gz
 *.zip
 *.b64
 *.ndjson
@@ -35,3 +36,6 @@ debug-*.md
 
 # user-uploaded content (stored on filesystem/DB, not in git)
 public/uploads/
+
+# lighthouse local config
+.lh-config/
