@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
@@ -283,7 +283,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
   const showMiniThumbnails = toBool(cfg.showMiniThumbnails, false);
   const thumbnailVisibleCount = Math.max(2, Math.min(6, toNumber(cfg.thumbnailVisibleCount, 4)));
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (previewDevice) {
       setDevice(previewDevice);
       return;

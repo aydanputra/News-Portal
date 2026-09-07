@@ -493,14 +493,15 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
     const height = mH ?? 250;
 
     const img = (
-      <div className="w-full" style={{ borderRadius: adRadius, overflow: 'hidden' }}>
+      <div
+        className="w-full"
+        style={{ borderRadius: adRadius, overflow: 'hidden', aspectRatio: `${width} / ${height}` }}
+      >
         <Image
           src={src}
           alt={ad.name || "Iklan"}
-          width={width}
-          height={height}
-          style={{ width: '100%', height: 'auto' }}
-          className="block"
+          fill
+          className="object-contain"
           sizes="(max-width: 768px) 100vw, 360px"
         />
       </div>

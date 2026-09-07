@@ -55,7 +55,7 @@ export default function ClassicArchive({ title, description, posts, setting, cat
                                     src={post.image || post.featuredImage?.fileUrl} 
                                     alt={post.title} 
                                     fill 
-                                    quality={90}
+                                    quality={75}
                                     className="object-cover transition-transform duration-500 group-hover:scale-105"
                                     sizes="(max-width: 768px) 100vw, 33vw"
                                  />
@@ -81,7 +81,7 @@ export default function ClassicArchive({ title, description, posts, setting, cat
                                  </span>
                              )}
                              <h2 className="text-xl font-bold mb-2 leading-tight group-hover:text-blue-700 transition-colors">
-                                 <Link href={`/${post.category?.slug || 'berita'}/${post.slug}`}>
+                                 <Link href={`/${post.category?.slug || 'berita'}/${post.slug}`} prefetch={false}>
                                      {post.title}
                                  </Link>
                              </h2>

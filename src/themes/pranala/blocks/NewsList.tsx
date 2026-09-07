@@ -1194,6 +1194,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                 {currentShowImage && (
                   <Link
                     href={postLink}
+                    prefetch={false}
                     className="news-list-thumb relative flex-shrink-0 overflow-hidden bg-[color:var(--bg-surface,#f3f4f6)] group-hover:shadow-md transition-shadow"
                     style={{
                       alignSelf: isCenterAligned ? currentCrossAlign : currentVerticalCrossAlign,
@@ -1208,7 +1209,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                         src={imageUrl}
                         alt={post.title}
                         fill
-                        quality={90}
+                        quality={75}
                         className="object-cover group-hover:scale-105 transition-transform duration-500"
                         sizes={/px$/.test(currentThumbWidth) ? currentThumbWidth : '96px'}
                       />
@@ -1275,6 +1276,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                   >
                     <Link
                       href={postLink}
+                      prefetch={false}
                       className="news-list-title transition-colors hover:!text-[var(--nl-title-hover)]"
                       style={{
                         ["--news-list-title-color" as string]: String(currentTitleColor),

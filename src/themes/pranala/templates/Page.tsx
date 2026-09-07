@@ -157,7 +157,7 @@ export default function PranalaPage({
               src={page.featuredImage}
               alt={page.title}
               fill
-              quality={90}
+              quality={80}
               className="object-cover"
               priority
               sizes={isFullWidth ? "100vw" : "(max-width: 768px) 100vw, 1250px"}

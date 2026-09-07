@@ -693,6 +693,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
                       <>
                         <Link
                           href={postLink}
+                          prefetch={false}
                           className="popular-thumb popular-thumb-link relative block overflow-hidden bg-transparent"
                           style={{
                             width: currentThumbWidth,
@@ -705,7 +706,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
                             src={imageUrl}
                             alt={post.title}
                             fill
-                            quality={90}
+                            quality={75}
                             className="object-cover group-hover:scale-105 transition-transform duration-500"
                             sizes={currentThumbWidth}
                           />
@@ -810,6 +811,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
                     <h4 className="leading-snug mb-1" style={{ marginTop: post.category && currentShowCategory ? "-1px" : "0", marginBottom: !(authorName || dateVal) ? 0 : undefined }}>
                       <Link
                         href={postLink}
+                        prefetch={false}
                         className="transition-colors hover:!text-[var(--popular-title-hover)]"
                         style={{
                           ["--popular-title-hover" as string]: currentPopTitleHoverColor,

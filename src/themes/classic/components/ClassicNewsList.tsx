@@ -35,6 +35,7 @@ export default function ClassicNewsList({ block, posts }: ClassicNewsListProps) 
             <div className="md:w-1/3">
               <Link
                 href={`/${post.category?.slug || 'berita'}/${post.slug}`}
+                prefetch={false}
                 className="block relative aspect-[4/3] overflow-hidden bg-gray-100 group"
                 style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
               >
@@ -42,7 +43,7 @@ export default function ClassicNewsList({ block, posts }: ClassicNewsListProps) 
                   src={post.featuredImage?.fileUrl || post.image || "https://placehold.co/400x300"}
                   alt={post.title}
                   fill
-                  quality={90}
+                  quality={75}
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
                   sizes="(max-width: 768px) 100vw, 33vw"
                 />
@@ -66,7 +67,7 @@ export default function ClassicNewsList({ block, posts }: ClassicNewsListProps) 
                 <span>{new Date(post.publishedAt).toLocaleDateString("id-ID", { day: 'numeric', month: 'long', year: 'numeric' })}</span>
               </div>
               <h2 className="text-2xl font-bold mb-3 leading-tight font-serif text-gray-900 group">
-                <Link href={`/${post.category?.slug || 'berita'}/${post.slug}`} className="group-hover:text-red-600 transition-colors">
+                <Link href={`/${post.category?.slug || 'berita'}/${post.slug}`} prefetch={false} className="group-hover:text-red-600 transition-colors">
                   {post.title}
                 </Link>
               </h2>
@@ -74,7 +75,7 @@ export default function ClassicNewsList({ block, posts }: ClassicNewsListProps) 
                 {post.excerpt}
               </p>
               <div className="mt-auto">
-                <Link href={`/${post.category?.slug || 'berita'}/${post.slug}`} className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-gray-900 hover:text-red-600 transition-colors border-b-2 border-red-600 pb-0.5">
+                <Link href={`/${post.category?.slug || 'berita'}/${post.slug}`} prefetch={false} className="inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-gray-900 hover:text-red-600 transition-colors border-b-2 border-red-600 pb-0.5">
                   Baca Selengkapnya
                 </Link>
               </div>

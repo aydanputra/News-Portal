@@ -133,7 +133,7 @@ export default function ClassicSinglePost({ post, setting, categories, footerCon
                   src={getRenderImageUrl(galleryItems[0].url)}
                   alt={post.title}
                   fill
-                  quality={90}
+                  quality={80}
                   className="object-cover"
                   priority
                   sizes="(max-width: 768px) 100vw, 1250px"
@@ -180,7 +180,7 @@ export default function ClassicSinglePost({ post, setting, categories, footerCon
                  src={getRenderImageUrl(imageUrl)} 
                  alt={featuredImageAlt} 
                  fill 
-                 quality={90}
+                 quality={80}
                  className="object-cover"
                  priority
                  sizes="(max-width: 768px) 100vw, 1250px"

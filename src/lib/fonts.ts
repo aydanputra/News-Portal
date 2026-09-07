@@ -1,22 +1,11 @@
-import { Inter, Sora } from 'next/font/google'
+import { Poppins } from 'next/font/google'
 
-// Inter for body text
-export const inter = Inter({ 
+// Poppins is the theme's primary font. Self-hosting it via next/font
+// eliminates the render-blocking Google Fonts request and the FOUT/CLS
+// caused by loading it late in ThemeProvider.
+export const poppins = Poppins({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-poppins',
   display: 'swap',
 })
-
-// Sora for display/headings
-export const sora = Sora({ 
-  subsets: ['latin'],
-  variable: '--font-sora',
-  display: 'swap',
-})
-
-// Combined font classes
-export const fontClasses = {
-  body: inter.variable,
-  display: sora.variable,
-  all: `${inter.variable} ${sora.variable}`
-}

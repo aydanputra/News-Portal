@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  getThemeFontLoadFamilies,
   resolveThemeFontSynthesis,
   resolveThemeFontFamily,
 } from "@/lib/font-utils";
@@ -26,56 +25,31 @@ interface ThemeProviderProps {
 
 export default function ThemeProvider({ settings, children }: ThemeProviderProps) {
   
-  // 1. Generate Google Fonts URL
-  const headingFont = settings.headingFont || "Inter";
-  const bodyFont = settings.bodyFont || "Inter";
-  const resolvedHeadingFont = resolveThemeFontFamily(headingFont);
-  const resolvedBodyFont = resolveThemeFontFamily(bodyFont);
+  // 1. Resolve font families. Self-hosted fonts are mapped to their
+  //    next/font CSS variable so they never trigger an external request.
+  const SELF_HOSTED_FONT_FAMILIES: Record<string, string> = {
+    poppins: "var(--font-poppins)",
+  };
+
+  const mapSelfHostedFont = (fontFamily: string): string => {
+    return fontFamily
+      .split(",")
+      .map((part) => {
+        const clean = part.trim().replace(/^['"]|['"]$/g, "");
+        const key = clean.toLowerCase();
+        return SELF_HOSTED_FONT_FAMILIES[key] ?? part;
+      })
+      .join(", ");
+  };
+
+  const headingFont = settings.headingFont || "Poppins";
+  const bodyFont = settings.bodyFont || "Poppins";
+  const resolvedHeadingFont = mapSelfHostedFont(resolveThemeFontFamily(headingFont));
+  const resolvedBodyFont = mapSelfHostedFont(resolveThemeFontFamily(bodyFont));
   const headingSizeAdjust = "none";
   const bodySizeAdjust = "none";
   const headingFontSynthesis = resolveThemeFontSynthesis(headingFont);
   const bodyFontSynthesis = resolveThemeFontSynthesis(bodyFont);
-
-  // Collect ALL font fields to load
-  const fontsToLoad = new Set<string>();
-  const addFont = (font?: string) => {
-      for (const family of getThemeFontLoadFamilies(font)) {
-        if (family !== "Inter") fontsToLoad.add(family);
-      }
-  };
-
-  // Base Fonts
-  addFont(headingFont);
-  addFont(bodyFont);
-
-  // Homepage Fonts
-  addFont(settings.homeWidgetTitleFont);
-  addFont(settings.homeNewsTitleFont);
-  addFont(settings.homeExcerptFont);
-  addFont(settings.homeMetaFont);
-
-  // Single Post Fonts
-  addFont(settings.postTitleFont);
-  addFont(settings.postSubtitleFont);
-  addFont(settings.postContentFont);
-  addFont(settings.postWidgetTitleFont);
-  addFont(settings.postInlineRelatedTitleFont);
-  addFont(settings.postInlineRelatedHeadingFont);
-
-  // Archive & Global Fonts
-  addFont(settings.archiveTitleFont);
-  addFont(settings.archiveExcerptFont);
-  addFont(settings.archiveMetaFont);
-  addFont(settings.globalWidgetTitleFont);
-  addFont(settings.globalNewsTitleFont);
-  addFont(settings.globalMetaFont);
-  addFont(settings.globalExcerptFont);
-  addFont(settings.globalContentFont);
-
-  const uniqueFonts = Array.from(fontsToLoad);
-  // Load weights 300-900 to ensure all options work
-  const fontQuery = uniqueFonts.map(font => `family=${font.replace(/ /g, "+")}:wght@300;400;500;600;700;800;900`).join("&");
-  const googleFontsUrl = `https://fonts.googleapis.com/css2?${fontQuery}&display=swap`;
 
   // 2. CSS Variables Injection
   const cssVariables = `
@@ -197,15 +171,6 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
   
   return (
     <>
-      {/* Google Fonts Preconnect */}
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      
-      {/* Load Fonts */}
-      {fontQuery && (
-          <link href={googleFontsUrl} rel="stylesheet" />
-      )}
-      
       {/* Inject CSS Variables */}
       <style dangerouslySetInnerHTML={{ __html: safeStyleTagCss(cssVariables) }} />
 

@@ -3,7 +3,7 @@ import NextTopLoader from 'nextjs-toploader';
 import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 import { getSettings } from "@/lib/settings";
-import { inter, sora } from "@/lib/fonts";
+import { poppins } from "@/lib/fonts";
 import { sanitizeInsertCode, safeStyleTagCss } from "@/lib/sanitizer";
 
 function renderInsertCodeHead(snippet: unknown) {
@@ -60,6 +60,36 @@ function renderInsertCodeHead(snippet: unknown) {
     if (src) {
       const safeSrc = sanitizeHeadUrl(src);
       if (!safeSrc) return null;
+
+      // Defer GA4/analytics downloads so they don't compete with the LCP
+      // image on mobile. The inline gtag() config script queues events, so
+      // loading the SDK later still records every hit.
+      const isAnalytics = /googletagmanager\.com\/gtag|google-analytics\.com|gtag\/js/i.test(safeSrc);
+      if (isAnalytics) {
+        const lazyLoader = `
+          (function () {
+            var src = ${JSON.stringify(safeSrc)};
+            function load() {
+              var s = document.createElement("script");
+              s.async = true;
+              s.src = src;
+              document.head.appendChild(s);
+            }
+            if ("requestIdleCallback" in window) {
+              window.requestIdleCallback(load, { timeout: 2000 });
+            } else {
+              setTimeout(load, 2500);
+            }
+          })();
+        `;
+        return (
+          <script
+            key={`insert-head-${idx}`}
+            dangerouslySetInnerHTML={{ __html: safeStyleTagCss(lazyLoader) }}
+          />
+        );
+      }
+
       return (
         <script
           key={`insert-head-${idx}`}
@@ -186,7 +216,7 @@ export default async function RootLayout({
   return (
     <html
       lang="id"
-      className={`${inter.variable} ${sora.variable}`}
+      className={`${poppins.variable}`}
       suppressHydrationWarning
     >
       <head>

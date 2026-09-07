@@ -76,8 +76,8 @@ body {
   --sidebar-width: 280px;
   
   /* Typography */
-  --font-display: 'Sora', system-ui, sans-serif;
-  --font-body: 'Inter', system-ui, sans-serif;
+  --font-display: var(--font-poppins), 'Poppins', system-ui, sans-serif;
+  --font-body: var(--font-poppins), 'Poppins', system-ui, sans-serif;
 }
 
 /* Dark Mode Variables (Public Scope) */
