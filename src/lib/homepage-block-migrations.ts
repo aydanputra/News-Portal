@@ -74,6 +74,15 @@ export const normalizeBlockTree = <T>(block: T): T => {
   }
   if ("config" in normalizedBlock) {
     normalizedBlock.config = normalizeConfigObject(normalizedBlock.config);
+    if (effectiveType === "post_content") {
+      const config = normalizedBlock.config as GenericRecord | undefined;
+      if (config && typeof config === "object" && !Array.isArray(config)) {
+        for (const prefix of ["", "tablet", "mobile"]) {
+          const key = prefix ? `${prefix}FontSize` : "fontSize";
+          if (config[key] === 18) delete config[key];
+        }
+      }
+    }
   }
   return normalizedBlock as T;
 };

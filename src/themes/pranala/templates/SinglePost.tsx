@@ -238,6 +238,7 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
   const widgetTitleSynthesis = resolveThemeFontSynthesis(homeWidgetTitleFontValue);
   const postSubtitleLineHeight = String(setting?.postSubtitleLineHeight || "1.6");
   const postContentLineHeight = String(setting?.postContentLineHeight || setting?.globalContentLineHeight || "1.8");
+  const postContentSize = formatContainerSize(setting?.postContentFontSize || setting?.globalContentFontSize, "18px");
   const borderRadius = normalizeRadiusValue(setting?.postGlobalBorderRadius ?? setting?.globalBorderRadius ?? "0.75rem");
   const renderWidgetWithSpacing = (
     widget: any,
@@ -446,6 +447,7 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
           className="post-content-body"
           style={{
             color: contentColor,
+            fontSize: postContentSize,
             lineHeight: postContentLineHeight,
             fontFamily: postContentFont,
             fontWeight: setting?.postContentFontWeight || setting?.globalContentFontWeight || "400",
@@ -456,6 +458,7 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
         >
           <PranalaPostContent
             content={post.content || ""}
+            style={{ lineHeight: postContentLineHeight, fontSize: postContentSize }}
             className="[&_p]:text-inherit [&_li]:text-inherit [&_blockquote]:text-inherit [&_h1]:text-inherit [&_h2]:text-inherit [&_h3]:text-inherit [&_h4]:text-inherit [&_h5]:text-inherit [&_h6]:text-inherit [&_strong]:text-inherit [&_a]:text-inherit [&_p]:leading-[inherit] [&_li]:leading-[inherit] [&_blockquote]:leading-[inherit] [&_p]:font-[inherit] [&_li]:font-[inherit] [&_blockquote]:font-[inherit]"
             inlineRelatedItems={inlineRelatedPosts}
             inlineRelatedConfig={{

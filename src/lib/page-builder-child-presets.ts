@@ -622,7 +622,7 @@ export const buildPageChildConfig = (type: string, title: string, columnIndex: n
   if (type === "section") return { ...config, ...PAGE_SECTION_CONFIG };
   if (type === "post_title") return { ...config, fontSize: 32, fontWeight: "bold", textAlign: "left", lineHeight: 1.15, useBox: false };
   if (type === "post_subtitle") return { ...config, fontSize: 18, fontWeight: "normal", textAlign: "left", lineHeight: 1.6, isItalic: false, useBox: false };
-  if (type === "post_content") return { ...config, fontSize: 18, fontWeight: "normal", textAlign: "left", lineHeight: 1.7, useBox: false, showContentBorder: false };
+  if (type === "post_content") return { ...config, fontWeight: "normal", textAlign: "left", lineHeight: 1.7, useBox: false, showContentBorder: false };
   if (type === "post_meta") return {
     ...config,
     showAuthor: true,

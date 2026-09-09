@@ -89,7 +89,7 @@ export default function PostContentWidget({
     >
       <PranalaPostContent
         content={post?.content || fallbackContent}
-        style={{ lineHeight: resolvedLineHeight }}
+        style={{ lineHeight: resolvedLineHeight, fontSize: contentFontSize }}
         className="[&_p]:text-inherit [&_li]:text-inherit [&_blockquote]:text-inherit [&_h1]:text-inherit [&_h2]:text-inherit [&_h3]:text-inherit [&_h4]:text-inherit [&_h5]:text-inherit [&_h6]:text-inherit [&_strong]:text-inherit [&_a]:text-inherit [&_p]:leading-[inherit] [&_li]:leading-[inherit] [&_blockquote]:leading-[inherit] [&_p]:font-[inherit] [&_li]:font-[inherit] [&_blockquote]:font-[inherit]"
         inlineRelatedItems={inlineRelatedPosts}
         inlineRelatedConfig={{

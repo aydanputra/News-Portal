@@ -2,6 +2,14 @@
 
 Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.2] - 2026-09-09
+
+### Perbaikan
+- Perbaiki pengaturan Font Size widget `post_content` (Konten Artikel) yang tidak berubah, baik dari Tipografi Single Post global maupun pengaturan widget langsung.
+- Hapus nilai bawaan `fontSize:18` yang tersisa pada preset dan blok lama agar fallback tipografi global berfungsi.
+- Normalisasi blok publik dari cache agar blok lama dengan `fontSize:18` dibersihkan.
+- Wariskan `font-size` dan `line-height` ke paragraf, daftar, dan kutipan konten artikel agar ukuran font mengikuti pengaturan.
+
 ## [1.0.1] - 2026-09-09
 
 ### Perbaikan

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { SidebarSourceBlocksMap, SidebarSourceLocation } from "@/lib/sidebar-reference";
+import { normalizeHomepageBlocks } from "@/lib/homepage-block-migrations";
 import { unstable_cache } from "next/cache";
 
 export async function getBuilderSourceBlocks(activeTheme: string, locations?: SidebarSourceLocation[]) {
@@ -29,7 +30,7 @@ export async function getBuilderSourceBlocks(activeTheme: string, locations?: Si
     [`builder-source-blocks:${activeTheme}:${key}`],
     { tags: ["homepage"], revalidate: 300 },
   );
-  const rows = await cached();
+  const rows = normalizeHomepageBlocks(await cached());
 
   const result: SidebarSourceBlocksMap = {
     home: [],

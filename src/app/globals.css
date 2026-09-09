@@ -373,6 +373,8 @@ html.public-dark .public-theme.public-homepage {
   font-family: inherit !important;
   font-weight: inherit !important;
   font-synthesis: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
 }
 
 .public-theme .post-content-body .prose em,

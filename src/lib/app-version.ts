@@ -17,6 +17,15 @@ export interface ReleaseNote {
 
 export const APP_CHANGELOG: ReleaseNote[] = [
   {
+    version: "1.0.2",
+    date: "2026-09-09",
+    notes: [
+      "Perbaiki Font Size widget post_content (Konten Artikel) tidak berubah dari Tipografi Single Post global maupun pengaturan widget langsung",
+      "Hapus nilai bawaan fontSize:18 yang tersisa di preset & blok lama",
+      "Wariskan font-size & line-height ke paragraf/daftar/kutipan konten artikel",
+    ],
+  },
+  {
     version: "1.0.1",
     date: "2026-09-09",
     notes: [
