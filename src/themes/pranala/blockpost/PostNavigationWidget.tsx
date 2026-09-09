@@ -298,6 +298,7 @@ export default function PostNavigationWidget({
                   fontSize: toPx(titleFontSize) || undefined,
                   lineHeight: resolvedTitleLineHeight,
                   fontWeight: titleFontWeight,
+                  fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))",
                   minHeight: titleMinHeight,
                   marginTop: showNavLabel ? (preview ? "0.35rem" : "0.45rem") : "0"
                 }}

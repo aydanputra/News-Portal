@@ -971,7 +971,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                     fontSize: currentLeadTitleFs,
                     lineHeight: currentLeadTitleLh,
                     fontWeight: currentLeadTitleFw,
-                    fontFamily: "var(--home-news-title-font, sans-serif)",
+                    fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))",
                     display: "block",
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = currentHeroTitleHover; }}
@@ -981,7 +981,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                 </Link>
               </h4>
               {shouldShowLeadMeta && (
-                <div className="text-xs flex items-center gap-3 mb-2 font-medium" style={{ color: currentHeroMetaColor, fontSize: currentHeroMetaFs, lineHeight: currentHeroMetaLh }}>
+                <div className="text-xs flex items-center gap-3 mb-2 font-medium" style={{ color: currentHeroMetaColor, fontSize: currentHeroMetaFs, lineHeight: currentHeroMetaLh, fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))" }}>
                   {currentShowHeroAuthor && leadAuthorName && (
                     <div className="hs-hero-author flex items-center gap-1.5">
                       <span
@@ -1019,7 +1019,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                 </div>
               )}
               {currentShowHeroExcerpt && (
-                <p className="text-sm" style={{ color: currentHeroExcerptColor, fontSize: currentHeroExcerptFs, lineHeight: currentHeroExcerptLh }}>
+                <p className="text-sm" style={{ color: currentHeroExcerptColor, fontSize: currentHeroExcerptFs, lineHeight: currentHeroExcerptLh, fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))" }}>
                   {clampExcerpt(getExcerptSource(lead, heroExcerptLength), heroExcerptLength)}
                 </p>
               )}
@@ -1073,7 +1073,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                           fontSize: currentMiniTitleFs,
                           lineHeight: currentMiniTitleLh,
                           fontWeight: currentMiniTitleFw,
-                          fontFamily: "var(--home-news-title-font, sans-serif)",
+                          fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))",
                           display: "block",
                           ...compactMiniTitleClampStyle,
                         }}
@@ -1084,7 +1084,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                       </Link>
                     </h5>
                     {shouldShowMiniMeta && (
-                      <div className="text-[11px] flex items-center font-medium" style={{ color: currentMiniMetaColor, fontSize: currentMiniMetaFs, lineHeight: currentMiniMetaLh, gap: currentMiniMetaGap, marginTop: currentMiniMetaMarginTop, flexWrap: "wrap" }}>
+                      <div className="text-[11px] flex items-center font-medium" style={{ color: currentMiniMetaColor, fontSize: currentMiniMetaFs, lineHeight: currentMiniMetaLh, fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))", gap: currentMiniMetaGap, marginTop: currentMiniMetaMarginTop, flexWrap: "wrap" }}>
                         {currentShowMiniAuthor && authorName && <span className="hs-mini-author">{authorName}</span>}
                         {currentShowMiniAuthor && authorName && currentShowMiniDate && dateVal && <span className="hs-mini-dot rounded-full shrink-0" style={{ width: "0.42em", height: "0.42em", backgroundColor: "currentColor", opacity: 0.5 }} />}
                         {currentShowMiniDate && dateVal && (
@@ -1101,7 +1101,7 @@ export default function HeroSplit4({ block, posts = [] }: HeroSplit4Props) {
                       </div>
                     )}
                     {currentShowMiniExcerpt && (
-                      <p className="text-xs" style={{ color: currentMiniExcerptColor, fontSize: currentMiniExcerptFs, lineHeight: currentMiniExcerptLh, marginTop: currentMiniExcerptMarginTop }}>
+                      <p className="text-xs" style={{ color: currentMiniExcerptColor, fontSize: currentMiniExcerptFs, lineHeight: currentMiniExcerptLh, fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))", marginTop: currentMiniExcerptMarginTop }}>
                         {clampExcerpt(getExcerptSource(post, miniExcerptLength), miniExcerptLength)}
                       </p>
                     )}

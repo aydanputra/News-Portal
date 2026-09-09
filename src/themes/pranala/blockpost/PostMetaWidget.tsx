@@ -84,6 +84,7 @@ export default function PostMetaWidget({
     fontSize: toPx(getResponsiveConfig("fontSize")) || "0.875rem",
     fontWeight: toFontWeight(getResponsiveConfig("fontWeight"), "400"),
     lineHeight: (getResponsiveConfig("lineHeight") as number | undefined) || 1.4,
+    fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))",
     justifyContent
   };
   const darkSurfaceStyle: React.CSSProperties | undefined = isPublicDarkMode

@@ -2,6 +2,12 @@
 
 Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.1] - 2026-09-09
+
+### Perbaikan
+- Konsistensi tipografi: seluruh widget (Homepage, Post, Archive, Header, Footer) kini mengikuti pengaturan Tipografi Global.
+- Font picker widget kini memiliki 3 tingkatan: fallback Tipografi Global, Tipografi Halaman (Homepage/Single Post), dan pemilihan font langsung di pengaturan widget.
+
 ## [1.0.0] - 2026-09-08
 
 ### Ditambahkan

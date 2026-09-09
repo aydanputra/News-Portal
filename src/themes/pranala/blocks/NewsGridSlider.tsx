@@ -864,7 +864,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
                       </Link>
                     </h4>
                     {showMetaInfo && (showAuthor || showDate) && (
-                      <div className="news-grid-slider-meta flex items-center gap-2" style={{ color: effectiveMetaColor, fontSize: metaFs, lineHeight: metaLh, fontWeight: metaFw, marginBottom: metaMb }}>
+                      <div className="news-grid-slider-meta flex items-center gap-2" style={{ color: effectiveMetaColor, fontSize: metaFs, lineHeight: metaLh, fontWeight: metaFw, fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))", marginBottom: metaMb }}>
                         {showAuthor && authorName && (
                           <div className="flex items-center gap-1.5">
                             <span
@@ -896,7 +896,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
                       </div>
                     )}
                     {showExcerpt && (
-                      <p className="news-grid-slider-excerpt" style={{ color: effectiveExcerptColor, fontSize: excerptFs, lineHeight: excerptLh, fontWeight: excerptFw }}>
+                      <p className="news-grid-slider-excerpt" style={{ color: effectiveExcerptColor, fontSize: excerptFs, lineHeight: excerptLh, fontWeight: excerptFw, fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))" }}>
                         {clampExcerpt(getExcerptSource(post, excerptLength), excerptLength)}
                       </p>
                     )}

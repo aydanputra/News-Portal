@@ -41,11 +41,11 @@ export const HEADER_BUILDER_CSS = `
   .hb-row { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; align-items: center; }
   .hb-logo { display: inline-flex; align-items: center; max-width: var(--hb-logo-maxw, none); }
   .hb-logo img { height: var(--hb-logo-h, 40px) !important; width: auto !important; max-width: 100% !important; object-fit: contain; }
-  .hb-logo .hb-logo-text { font-size: var(--hb-logo-text, 28px); line-height: 1.1; }
+  .hb-logo .hb-logo-text { font-size: var(--hb-logo-text, 28px); line-height: 1.1; font-family: var(--font-heading, sans-serif); }
   .hb-logo .hb-logo-dark { display: none !important; }
   html.public-dark .hb-logo .hb-logo-light { display: none !important; }
   html.public-dark .hb-logo .hb-logo-dark { display: block !important; }
-  .hb-menu { --hb-menu-color: var(--hb-menu-desktop-color, var(--header-menu-color)); --hb-menu-hover: var(--hb-menu-desktop-hover, var(--accent)); --hb-menu-weight: var(--hb-menu-desktop-weight, 500); --hb-menu-font: var(--hb-menu-desktop-font, inherit); --hb-menu-size: var(--hb-menu-desktop-size, 12px); }
+  .hb-menu { --hb-menu-color: var(--hb-menu-desktop-color, var(--header-menu-color)); --hb-menu-hover: var(--hb-menu-desktop-hover, var(--accent)); --hb-menu-weight: var(--hb-menu-desktop-weight, 500); --hb-menu-font: var(--hb-menu-desktop-font, var(--font-body, sans-serif)); --hb-menu-size: var(--hb-menu-desktop-size, 12px); }
   .hb-menu-link { color: var(--hb-menu-color) !important; font-weight: var(--hb-menu-weight) !important; font-family: var(--hb-menu-font) !important; font-size: var(--hb-menu-size) !important; text-transform: uppercase; letter-spacing: 0.08em; transition: color 160ms ease; }
   .hb-menu-link:hover { color: var(--hb-menu-hover) !important; }
   .public-theme .hb-menu-link:hover { color: var(--hb-menu-hover) !important; }
@@ -153,7 +153,7 @@ export const HEADER_BUILDER_CSS = `
     font-size: var(--hb-drawer-menu-font-size, 14px);
     line-height: var(--hb-drawer-menu-line-height, 1.45);
     font-weight: var(--hb-drawer-menu-font-weight, 500);
-    font-family: var(--hb-drawer-menu-font-family, inherit);
+    font-family: var(--hb-drawer-menu-font-family, var(--font-body, sans-serif));
     font-synthesis: var(--font-heading-synthesis, var(--font-body-synthesis, none));
     color: var(--hb-drawer-link, #111827) !important;
     text-decoration: none;
@@ -167,7 +167,7 @@ export const HEADER_BUILDER_CSS = `
     font-size: calc(var(--hb-drawer-menu-font-size, 14px) - 1px);
     line-height: var(--hb-drawer-menu-line-height, 1.45);
     font-weight: var(--hb-drawer-menu-font-weight, 500);
-    font-family: var(--hb-drawer-menu-font-family, inherit);
+    font-family: var(--hb-drawer-menu-font-family, var(--font-body, sans-serif));
     font-synthesis: var(--font-heading-synthesis, var(--font-body-synthesis, none));
     color: var(--hb-drawer-link, #111827) !important;
     opacity: 0.78;
@@ -227,7 +227,7 @@ export const HEADER_BUILDER_CSS = `
     }
     .hb-row { align-items: flex-start; }
     .hb-logo { --hb-logo-h: var(--hb-logo-mobile-h, var(--hb-logo-desktop-h, 40px)); --hb-logo-maxw: var(--hb-logo-mobile-maxw, var(--hb-logo-desktop-maxw, none)); --hb-logo-text: var(--hb-logo-mobile-text, var(--hb-logo-desktop-text, 28px)); }
-    .hb-menu { --hb-menu-color: var(--hb-menu-mobile-color, var(--hb-menu-desktop-color, var(--header-menu-color))); --hb-menu-hover: var(--hb-menu-mobile-hover, var(--hb-menu-desktop-hover, var(--accent))); --hb-menu-weight: var(--hb-menu-mobile-weight, var(--hb-menu-desktop-weight, 500)); --hb-menu-font: var(--hb-menu-mobile-font, var(--hb-menu-desktop-font, inherit)); --hb-menu-size: var(--hb-menu-mobile-size, var(--hb-menu-desktop-size, 12px)); }
+    .hb-menu { --hb-menu-color: var(--hb-menu-mobile-color, var(--hb-menu-desktop-color, var(--header-menu-color))); --hb-menu-hover: var(--hb-menu-mobile-hover, var(--hb-menu-desktop-hover, var(--accent))); --hb-menu-weight: var(--hb-menu-mobile-weight, var(--hb-menu-desktop-weight, 500)); --hb-menu-font: var(--hb-menu-mobile-font, var(--hb-menu-desktop-font, var(--font-body, sans-serif))); --hb-menu-size: var(--hb-menu-mobile-size, var(--hb-menu-desktop-size, 12px)); }
     .hb-search { --hb-search-color: var(--hb-search-mobile-color, var(--hb-search-desktop-color, var(--muted-text, var(--home-meta-color, #9ca3af)))); --hb-search-hover: var(--hb-search-mobile-hover, var(--hb-search-desktop-hover, var(--accent))); --hb-search-icon: var(--hb-search-mobile-icon, var(--hb-search-desktop-icon, 20px)); --hb-search-input-color: var(--hb-search-mobile-input, var(--hb-search-desktop-input, var(--home-news-title-color, #111827))); --hb-search-bg: var(--hb-search-mobile-bg, var(--hb-search-desktop-bg, var(--bg-elevated, #ffffff))); --hb-search-border: var(--hb-search-mobile-border, var(--hb-search-desktop-border, var(--border, #e5e7eb))); --hb-search-radius: var(--hb-search-mobile-radius, var(--hb-search-desktop-radius, 999px)); --hb-search-height: var(--hb-search-mobile-height, var(--hb-search-desktop-height, 38px)); --hb-search-font: var(--hb-search-mobile-font, var(--hb-search-desktop-font, 14px)); --hb-search-button-bg: var(--hb-search-mobile-btnbg, var(--hb-search-desktop-btnbg, var(--bg-elevated, #ffffff))); --hb-search-button-text: var(--hb-search-mobile-btntxt, var(--hb-search-desktop-btntxt, #111827)); }
     .hb-theme { --hb-theme-color: var(--hb-theme-mobile-color, var(--hb-theme-desktop-color, #6b7280)); --hb-theme-hover: var(--hb-theme-mobile-hover, var(--hb-theme-desktop-hover, var(--accent))); --hb-theme-icon: var(--hb-theme-mobile-icon, var(--hb-theme-desktop-icon, 20px)); }
     .hb-mobile-toggle { --hb-mt-color: var(--hb-mt-mobile-color, var(--hb-mt-desktop-color, #6b7280)); --hb-mt-hover: var(--hb-mt-mobile-hover, var(--hb-mt-desktop-hover, var(--accent))); --hb-mt-icon: var(--hb-mt-mobile-icon, var(--hb-mt-desktop-icon, 24px)); --hb-mt-bg: var(--hb-mt-mobile-bg, var(--hb-mt-desktop-bg, transparent)); --hb-mt-bghover: var(--hb-mt-mobile-bghover, var(--hb-mt-desktop-bghover, transparent)); --hb-mt-radius: var(--hb-mt-mobile-radius, var(--hb-mt-desktop-radius, 10px)); --hb-mt-pad: var(--hb-mt-mobile-pad, var(--hb-mt-desktop-pad, 8px)); }
@@ -265,7 +265,7 @@ export const HEADER_BUILDER_CSS = `
     }
     .hb-row { align-items: flex-start; }
     .hb-logo { --hb-logo-h: var(--hb-logo-tablet-h, var(--hb-logo-desktop-h, 40px)); --hb-logo-maxw: var(--hb-logo-tablet-maxw, var(--hb-logo-desktop-maxw, none)); --hb-logo-text: var(--hb-logo-tablet-text, var(--hb-logo-desktop-text, 28px)); }
-    .hb-menu { --hb-menu-color: var(--hb-menu-tablet-color, var(--hb-menu-desktop-color, var(--header-menu-color))); --hb-menu-hover: var(--hb-menu-tablet-hover, var(--hb-menu-desktop-hover, var(--accent))); --hb-menu-weight: var(--hb-menu-tablet-weight, var(--hb-menu-desktop-weight, 500)); --hb-menu-font: var(--hb-menu-tablet-font, var(--hb-menu-desktop-font, inherit)); --hb-menu-size: var(--hb-menu-tablet-size, var(--hb-menu-desktop-size, 12px)); }
+    .hb-menu { --hb-menu-color: var(--hb-menu-tablet-color, var(--hb-menu-desktop-color, var(--header-menu-color))); --hb-menu-hover: var(--hb-menu-tablet-hover, var(--hb-menu-desktop-hover, var(--accent))); --hb-menu-weight: var(--hb-menu-tablet-weight, var(--hb-menu-desktop-weight, 500)); --hb-menu-font: var(--hb-menu-tablet-font, var(--hb-menu-desktop-font, var(--font-body, sans-serif))); --hb-menu-size: var(--hb-menu-tablet-size, var(--hb-menu-desktop-size, 12px)); }
     .hb-search { --hb-search-color: var(--hb-search-tablet-color, var(--hb-search-desktop-color, var(--muted-text, var(--home-meta-color, #9ca3af)))); --hb-search-hover: var(--hb-search-tablet-hover, var(--hb-search-desktop-hover, var(--accent))); --hb-search-icon: var(--hb-search-tablet-icon, var(--hb-search-desktop-icon, 20px)); --hb-search-input-color: var(--hb-search-tablet-input, var(--hb-search-desktop-input, var(--home-news-title-color, #111827))); --hb-search-bg: var(--hb-search-tablet-bg, var(--hb-search-desktop-bg, var(--bg-elevated, #ffffff))); --hb-search-border: var(--hb-search-tablet-border, var(--hb-search-desktop-border, var(--border, #e5e7eb))); --hb-search-radius: var(--hb-search-tablet-radius, var(--hb-search-desktop-radius, 999px)); --hb-search-height: var(--hb-search-tablet-height, var(--hb-search-desktop-height, 38px)); --hb-search-font: var(--hb-search-tablet-font, var(--hb-search-desktop-font, 14px)); --hb-search-button-bg: var(--hb-search-tablet-btnbg, var(--hb-search-desktop-btnbg, var(--bg-elevated, #ffffff))); --hb-search-button-text: var(--hb-search-tablet-btntxt, var(--hb-search-desktop-btntxt, #111827)); }
     .hb-theme { --hb-theme-color: var(--hb-theme-tablet-color, var(--hb-theme-desktop-color, #6b7280)); --hb-theme-hover: var(--hb-theme-tablet-hover, var(--hb-theme-desktop-hover, var(--accent))); --hb-theme-icon: var(--hb-theme-tablet-icon, var(--hb-theme-desktop-icon, 20px)); }
     .hb-mobile-toggle { --hb-mt-color: var(--hb-mt-tablet-color, var(--hb-mt-desktop-color, #6b7280)); --hb-mt-hover: var(--hb-mt-tablet-hover, var(--hb-mt-desktop-hover, var(--accent))); --hb-mt-icon: var(--hb-mt-tablet-icon, var(--hb-mt-desktop-icon, 24px)); --hb-mt-bg: var(--hb-mt-tablet-bg, var(--hb-mt-desktop-bg, transparent)); --hb-mt-bghover: var(--hb-mt-tablet-bghover, var(--hb-mt-desktop-bghover, transparent)); --hb-mt-radius: var(--hb-mt-tablet-radius, var(--hb-mt-desktop-radius, 10px)); --hb-mt-pad: var(--hb-mt-tablet-pad, var(--hb-mt-desktop-pad, 8px)); }

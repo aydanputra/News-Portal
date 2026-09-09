@@ -267,7 +267,7 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
   const { stickyLayout, registerSectionRef } = useStickySectionLayout(headerBlocks);
 
   const renderLogo = useCallback(() => (
-    <Link href="/" className="font-serif font-bold text-3xl tracking-tight [color:var(--home-news-title-color,var(--heading-color,#111827))]">
+    <Link href="/" className="font-bold text-3xl tracking-tight [color:var(--home-news-title-color,var(--heading-color,#111827))] [font-family:var(--font-heading,sans-serif)]">
       {logoUrl ? (
         <Image src={logoUrl} alt={siteName} width={200} height={40} unoptimized className="h-10 w-auto object-contain" />
       ) : (
@@ -374,7 +374,7 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
       const text = siteName;
       return (
         <div key={child.id} className="hb-logo-inner">
-          <Link href="/" className={hasLogo ? "inline-flex" : "hb-logo-text font-serif font-bold tracking-tight text-gray-900"}>
+          <Link href="/" className={hasLogo ? "inline-flex" : "hb-logo-text font-bold tracking-tight text-gray-900"}>
             {hasLogo ? (
               lightLogo !== "" && darkLogo !== "" ? (
                 <>

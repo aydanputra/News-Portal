@@ -98,7 +98,7 @@ export default function PostAuthorBoxWidget({
             {labelText}
           </div>
         )}
-        <div className={`${authorDesign === "split" ? "text-lg" : ""} font-semibold leading-tight`} style={{ color: nameColor }}>
+        <div className={`${authorDesign === "split" ? "text-lg" : ""} font-semibold leading-tight`} style={{ color: nameColor, fontFamily: "var(--font-heading, sans-serif)" }}>
           {authorName || "Nama Penulis"}
         </div>
         {hasBio && (

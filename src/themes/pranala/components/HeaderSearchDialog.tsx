@@ -194,10 +194,10 @@ export default function HeaderSearchDialog({
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="line-clamp-2 text-[1rem] font-semibold leading-snug text-[var(--fg-primary)] sm:text-[1.08rem]" style={{ fontSynthesis: "var(--font-heading-synthesis, none)" }}>
+                            <div className="line-clamp-2 text-[1rem] font-semibold leading-snug text-[var(--fg-primary)] sm:text-[1.08rem]" style={{ fontSynthesis: "var(--font-heading-synthesis, none)", fontFamily: "var(--font-heading, sans-serif)" }}>
                               {post?.title}
                             </div>
-                            <div className="mt-1 text-[0.8rem] leading-5 text-[var(--fg-secondary)] sm:text-[0.84rem]" style={{ fontSynthesis: "var(--font-body-synthesis, none)" }}>
+                            <div className="mt-1 text-[0.8rem] leading-5 text-[var(--fg-secondary)] sm:text-[0.84rem]" style={{ fontSynthesis: "var(--font-body-synthesis, none)", fontFamily: "var(--font-body, sans-serif)" }}>
                               {metaParts.join(" • ")}
                             </div>
                           </div>

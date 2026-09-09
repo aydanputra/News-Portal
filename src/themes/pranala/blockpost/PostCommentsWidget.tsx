@@ -271,7 +271,7 @@ export default function PostCommentsWidget({
       >
         <div className={isInline ? "mb-2" : "mb-4"}>
           <div className="flex items-start justify-between gap-3">
-            <div className={isInline ? "text-xs font-medium" : "text-base font-semibold"} style={{ color: isInline ? helperTextColor : (isPublicDarkMode ? "var(--fg-primary)" : headingColor) }}>
+            <div className={isInline ? "text-xs font-medium" : "text-base font-semibold"} style={{ color: isInline ? helperTextColor : (isPublicDarkMode ? "var(--fg-primary)" : headingColor), fontFamily: "var(--home-widget-title-font, var(--font-heading, sans-serif))" }}>
               {replyTo ? `Membalas ${replyTo.name}` : formTitleText}
             </div>
             {!isInline && hasSavedIdentity && !showIdentityFields && (
@@ -584,7 +584,7 @@ export default function PostCommentsWidget({
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <div className="text-base font-semibold" style={{ color: isPublicDarkMode ? "var(--fg-primary)" : headingColor }}>
+                <div className="text-base font-semibold" style={{ color: isPublicDarkMode ? "var(--fg-primary)" : headingColor, fontFamily: "var(--home-widget-title-font, var(--font-heading, sans-serif))" }}>
                   Lengkapi Informasi
                 </div>
                 <div className="mt-1 text-sm" style={{ color: helperTextColor }}>

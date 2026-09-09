@@ -132,10 +132,10 @@ export default function PranalaHomepage({ data }: HomepageProps) {
   // Inject CSS Variables for Global Usage (Helper)
   // We attach these to the root style as well, but sometimes components need them explicitly
   const globalBorderRadius = mainBoxRadius;
-  const homeWidgetTitleFontValue = setting?.homeWidgetTitleFont || "Inter";
-  const homeNewsTitleFontValue = setting?.homeNewsTitleFont || "Inter";
-  const homeExcerptFontValue = setting?.homeExcerptFont || "Inter";
-  const homeMetaFontValue = setting?.homeMetaFont || "Inter";
+  const homeWidgetTitleFontValue = setting?.homeWidgetTitleFont || setting?.globalWidgetTitleFont || setting?.headingFont || "Inter";
+  const homeNewsTitleFontValue = setting?.homeNewsTitleFont || setting?.globalNewsTitleFont || setting?.headingFont || "Inter";
+  const homeExcerptFontValue = setting?.homeExcerptFont || setting?.globalExcerptFont || setting?.bodyFont || "Inter";
+  const homeMetaFontValue = setting?.homeMetaFont || setting?.globalMetaFont || setting?.bodyFont || "Inter";
   const homeWidgetTitleFont = resolvePublicFont(homeWidgetTitleFontValue, "Inter");
   const homeNewsTitleFont = resolvePublicFont(homeNewsTitleFontValue, "Inter");
   const homeExcerptFont = resolvePublicFont(homeExcerptFontValue, "Inter");
@@ -456,20 +456,20 @@ export default function PranalaHomepage({ data }: HomepageProps) {
             '--home-main-box-radius': globalBorderRadius,
 
             // Typography
-            '--home-widget-title-size': setting?.homeWidgetTitleFontSize || "24px",
-            '--home-widget-title-weight': setting?.homeWidgetTitleFontWeight || "700",
+            '--home-widget-title-size': setting?.homeWidgetTitleFontSize || setting?.globalWidgetTitleFontSize || "24px",
+            '--home-widget-title-weight': setting?.homeWidgetTitleFontWeight || setting?.globalWidgetTitleFontWeight || "700",
             '--home-widget-title-font': homeWidgetTitleFont,
             '--home-widget-title-synthesis': homeWidgetTitleSynthesis,
-            '--home-news-title-size': setting?.homeNewsTitleFontSize || "18px",
-            '--home-news-title-weight': setting?.homeNewsTitleFontWeight || "600",
+            '--home-news-title-size': setting?.homeNewsTitleFontSize || setting?.globalNewsTitleFontSize || "18px",
+            '--home-news-title-weight': setting?.homeNewsTitleFontWeight || setting?.globalNewsTitleFontWeight || "600",
             '--home-news-title-font': homeNewsTitleFont,
             '--home-news-title-synthesis': homeNewsTitleSynthesis,
-            '--home-excerpt-size': setting?.homeExcerptFontSize || "14px",
-            '--home-excerpt-weight': setting?.homeExcerptFontWeight || "400",
+            '--home-excerpt-size': setting?.homeExcerptFontSize || setting?.globalExcerptFontSize || "14px",
+            '--home-excerpt-weight': setting?.homeExcerptFontWeight || setting?.globalExcerptFontWeight || "400",
             '--home-excerpt-font': homeExcerptFont,
             '--home-excerpt-synthesis': homeExcerptSynthesis,
-            '--home-meta-size': setting?.homeMetaFontSize || "12px",
-            '--home-meta-weight': setting?.homeMetaFontWeight || "500",
+            '--home-meta-size': setting?.homeMetaFontSize || setting?.globalMetaFontSize || "12px",
+            '--home-meta-weight': setting?.homeMetaFontWeight || setting?.globalMetaFontWeight || "500",
             '--home-meta-font': homeMetaFont,
             '--home-meta-synthesis': homeMetaSynthesis,
             

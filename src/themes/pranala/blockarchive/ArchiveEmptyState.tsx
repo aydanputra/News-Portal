@@ -48,8 +48,8 @@ export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateP
         "--archive-empty-button-bg-desktop": buttonBgColorDesktop,
       } as React.CSSProperties}
     >
-      <h2 className="text-2xl font-bold" style={{ color: "var(--archive-empty-title-color)" }}>{title}</h2>
-      <p className="mt-3 text-sm leading-6" style={{ color: "var(--archive-empty-description-color)" }}>{description}</p>
+      <h2 className="text-2xl font-bold" style={{ color: "var(--archive-empty-title-color)", fontFamily: "var(--home-widget-title-font, var(--font-heading, sans-serif))" }}>{title}</h2>
+      <p className="mt-3 text-sm leading-6" style={{ color: "var(--archive-empty-description-color)", fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))" }}>{description}</p>
       {ctaLabel && (
         <div className="mt-6">
           <Link

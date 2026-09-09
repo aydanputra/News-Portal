@@ -30,8 +30,8 @@ export default function PostContentWidget({
     ? contentColorConfig
     : (isPublicDarkMode ? "var(--fg-primary)" : contentColor);
   const resolvedHeadingColor = isPublicDarkMode ? "var(--fg-primary)" : headingColor;
-  const contentFontSize = toPx(getResponsiveConfig("fontSize"));
-  const contentFontWeight = toFontWeight(getResponsiveConfig("fontWeight"), "400");
+  const contentFontSize = toPx(getResponsiveConfig("fontSize")) || String(setting?.postContentFontSize || setting?.globalContentFontSize || "18px");
+  const contentFontWeight = toFontWeight(getResponsiveConfig("fontWeight"), String(setting?.postContentFontWeight || setting?.globalContentFontWeight || "400"));
   const contentLineHeight = getResponsiveConfig("lineHeight");
   const contentFontValue = String(setting?.postContentFont || setting?.globalContentFont || setting?.bodyFont || "Inter");
   const headingFontValue = String(setting?.postTitleFont || setting?.headingFont || "Inter");

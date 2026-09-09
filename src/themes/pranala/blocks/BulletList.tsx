@@ -426,12 +426,12 @@ export default function BulletList({ block, posts }: BulletListProps) {
                     <Link
                       href={postLink}
                       className="inline-flex items-start gap-2 transition-colors"
-                      style={{ color: currentTitleColor, fontSize: currentTitleFs, lineHeight: currentTitleLh, fontWeight: currentTitleFw, fontFamily: "var(--home-news-title-font), sans-serif" }}
+                      style={{ color: currentTitleColor, fontSize: currentTitleFs, lineHeight: currentTitleLh, fontWeight: currentTitleFw, fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))" }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = currentTitleHover; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = currentTitleColor; }}
                     >
                       <span className="bullet-list-bullet leading-[1.2] mt-[0.1em]" style={{ color: currentBulletColor, fontSize: currentBulletSize, lineHeight: 1 }}>›</span>
-                      <span style={{ fontSize: currentTitleFs, lineHeight: currentTitleLh, fontWeight: currentTitleFw, fontFamily: "var(--home-news-title-font), sans-serif" }}>
+                      <span style={{ fontSize: currentTitleFs, lineHeight: currentTitleLh, fontWeight: currentTitleFw, fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))" }}>
                         {post.title}
                       </span>
                     </Link>

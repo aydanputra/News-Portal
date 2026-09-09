@@ -285,7 +285,7 @@ export default function PostRelatedPostsWidget({
 
                 <div className={`flex min-w-0 flex-1 flex-col ${articleTextClassName}`}>
                   {showMeta && (showCategory || (showDate && dateText)) && (
-                    <div className={`mb-2 flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-[11px] ${metaClassName}`} style={{ color: relatedMetaColor }}>
+                    <div className={`mb-2 flex w-full flex-wrap items-center gap-x-3 gap-y-1 text-[11px] ${metaClassName}`} style={{ color: relatedMetaColor, fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))" }}>
                       {showCategory && item.category?.name && (
                         <span className="inline-flex items-center gap-1">
                           <FolderOpen size={12} />
@@ -308,7 +308,8 @@ export default function PostRelatedPostsWidget({
                       color: titleColor,
                       fontSize: titleFontSize,
                       lineHeight: titleLineHeight,
-                      fontWeight: titleFontWeight
+                      fontWeight: titleFontWeight,
+                      fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))"
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.color = titleHoverColor;
@@ -321,7 +322,7 @@ export default function PostRelatedPostsWidget({
                   </Link>
 
                   {showExcerpt && excerptText && (
-                    <p className="mt-2 w-full text-sm leading-6" style={{ ...excerptClampStyle, color: relatedExcerptColor }}>
+                    <p className="mt-2 w-full text-sm leading-6" style={{ ...excerptClampStyle, color: relatedExcerptColor, fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))" }}>
                       {excerptText}
                     </p>
                   )}

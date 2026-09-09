@@ -873,7 +873,7 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
                   {showMetaRow && (
                     <div
                       className="flex items-center gap-3 mt-2"
-                      style={{ color: effectiveMetaColor, fontSize: currentMetaFs, lineHeight: currentMetaLh, fontWeight: currentMetaFw, marginBottom: currentMetaMb }}
+                      style={{ color: effectiveMetaColor, fontSize: currentMetaFs, lineHeight: currentMetaLh, fontWeight: currentMetaFw, fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))", marginBottom: currentMetaMb }}
                     >
                       {currentShowAuthor && authorName && (
                         <div className="news-grid-author-wrap flex items-center gap-1.5">
@@ -910,7 +910,7 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
                     </div>
                   )}
                   {currentShowExcerpt && (
-                    <p style={{ color: effectiveExcerptColor, fontSize: currentExcerptFs, lineHeight: currentExcerptLh, fontWeight: currentExcerptFw }}>
+                    <p style={{ color: effectiveExcerptColor, fontSize: currentExcerptFs, lineHeight: currentExcerptLh, fontWeight: currentExcerptFw, fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))" }}>
                       {excerptText}
                     </p>
                   )}

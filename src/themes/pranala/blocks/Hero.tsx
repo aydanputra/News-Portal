@@ -653,7 +653,7 @@ export default function Hero({ block, posts, accentColor, borderRadius, customTi
                     id={`hero-title-${block.id}`}
                     className="font-bold drop-shadow-md"
                     style={{
-                      fontFamily: 'var(--home-news-title-font, sans-serif)',
+                      fontFamily: 'var(--home-news-title-font, var(--font-heading, sans-serif))',
                       fontSize: currentFs,
                       lineHeight: String(currentLh),
                       fontWeight: String(currentFw),
@@ -682,7 +682,7 @@ export default function Hero({ block, posts, accentColor, borderRadius, customTi
                                 id={`hero-meta-${block.id}`}
                                 className="flex items-center gap-3 font-medium opacity-90"
                                 style={{ 
-                                    fontFamily: 'var(--home-meta-font, sans-serif)',
+                                    fontFamily: 'var(--home-meta-font, var(--font-body, sans-serif))',
                                     fontWeight: String(currentMetaFw),
                                     fontSize: currentMetaFs,
                                     lineHeight: String(currentMetaLh),
@@ -725,7 +725,7 @@ export default function Hero({ block, posts, accentColor, borderRadius, customTi
                             <p
                                 className="mt-3 max-w-2xl opacity-95"
                                 style={{
-                                    fontFamily: 'var(--home-excerpt-font, sans-serif)',
+                                    fontFamily: 'var(--home-excerpt-font, var(--font-body, sans-serif))',
                                     fontWeight: String(currentExcerptFw),
                                     fontSize: currentExcerptFs,
                                     lineHeight: String(currentExcerptLh),

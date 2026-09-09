@@ -705,7 +705,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
                     <Link
                       href={postLink}
                       className="transition-colors duration-300"
-                      style={{ fontSize: currentTitleFs, color: currentTitleColor, lineHeight: currentTitleLh, fontWeight: currentTitleFw }}
+                      style={{ fontSize: currentTitleFs, color: currentTitleColor, lineHeight: currentTitleLh, fontWeight: currentTitleFw, fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))" }}
                       onMouseEnter={(e) => { e.currentTarget.style.color = currentTitleHover; }}
                       onMouseLeave={(e) => { e.currentTarget.style.color = currentTitleColor; }}
                     >
@@ -713,7 +713,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
                     </Link>
                   </h4>
                   {showMetaInfo && (showAuthor || showDate) && (
-                    <div className="text-xs flex items-center gap-3 mb-2 font-medium" style={{ color: currentMetaColor, fontSize: currentMetaFs, lineHeight: currentMetaLh }}>
+                    <div className="text-xs flex items-center gap-3 mb-2 font-medium" style={{ color: currentMetaColor, fontSize: currentMetaFs, lineHeight: currentMetaLh, fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))" }}>
                       {showAuthor && authorName && (
                         <div className="flex items-center gap-1.5">
                           <span
@@ -750,7 +750,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
                     </div>
                   )}
                   {showExcerpt && (
-                    <p className="text-sm max-w-3xl" style={{ color: currentExcerptColor, fontSize: currentExcerptFs, lineHeight: currentExcerptLh }}>
+                    <p className="text-sm max-w-3xl" style={{ color: currentExcerptColor, fontSize: currentExcerptFs, lineHeight: currentExcerptLh, fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))" }}>
                       {clampExcerpt(getExcerptSource(post, excerptLength), excerptLength)}
                     </p>
                   )}

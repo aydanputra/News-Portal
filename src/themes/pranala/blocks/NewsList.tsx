@@ -1304,6 +1304,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                         color: String(currentExcerptColor),
                         lineHeight: currentExcerptLh,
                         fontWeight: currentExcerptFontWeight,
+                        fontFamily: 'var(--home-excerpt-font, var(--font-body, sans-serif))',
                       }}
                     >
                       {getDisplayExcerpt(post)}
@@ -1320,6 +1321,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
                         color: String(currentMetaColor),
                         lineHeight: currentMetaLineHeight,
                         fontWeight: currentMetaFontWeight,
+                        fontFamily: 'var(--home-meta-font, var(--font-body, sans-serif))',
                         marginBottom: `${currentMetaMarginBottom}px`,
                       }}
                     >

@@ -10,6 +10,7 @@ import type {
   BlockConfigPanelSurfaceVisualProps,
 } from "./BlockConfigPanelSharedTypes";
 import { BlockConfigPanelCollapseCard } from "./BlockConfigPanelCollapseCard";
+import { FontFamilyPicker } from "./FontFamilyPicker";
 
 type ArchiveVisualProps = Pick<
   BlockConfigPanelSurfaceVisualProps,
@@ -343,11 +344,8 @@ export function renderArchiveVisualSections({
                   { value: "800", label: "Extra Bold (800)" },
                 ]}
               />
-              <TextField
-                label="Font"
-                className={heroControlClass}
-                value={getConfigString("titleFontFamily")}
-                placeholder="inherit"
+              <FontFamilyPicker
+                value={getConfigString("titleFontFamily", "")}
                 onChange={(value) => updateChildResponsiveConfig("titleFontFamily", value || undefined)}
               />
             </div>,
@@ -385,11 +383,8 @@ export function renderArchiveVisualSections({
                   { value: "600", label: "Semi Bold (600)" },
                 ]}
               />
-              <TextField
-                label="Font"
-                className={heroControlClass}
-                value={getConfigString("descriptionFontFamily")}
-                placeholder="inherit"
+              <FontFamilyPicker
+                value={getConfigString("descriptionFontFamily", "")}
                 onChange={(value) => updateChildResponsiveConfig("descriptionFontFamily", value || undefined)}
               />
             </div>,
@@ -427,11 +422,8 @@ export function renderArchiveVisualSections({
                   { value: "600", label: "Semi Bold (600)" },
                 ]}
               />
-              <TextField
-                label="Font"
-                className={heroControlClass}
-                value={getConfigString("metaFontFamily")}
-                placeholder="inherit"
+              <FontFamilyPicker
+                value={getConfigString("metaFontFamily", "")}
                 onChange={(value) => updateChildResponsiveConfig("metaFontFamily", value || undefined)}
               />
             </div>,

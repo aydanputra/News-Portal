@@ -74,27 +74,27 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
         <div className="container mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-8">
             <div className="w-full md:w-1/3">
-              <Link href="/" className="text-2xl font-serif font-bold mb-4 block [color:var(--home-news-title-color,#ffffff)]">
+              <Link href="/" className="text-2xl font-bold mb-4 block [color:var(--home-news-title-color,#ffffff)] [font-family:var(--font-heading,sans-serif)]">
                 {logoUrl ? (
                   <Image src={logoUrl} alt={siteName} width={160} height={32} unoptimized className="h-8 w-auto filter invert" />
                 ) : (
                   <span>{siteName}</span>
                 )}
               </Link>
-              <p className="text-sm leading-relaxed [color:var(--home-excerpt-color,#9ca3af)]">
+              <p className="text-sm leading-relaxed [color:var(--home-excerpt-color,#9ca3af)] [font-family:var(--font-body,sans-serif)]">
                 Menyajikan berita terkini dan terpercaya dari seluruh penjuru dunia dengan gaya penyajian modern dan informatif.
               </p>
             </div>
 
-            <div className="w-full md:w-1/3 flex justify-center md:justify-end gap-8 text-sm font-medium">
+            <div className="w-full md:w-1/3 flex justify-center md:justify-end gap-8 text-sm font-medium [font-family:var(--font-body,sans-serif)]">
               <div className="flex flex-col gap-3">
-                <span className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold mb-1">Tentang</span>
+                <span className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold mb-1 [font-family:var(--font-heading,sans-serif)]">Tentang</span>
                 <Link href="/about" className="hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors">Tentang Kami</Link>
                 <Link href="/contact" className="hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors">Kontak</Link>
                 <Link href="/privacy" className="hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors">Privasi</Link>
               </div>
               <div className="flex flex-col gap-3">
-                <span className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold mb-1">Redaksi</span>
+                <span className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold mb-1 [font-family:var(--font-heading,sans-serif)]">Redaksi</span>
                 <Link href="/editorial" className="hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors">Tim Redaksi</Link>
                 <Link href="/careers" className="hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors">Karir</Link>
                 <Link href="/advertise" className="hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors">Iklan</Link>
@@ -116,7 +116,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                   <Linkedin size={18} />
                 </a>
               </div>
-              <p className="text-xs [color:var(--home-meta-color,#9ca3af)] mt-2">
+              <p className="text-xs [color:var(--home-meta-color,#9ca3af)] mt-2 [font-family:var(--font-body,sans-serif)]">
                 &copy; {year} {siteName}. All rights reserved.
               </p>
             </div>
@@ -347,14 +347,14 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
       const effectiveLogo = typeof config.logoUrl === "string" && config.logoUrl.trim() !== "" ? config.logoUrl : logoUrl;
       return (
         <div className={`space-y-3 ${alignClass}`.trim()}>
-          <Link href="/" className="text-2xl font-serif font-bold block [color:var(--home-news-title-color,#ffffff)]">
+          <Link href="/" className="text-2xl font-bold block [color:var(--home-news-title-color,#ffffff)] [font-family:var(--font-heading,sans-serif)]">
             {effectiveLogo ? (
               <Image src={effectiveLogo} alt={siteName} width={160} height={32} unoptimized className="h-8 w-auto filter invert" />
             ) : (
               <span>{siteName}</span>
             )}
           </Link>
-          <p className="text-sm leading-relaxed [color:var(--home-excerpt-color,#9ca3af)]">{desc}</p>
+          <p className="text-sm leading-relaxed [color:var(--home-excerpt-color,#9ca3af)] [font-family:var(--font-body,sans-serif)]">{desc}</p>
         </div>
       );
     }
@@ -396,7 +396,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
 
       return (
         <div className={`fb-logo ${alignClass}`.trim()} style={style}>
-          <Link href="/" className={lightLogo !== "" || darkLogo !== "" ? "inline-flex" : "fb-logo-text font-serif font-bold [color:var(--home-news-title-color,#ffffff)]"} aria-label={siteName}>
+          <Link href="/" className={lightLogo !== "" || darkLogo !== "" ? "inline-flex" : "fb-logo-text font-bold [color:var(--home-news-title-color,#ffffff)] [font-family:var(--font-heading,sans-serif)]"} aria-label={siteName}>
             {lightLogo !== "" || darkLogo !== "" ? (
               lightLogo !== "" && darkLogo !== "" ? (
                 <>
@@ -428,7 +428,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
                 />
               )
             ) : (
-              <span className="fb-logo-text text-[length:var(--fb-logo-mobile-text,var(--fb-logo-desktop-text,28px))] md:text-[length:var(--fb-logo-tablet-text,var(--fb-logo-desktop-text,28px))] lg:text-[length:var(--fb-logo-desktop-text,28px)] leading-[1.1]">
+              <span className="fb-logo-text text-[length:var(--fb-logo-mobile-text,var(--fb-logo-desktop-text,28px))] md:text-[length:var(--fb-logo-tablet-text,var(--fb-logo-desktop-text,28px))] lg:text-[length:var(--fb-logo-desktop-text,28px)] leading-[1.1] [font-family:var(--font-heading,sans-serif)]">
                 {siteName}
               </span>
             )}
@@ -441,8 +441,8 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
       if (!Array.isArray(footerMenu) || footerMenu.length === 0) return null;
       return (
         <div className={`space-y-3 ${alignClass}`.trim()}>
-          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold">{title || "Menu"}</div>}
-          <ul className="space-y-2 text-sm font-medium">
+          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold [font-family:var(--font-heading,sans-serif)]">{title || "Menu"}</div>}
+          <ul className="space-y-2 text-sm font-medium [font-family:var(--font-body,sans-serif)]">
             {footerMenu.map((item: any) => (
               <li key={item.id}>
                 <Link
@@ -519,7 +519,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
           {showTitle && (
             <div
               style={styleVars}
-              className="inline-flex border-b pb-1 uppercase tracking-wider font-bold [color:var(--fb-ft-title-color-mobile,var(--fb-ft-title-color-desktop,var(--home-widget-title-color,#9ca3af)))] md:[color:var(--fb-ft-title-color-tablet,var(--fb-ft-title-color-desktop,var(--home-widget-title-color,#9ca3af)))] lg:[color:var(--fb-ft-title-color-desktop,var(--home-widget-title-color,#9ca3af))] text-[length:var(--fb-ft-title-size-mobile,var(--fb-ft-title-size-desktop,12px))] md:text-[length:var(--fb-ft-title-size-tablet,var(--fb-ft-title-size-desktop,12px))] lg:text-[length:var(--fb-ft-title-size-desktop,12px)] border-[color:var(--fb-ft-title-border-mobile,var(--fb-ft-title-border-desktop,rgba(156,163,175,0.28)))] md:border-[color:var(--fb-ft-title-border-tablet,var(--fb-ft-title-border-desktop,rgba(156,163,175,0.28)))] lg:border-[color:var(--fb-ft-title-border-desktop,rgba(156,163,175,0.28))]"
+              className="inline-flex border-b pb-1 uppercase tracking-wider font-bold [color:var(--fb-ft-title-color-mobile,var(--fb-ft-title-color-desktop,var(--home-widget-title-color,#9ca3af)))] md:[color:var(--fb-ft-title-color-tablet,var(--fb-ft-title-color-desktop,var(--home-widget-title-color,#9ca3af)))] lg:[color:var(--fb-ft-title-color-desktop,var(--home-widget-title-color,#9ca3af))] text-[length:var(--fb-ft-title-size-mobile,var(--fb-ft-title-size-desktop,12px))] md:text-[length:var(--fb-ft-title-size-tablet,var(--fb-ft-title-size-desktop,12px))] lg:text-[length:var(--fb-ft-title-size-desktop,12px)] border-[color:var(--fb-ft-title-border-mobile,var(--fb-ft-title-border-desktop,rgba(156,163,175,0.28)))] md:border-[color:var(--fb-ft-title-border-tablet,var(--fb-ft-title-border-desktop,rgba(156,163,175,0.28)))] lg:border-[color:var(--fb-ft-title-border-desktop,rgba(156,163,175,0.28))] [font-family:var(--font-heading,sans-serif)]"
             >
               {title || "Info"}
             </div>
@@ -625,7 +625,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
             } as any
           }
         >
-          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold">{title || "Social"}</div>}
+          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold [font-family:var(--font-heading,sans-serif)]">{title || "Social"}</div>}
           <div
             className={
               layout === "vertical"
@@ -665,8 +665,8 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
       if (items.length === 0) return null;
       return (
         <div className={`space-y-3 ${alignClass}`.trim()}>
-          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold">{title || "Kategori"}</div>}
-          <ul className="space-y-2 text-sm font-medium">
+          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold [font-family:var(--font-heading,sans-serif)]">{title || "Kategori"}</div>}
+          <ul className="space-y-2 text-sm font-medium [font-family:var(--font-body,sans-serif)]">
             {items.map((cat: any) => (
               <li key={cat.id || cat.slug || cat.name}>
                 <Link href={`/kategori/${cat.slug}`} className="hover:[color:var(--home-hover-color,var(--accent,#2563eb))] transition-colors">
@@ -764,10 +764,10 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
           : "no-underline hover:underline hover:underline-offset-4";
       return (
         <div className={`space-y-3 ${alignClass}`.trim()}>
-          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold">{title || "Links"}</div>}
+          {showTitle && <div className="[color:var(--home-widget-title-color,#9ca3af)] uppercase tracking-wider text-xs font-bold [font-family:var(--font-heading,sans-serif)]">{title || "Links"}</div>}
           <ul
             style={styleVars}
-            className={`fb-custom-links max-w-full break-words whitespace-normal [color:var(--fb-cl-color-mobile,var(--fb-cl-color-desktop,var(--home-excerpt-color,#9ca3af)))] md:[color:var(--fb-cl-color-tablet,var(--fb-cl-color-desktop,var(--home-excerpt-color,#9ca3af)))] lg:[color:var(--fb-cl-color-desktop,var(--home-excerpt-color,#9ca3af))] text-[length:var(--fb-cl-size-mobile,var(--fb-cl-size-desktop,14px))] md:text-[length:var(--fb-cl-size-tablet,var(--fb-cl-size-desktop,14px))] lg:text-[length:var(--fb-cl-size-desktop,14px)] font-[var(--fb-cl-fw-mobile,var(--fb-cl-fw-desktop,500))] md:font-[var(--fb-cl-fw-tablet,var(--fb-cl-fw-desktop,500))] lg:font-[var(--fb-cl-fw-desktop,500)] ${ulClass}`.trim()}
+            className={`fb-custom-links max-w-full break-words whitespace-normal [color:var(--fb-cl-color-mobile,var(--fb-cl-color-desktop,var(--home-excerpt-color,#9ca3af)))] md:[color:var(--fb-cl-color-tablet,var(--fb-cl-color-desktop,var(--home-excerpt-color,#9ca3af)))] lg:[color:var(--fb-cl-color-desktop,var(--home-excerpt-color,#9ca3af))] text-[length:var(--fb-cl-size-mobile,var(--fb-cl-size-desktop,14px))] md:text-[length:var(--fb-cl-size-tablet,var(--fb-cl-size-desktop,14px))] lg:text-[length:var(--fb-cl-size-desktop,14px)] font-[var(--fb-cl-fw-mobile,var(--fb-cl-fw-desktop,500))] md:font-[var(--fb-cl-fw-tablet,var(--fb-cl-fw-desktop,500))] lg:font-[var(--fb-cl-fw-desktop,500)] [font-family:var(--font-body,sans-serif)] ${ulClass}`.trim()}
           >
             {items.map((item: any, idx: number) => {
               const isInternal = item.url.startsWith("/");
@@ -965,7 +965,7 @@ export default function Footer({ siteName, logoUrl, footerConfig, menusByLocatio
       return (
         <div
           style={styleVars}
-          className={`footer-copyright-text max-w-full break-words whitespace-normal ${alignClassMobile} ${alignClassTablet} ${alignClassDesktop} [color:var(--fb-fc-color-mobile,var(--fb-fc-color-desktop,var(--home-meta-color,#9ca3af)))] md:[color:var(--fb-fc-color-tablet,var(--fb-fc-color-desktop,var(--home-meta-color,#9ca3af)))] lg:[color:var(--fb-fc-color-desktop,var(--home-meta-color,#9ca3af))] text-[length:var(--fb-fc-size-mobile,var(--fb-fc-size-desktop,12px))] md:text-[length:var(--fb-fc-size-tablet,var(--fb-fc-size-desktop,12px))] lg:text-[length:var(--fb-fc-size-desktop,12px)] leading-[var(--fb-fc-lh-mobile,var(--fb-fc-lh-desktop,1.5))] md:leading-[var(--fb-fc-lh-tablet,var(--fb-fc-lh-desktop,1.5))] lg:leading-[var(--fb-fc-lh-desktop,1.5)] font-[var(--fb-fc-fw-mobile,var(--fb-fc-fw-desktop,400))] md:font-[var(--fb-fc-fw-tablet,var(--fb-fc-fw-desktop,400))] lg:font-[var(--fb-fc-fw-desktop,400)]`.trim()}
+          className={`footer-copyright-text max-w-full break-words whitespace-normal ${alignClassMobile} ${alignClassTablet} ${alignClassDesktop} [color:var(--fb-fc-color-mobile,var(--fb-fc-color-desktop,var(--home-meta-color,#9ca3af)))] md:[color:var(--fb-fc-color-tablet,var(--fb-fc-color-desktop,var(--home-meta-color,#9ca3af)))] lg:[color:var(--fb-fc-color-desktop,var(--home-meta-color,#9ca3af))] text-[length:var(--fb-fc-size-mobile,var(--fb-fc-size-desktop,12px))] md:text-[length:var(--fb-fc-size-tablet,var(--fb-fc-size-desktop,12px))] lg:text-[length:var(--fb-fc-size-desktop,12px)] leading-[var(--fb-fc-lh-mobile,var(--fb-fc-lh-desktop,1.5))] md:leading-[var(--fb-fc-lh-tablet,var(--fb-fc-lh-desktop,1.5))] lg:leading-[var(--fb-fc-lh-desktop,1.5)] font-[var(--fb-fc-fw-mobile,var(--fb-fc-fw-desktop,400))] md:font-[var(--fb-fc-fw-tablet,var(--fb-fc-fw-desktop,400))] lg:font-[var(--fb-fc-fw-desktop,400)] [font-family:var(--font-body,sans-serif)]`.trim()}
         >
           {resolvedText}
         </div>

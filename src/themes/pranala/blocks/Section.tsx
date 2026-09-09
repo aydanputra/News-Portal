@@ -481,7 +481,7 @@ export default function Section({ block, layout: _layout, colWidths: _colWidths,
                     id={`section-box-content-${block.id}`}
                     className="relative z-10 pt-[var(--sec-boxpt-m)] pr-[var(--sec-boxpr-m)] pb-[var(--sec-boxpb-m)] pl-[var(--sec-boxpl-m)] md:pt-[var(--sec-boxpt-t)] md:pr-[var(--sec-boxpr-t)] md:pb-[var(--sec-boxpb-t)] md:pl-[var(--sec-boxpl-t)] lg:pt-[var(--sec-boxpt-d)] lg:pr-[var(--sec-boxpr-d)] lg:pb-[var(--sec-boxpb-d)] lg:pl-[var(--sec-boxpl-d)]"
                   >
-                    {title && <h2 className="text-2xl font-bold mb-3 border-b pb-2">{title}</h2>}
+                    {title && <h2 className="text-2xl font-bold mb-3 border-b pb-2" style={{ fontFamily: "var(--home-widget-title-font, var(--font-heading, sans-serif))" }}>{title}</h2>}
                     
                     <div 
                         id={`section-grid-${block.id}`}

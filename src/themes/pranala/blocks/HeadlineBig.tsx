@@ -690,6 +690,7 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
               fontSize: currentTitleFs,
               lineHeight: currentTitleLh,
               fontWeight: currentTitleFw,
+              fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))",
               marginTop: currentTitleMt,
               marginBottom: currentTitleMb,
             }}
@@ -711,6 +712,7 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
                 lineHeight: currentMetaLh,
                 fontWeight: currentMetaFw,
                 color: currentMetaColor,
+                fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))",
                 marginBottom: currentMetaMb,
               }}
             >
@@ -755,6 +757,7 @@ export default function HeadlineBig({ block, posts, accentColor, borderRadius, p
                 fontSize: currentExcerptFs,
                 lineHeight: currentExcerptLh,
                 fontWeight: currentExcerptFw,
+                fontFamily: "var(--home-excerpt-font, var(--font-body, sans-serif))",
                 marginBottom: currentExcerptMb,
               }}
             >
