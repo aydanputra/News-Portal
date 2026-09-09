@@ -36,6 +36,10 @@ const SKIP_REMOTE_LOAD_FAMILIES = new Set([
   "times new roman",
   "trebuchet ms",
   "verdana",
+  // Self-hosted via next/font/google — jangan load remote lagi.
+  "poppins",
+  "inter",
+  "sora",
 ]);
 
 const DEPRECATED_FONT_ALIASES = new Set(["helvetica", "helvetica neue"]);

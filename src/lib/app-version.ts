@@ -17,6 +17,14 @@ export interface ReleaseNote {
 
 export const APP_CHANGELOG: ReleaseNote[] = [
   {
+    version: "1.0.4",
+    date: "2026-09-09",
+    notes: [
+      "Logo header diprioritaskan (priority + fetchPriority high) agar FCP/LCP lebih cepat",
+      "Hentikan duplikasi request font Poppins/Inter/Sora yang sudah self-hosted",
+    ],
+  },
+  {
     version: "1.0.3",
     date: "2026-09-09",
     notes: [

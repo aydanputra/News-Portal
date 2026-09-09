@@ -2,6 +2,12 @@
 
 Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.4] - 2026-09-09
+
+### Performa
+- Logo header di atas fold kini `priority` + `fetchPriority="high"` agar tidak menunda FCP/LCP.
+- Hentikan request duplikat font `Poppins`/`Inter`/`Sora` yang sudah self-hosted via `next/font` (bersihkan beban remote font).
+
 ## [1.0.3] - 2026-09-09
 
 ### Performa

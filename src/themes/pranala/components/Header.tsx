@@ -378,11 +378,11 @@ export default function Header({ siteName, logoUrl, categories, primaryMenu, sec
             {hasLogo ? (
               lightLogo !== "" && darkLogo !== "" ? (
                 <>
-                  <Image src={lightLogo} alt={siteName} width={400} height={120} unoptimized className="hb-logo-light block" />
-                  <Image src={darkLogo} alt={siteName} width={400} height={120} unoptimized className="hb-logo-dark block" />
+                  <Image src={lightLogo} alt={siteName} width={400} height={120} unoptimized priority fetchPriority="high" className="hb-logo-light block" />
+                  <Image src={darkLogo} alt={siteName} width={400} height={120} unoptimized priority fetchPriority="high" className="hb-logo-dark block" />
                 </>
               ) : (
-                <Image src={(lightLogo || darkLogo) as string} alt={siteName} width={400} height={120} unoptimized className="block" />
+                <Image src={(lightLogo || darkLogo) as string} alt={siteName} width={400} height={120} unoptimized priority fetchPriority="high" className="block" />
               )
             ) : (
               <span className="hb-logo-text">{text}</span>
