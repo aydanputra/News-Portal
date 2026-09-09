@@ -2,6 +2,14 @@
 
 Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.6] - 2026-09-10
+
+### Perbaikan
+- Perbaiki preview media yang baru diunggah tidak muncul (404) hingga menunggu rebuild: file yang ditulis ke `public/uploads` saat runtime tidak diserve oleh Next.js karena hanya file build-time yang tersedia di route statis `public/`.
+- Kembalikan rewrite `/uploads/*` ke route handler dinamis `/api/uploads/*` agar file yang baru diunggah langsung tersedia.
+- Tandai route `/api/uploads/*` `force-dynamic` agar tidak di-prerender/di-cache oleh Next.
+- 404 media kini `Cache-Control: no-store` (tidak menetap lama di CDN/browser), sementara file valid tetap `immutable`.
+
 ## [1.0.5] - 2026-09-09
 
 ### Performa

@@ -90,14 +90,17 @@ const nextConfig: NextConfig = {
         source: '/(.*)',
         headers: securityHeaders,
       },
+    ];
+  },
+  async rewrites() {
+    return [
       {
+        // File upload ditulis ke public/uploads saat runtime, tapi Next.js hanya
+        // serve file `public/` yang sudah ada saat build. Rewrite ini mengarahkan
+        // /uploads/* ke route handler dinamis /api/uploads/* agar file yang baru
+        // di-upload langsung tersedia tanpa menunggu rebuild.
         source: '/uploads/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
+        destination: '/api/uploads/:path*',
       },
     ];
   },

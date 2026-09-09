@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import fs from 'fs';
 
+// Jangan pernah di-prerender/di-cache: file media bisa ditambah/dihapus saat runtime.
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
     const { path: pathParts } = await params;
     
@@ -21,7 +24,10 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
             return NextResponse.redirect(`${baseUrl}/${key}`, 307);
         }
         console.error(`[UploadServe] File not found: ${filePath}`);
-        return new NextResponse('File not found', { status: 404 });
+        return new NextResponse('File not found', {
+            status: 404,
+            headers: { 'Cache-Control': 'no-store' },
+        });
     }
 
     try {

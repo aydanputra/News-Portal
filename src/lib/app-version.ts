@@ -5,7 +5,7 @@ import pkg from "../../package.json";
 export const APP_VERSION: string = pkg.version;
 
 // Tanggal rilis versi saat ini. Selaraskan dengan entri teratas di CHANGELOG.md.
-export const APP_RELEASED_AT: string = "2026-09-09";
+export const APP_RELEASED_AT: string = "2026-09-10";
 
 // Ringkasan catatan rilis terbaru (selaras dengan CHANGELOG.md) untuk ditampilkan
 // di dashboard dan Pengaturan → Status Sistem.
@@ -16,6 +16,15 @@ export interface ReleaseNote {
 }
 
 export const APP_CHANGELOG: ReleaseNote[] = [
+  {
+    version: "1.0.6",
+    date: "2026-09-10",
+    notes: [
+      "Perbaiki preview media baru tidak muncul (404) hingga menunggu rebuild",
+      "Serve /uploads/* lewat route dinamis agar file runtime langsung tersedia",
+      "404 media tidak lagi di-cache (no-store) dan tidak menetap lama di CDN",
+    ],
+  },
   {
     version: "1.0.5",
     date: "2026-09-09",
