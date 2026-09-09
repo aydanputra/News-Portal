@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
@@ -283,7 +283,10 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
   const showMiniThumbnails = toBool(cfg.showMiniThumbnails, false);
   const thumbnailVisibleCount = Math.max(2, Math.min(6, toNumber(cfg.thumbnailVisibleCount, 4)));
 
-  useLayoutEffect(() => {
+  // Deteksi device via useEffect (bukan useLayoutEffect) agar pembacaan
+  // window.innerWidth tidak memblokir render pertama (FCP/LCP). Tinggi shell
+  // slider sudah diatur murni lewat CSS (--rh-*), jadi tidak menambah CLS.
+  useEffect(() => {
     if (previewDevice) {
       setDevice(previewDevice);
       return;

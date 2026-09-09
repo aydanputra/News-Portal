@@ -40,9 +40,24 @@ const SKIP_REMOTE_LOAD_FAMILIES = new Set([
   "poppins",
   "inter",
   "sora",
+  "merriweather",
 ]);
 
 const DEPRECATED_FONT_ALIASES = new Set(["helvetica", "helvetica neue"]);
+
+// Font yang di-self-host via next/font/google. Saat dipilih, rujuk ke CSS
+// variable next/font (yang berisi nama family hasil hash) agar tidak memicu
+// request eksternal dan tetap render dengan glyph yang benar.
+const SELF_HOSTED_FONT_VARS: Record<string, string> = {
+  poppins: "var(--font-poppins)",
+  inter: "var(--font-inter)",
+  sora: "var(--font-sora)",
+  merriweather: "var(--font-merriweather)",
+};
+
+function mapSelfHostedFamily(cleanFamily: string): string {
+  return SELF_HOSTED_FONT_VARS[cleanFamily.toLowerCase()] ?? cleanFamily;
+}
 
 function stripQuotes(value: string): string {
   return value.replace(/^['"]|['"]$/g, "").trim();
@@ -74,7 +89,9 @@ function joinFontFamilies(families: string[]): string {
     .map((family) => {
       const cleanFamily = stripQuotes(family);
       if (!cleanFamily) return "";
-      return GENERIC_FAMILIES.has(cleanFamily.toLowerCase()) ? cleanFamily : quoteFontFamily(cleanFamily);
+      if (GENERIC_FAMILIES.has(cleanFamily.toLowerCase())) return cleanFamily;
+      const selfHostedVar = SELF_HOSTED_FONT_VARS[cleanFamily.toLowerCase()];
+      return selfHostedVar ?? quoteFontFamily(cleanFamily);
     })
     .filter(Boolean)
     .join(", ");
@@ -95,7 +112,7 @@ function normalizePrimaryFont(font: string, fallback: string): string {
   const cleanFont = stripQuotes(font);
   if (!cleanFont) return fallback;
   if (GENERIC_FAMILIES.has(cleanFont.toLowerCase())) return cleanFont;
-  return `${quoteFontFamily(cleanFont)}, ${fallback}`;
+  return `${mapSelfHostedFamily(cleanFont)}, ${fallback}`;
 }
 
 export function resolveThemeFontFamily(font?: string, fallback = "sans-serif"): string {
@@ -113,11 +130,15 @@ export function getThemeFontLoadFamilies(font?: string): string[] {
   const value = typeof font === "string" ? font.trim() : "";
   if (!value || isCssSpecialValue(value)) return [];
 
-  const normalizedValue = normalizeDeprecatedFontChoice(value, "");
-  if (!normalizedValue) return [];
-
-  const families = splitFontFamilies(normalizedValue);
-  const primaryFamily = families.find((family) => !GENERIC_FAMILIES.has(family.toLowerCase()));
+  // Baca primary family langsung dari nilai mentah. Jangan lewat
+  // normalizeDeprecatedFontChoice karena ia sudah memetakan font self-hosted
+  // menjadi `var(--font-...)`, sehingga skip remote tidak akan terdeteksi.
+  const families = splitFontFamilies(value).filter(
+    (family) => !DEPRECATED_FONT_ALIASES.has(family.toLowerCase()),
+  );
+  const primaryFamily = families.find(
+    (family) => !GENERIC_FAMILIES.has(family.toLowerCase()),
+  );
   if (!primaryFamily) return [];
 
   const normalizedPrimary = primaryFamily.toLowerCase();

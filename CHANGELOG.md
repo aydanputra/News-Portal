@@ -2,6 +2,14 @@
 
 Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.5] - 2026-09-09
+
+### Performa
+- `Merriweather` kini self-hosted via `next/font/google`; hentikan request remote `Merriweather` dari tema pranala (mengurangi render-blocking font).
+- Petakan font self-hosted (`Inter`/`Poppins`/`Sora`/`Merriweather`) ke CSS variable `next/font` di semua renderer (heading, body, dan widget) agar glyph tetap tampil tanpa request eksternal.
+- Kurangi preload font yang tidak aktif di tema (`Poppins` 7 weight dan `Sora`) agar tidak bersaing dengan gambar LCP.
+- Ganti `useLayoutEffect` ke `useEffect` pada deteksi device `HeroSlider` agar tidak memblokir render pertama (menekan `elementRenderDelay`).
+
 ## [1.0.4] - 2026-09-09
 
 ### Performa

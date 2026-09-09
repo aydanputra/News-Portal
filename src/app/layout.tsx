@@ -4,7 +4,7 @@ import "./globals.css";
 import ThemeProvider from "@/components/ThemeProvider";
 import { getSettings, FONT_SETTING_KEYS } from "@/lib/settings";
 import { getThemeFontLoadFamilies } from "@/lib/font-utils";
-import { inter, poppins, sora } from "@/lib/fonts";
+import { inter, poppins, sora, merriweather } from "@/lib/fonts";
 import { sanitizeInsertCode, safeStyleTagCss } from "@/lib/sanitizer";
 
 function renderInsertCodeHead(snippet: unknown) {
@@ -179,14 +179,13 @@ function renderInsertCodeHead(snippet: unknown) {
   return [...scriptEls, ...metaEls, ...linkEls];
 }
 
-const SELF_HOSTED_FONTS = new Set(["inter", "poppins", "sora"]);
+const SELF_HOSTED_FONTS = new Set(["inter", "poppins", "sora", "merriweather"]);
 
 // Bobot (weight) yang tersedia untuk setiap font Google. Font dengan rentang
 // bobot terbatas tidak bisa meminta 300/500/600; kalau dipaksa, seluruh
 // request css2 akan gagal (HTTP 400). Default dipakai untuk font dengan
 // dukungan bobot penuh.
 const REMOTE_FONT_WEIGHTS: Record<string, string> = {
-  merriweather: "300;400;700;900",
   "playfair display": "400;500;600;700",
   "pt serif": "400;700",
   "pt sans": "400;700",
@@ -257,7 +256,7 @@ export default async function RootLayout({
   return (
     <html
       lang="id"
-      className={`${poppins.variable} ${inter.variable} ${sora.variable}`}
+      className={`${poppins.variable} ${inter.variable} ${sora.variable} ${merriweather.variable}`}
       suppressHydrationWarning
     >
       <head>

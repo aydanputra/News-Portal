@@ -31,6 +31,7 @@ export default function ThemeProvider({ settings, children }: ThemeProviderProps
     poppins: "var(--font-poppins)",
     inter: "var(--font-inter)",
     sora: "var(--font-sora)",
+    merriweather: "var(--font-merriweather)",
   };
 
   const mapSelfHostedFont = (fontFamily: string): string => {

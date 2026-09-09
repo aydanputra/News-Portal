@@ -17,6 +17,16 @@ export interface ReleaseNote {
 
 export const APP_CHANGELOG: ReleaseNote[] = [
   {
+    version: "1.0.5",
+    date: "2026-09-09",
+    notes: [
+      "Merriweather self-hosted, hentikan request remote Merriweather",
+      "Petakan font self-hosted ke CSS variable di semua renderer",
+      "Kurangi preload font tak terpakai (Poppins/Sora)",
+      "HeroSlider deteksi device via useEffect (kurangi render delay)",
+    ],
+  },
+  {
     version: "1.0.4",
     date: "2026-09-09",
     notes: [
