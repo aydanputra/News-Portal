@@ -520,10 +520,11 @@ export default function AdBanner({ block, borderRadius, hideWhenEmpty = false, p
   const hideWhenEmptyEnabled = hideWhenEmpty || config.hideWhenEmpty === true;
   const hasAd = !!ad;
   if (hideWhenEmptyEnabled && !loading && !error && !hasAd) return null;
-  const innerBoxStyle = (hasAd
-    ? { backgroundColor: 'transparent', border: 'none' }
-    : { minHeight: '100px' }
-  ) as React.CSSProperties;
+  // Reserve tinggi minimum yang stabil untuk semua state (kosong/memuat/iklan)
+  // supaya slot iklan tidak menyusut setelah fetch `no-store` selesai hydration.
+  const innerBoxStyle = {
+    minHeight: '100px',
+  } as React.CSSProperties;
   innerBoxStyle.borderRadius = adRadius;
   innerBoxStyle.overflow = "hidden";
   innerBoxStyle.backgroundColor = useBox ? boxColor : 'transparent';

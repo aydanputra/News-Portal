@@ -327,7 +327,6 @@ export default function Hero({ block, posts, accentColor, borderRadius, customTi
 
   // Image Ratio Logic
   let aspectRatioStyle: React.CSSProperties = {};
-  let heightClass = "h-[500px] md:h-[600px]"; // Default fixed height
   const hasCustomImageHeight = config.imageHeight !== undefined || config.tabletImageHeight !== undefined || config.mobileImageHeight !== undefined;
   const hasAspectRatioLayout = !!config.imageRatio && config.imageRatio !== 'auto' && !hasCustomImageHeight;
   const shellHeightMobile = hasCustomImageHeight ? imageHeightMobile : (hasAspectRatioLayout ? 'auto' : '500px');
@@ -338,7 +337,6 @@ export default function Hero({ block, posts, accentColor, borderRadius, customTi
       const [w, h] = config.imageRatio.split(':').map(Number);
       if (w && h) {
           aspectRatioStyle = { aspectRatio: `${w}/${h}`, height: 'auto' };
-          heightClass = ""; // Remove fixed height
       }
   }
 
@@ -469,7 +467,6 @@ export default function Hero({ block, posts, accentColor, borderRadius, customTi
   const currentExcerptFw = device === "mobile" ? excerptFwMobile : device === "tablet" ? excerptFwTablet : excerptFwDesktop;
   const currentExcerptColor = device === "mobile" ? excerptColorMobile : device === "tablet" ? excerptColorTablet : excerptColorDesktop;
   const currentTitleMb = device === "mobile" ? titleMbMobile : device === "tablet" ? titleMbTablet : titleMbDesktop;
-  const currentShellHeight = device === "mobile" ? shellHeightMobile : device === "tablet" ? shellHeightTablet : shellHeightDesktop;
   const currentUseBox = device === "mobile" ? useBoxMobile : device === "tablet" ? useBoxTablet : useBoxDesktop;
   const currentBoxColor = device === "mobile" ? boxColorMobile : device === "tablet" ? boxColorTablet : boxColorDesktop;
   const currentBoxBgImage = device === "mobile" ? boxBgImageMobile : device === "tablet" ? boxBgImageTablet : boxBgImageDesktop;
@@ -566,11 +563,16 @@ export default function Hero({ block, posts, accentColor, borderRadius, customTi
         )}
         <section 
             id={`hero-shell-${block.id}`}
-            className={`relative w-full overflow-hidden ${heightClass}`}
+            className={`relative w-full overflow-hidden ${hasAspectRatioLayout ? "" : "responsive-shell-height"}`}
             style={{ 
                 borderRadius: hasAnyBox ? currentInnerRadius : effectiveRadius,
-                height: currentShellHeight,
-                ...aspectRatioStyle
+                ...(hasAspectRatioLayout
+                  ? aspectRatioStyle
+                  : {
+                      "--rh-mobile": shellHeightMobile,
+                      "--rh-tablet": shellHeightTablet,
+                      "--rh-desktop": shellHeightDesktop,
+                    }),
             } as React.CSSProperties}
         >
         {/* Background Image */}

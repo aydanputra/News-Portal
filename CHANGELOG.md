@@ -2,6 +2,14 @@
 
 Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.3] - 2026-09-09
+
+### Performa
+- Stabil CLS Hero & HeroSlider: tinggi shell kini via CSS variable responsif (`--rh-*`), bukan state JS.
+- Stabil CLS slot iklan (AdBanner): reserve tinggi minimum agar slot tidak menyusut setelah fetch.
+- Font Google remote dimuat async (non render-blocking) untuk mempercepat FCP.
+- Hapus rewrite `/uploads` ke API agar gambar diserve statis langsung dari `public/uploads` (LCP lebih cepat).
+
 ## [1.0.2] - 2026-09-09
 
 ### Perbaikan

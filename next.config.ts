@@ -68,14 +68,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/uploads/:path*',
-        destination: '/api/uploads/:path*',
-      },
-    ];
-  },
   async headers() {
     const securityHeaders: Array<{ key: string; value: string }> = [
       { key: 'X-Content-Type-Options', value: 'nosniff' },

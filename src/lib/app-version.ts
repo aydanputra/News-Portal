@@ -17,6 +17,16 @@ export interface ReleaseNote {
 
 export const APP_CHANGELOG: ReleaseNote[] = [
   {
+    version: "1.0.3",
+    date: "2026-09-09",
+    notes: [
+      "Stabil CLS Hero/HeroSlider via CSS variable responsif",
+      "Stabil CLS slot iklan (reserve tinggi minimum)",
+      "Font Google remote dimuat async agar FCP lebih cepat",
+      "Gambar /uploads diserve statis langsung (LCP lebih cepat)",
+    ],
+  },
+  {
     version: "1.0.2",
     date: "2026-09-09",
     notes: [

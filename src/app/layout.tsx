@@ -293,11 +293,19 @@ export default async function RootLayout({
           {(() => {
             const href = buildRemoteFontLinks(settings as Record<string, unknown>);
             if (!href) return null;
+            const hrefJson = JSON.stringify(href);
             return (
               <>
                 <link rel="preconnect" href="https://fonts.googleapis.com" />
                 <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-                <link href={href} rel="stylesheet" />
+                <script
+                  dangerouslySetInnerHTML={{
+                    __html: `(function(){var l=document.createElement('link');l.rel='preload';l.as='style';l.href=${hrefJson};l.onload=function(){l.onload=null;l.rel='stylesheet';};document.head.appendChild(l);})();`,
+                  }}
+                />
+                <noscript>
+                  <link href={href} rel="stylesheet" />
+                </noscript>
               </>
             );
           })()}

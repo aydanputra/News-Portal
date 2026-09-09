@@ -537,7 +537,6 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
   const thumbImageHeight = device === "mobile" ? thumbImageHeightMobile : (device === "tablet" ? thumbImageHeightTablet : thumbImageHeightDesktop);
   const thumbnailStrip = slides;
   const thumbItemWidth = `${100 / thumbnailVisibleCount}%`;
-  const currentImageHeight = device === "mobile" ? imageHMobile : (device === "tablet" ? imageHTablet : imageHDesktop);
   const currentBlockTitleColor = device === "mobile" ? blockTitleColorMobile : (device === "tablet" ? blockTitleColorTablet : blockTitleColorDesktop);
   const currentBlockTitleBorder = device === "mobile" ? blockTitleBorderMobile : (device === "tablet" ? blockTitleBorderTablet : blockTitleBorderDesktop);
   const currentBlockTitleFs = device === "mobile" ? blockTitleFsMobile : (device === "tablet" ? blockTitleFsTablet : blockTitleFsDesktop);
@@ -655,7 +654,7 @@ export default function HeroSlider({ block, posts = [], previewDevice }: HeroSli
             const authorName = getAuthorName(post);
             const isInitialSlide = idx === 0;
             return (
-              <article key={post.id || `${block.id}-${idx}`} className="hsl-wrap relative overflow-hidden transition-all ease-out shrink-0 w-full" style={{ transitionDuration: `${transitionMs}ms`, height: currentImageHeight }}>
+              <article key={post.id || `${block.id}-${idx}`} className="hsl-wrap relative overflow-hidden transition-all ease-out shrink-0 w-full responsive-shell-height" style={{ transitionDuration: `${transitionMs}ms`, "--rh-mobile": imageHMobile, "--rh-tablet": imageHTablet, "--rh-desktop": imageHDesktop } as React.CSSProperties & Record<string, string | undefined>}>
                 {imageUrl ? (
                   <Image
                     src={imageUrl}

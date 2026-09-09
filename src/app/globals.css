@@ -669,6 +669,10 @@ html.public-dark .public-theme .post-content-body .prose > *:not(.inline-related
   padding-left: var(--rb-pl-mobile, 0) !important;
 }
 
+.public-theme .responsive-shell-height {
+  height: var(--rh-mobile, 300px) !important;
+}
+
 .public-theme .tag-cloud-block .tag-cloud-empty {
   color: var(--tag-cloud-empty-color, #6b7280);
 }
@@ -1074,6 +1078,10 @@ html.public-dark .classic-footer-root .fb-logo-dark {
     padding-left: var(--rb-pl-desktop, var(--rb-pl-tablet, var(--rb-pl-mobile, 0))) !important;
   }
 
+  .public-theme .responsive-shell-height {
+    height: var(--rh-desktop, var(--rh-tablet, var(--rh-mobile, 300px))) !important;
+  }
+
   .public-theme .ad-banner-block .ad-banner-empty {
     background-color: var(--ad-empty-bg-desktop, var(--ad-empty-bg-tablet, var(--ad-empty-bg-mobile, #f9fafb)));
     border-color: var(--ad-empty-border-desktop, var(--ad-empty-border-tablet, var(--ad-empty-border-mobile, #e5e7eb)));
@@ -1119,6 +1127,10 @@ html.public-dark .classic-footer-root .fb-logo-dark {
     padding-right: var(--rb-pr-tablet, var(--rb-pr-mobile, 0)) !important;
     padding-bottom: var(--rb-pb-tablet, var(--rb-pb-mobile, 0)) !important;
     padding-left: var(--rb-pl-tablet, var(--rb-pl-mobile, 0)) !important;
+  }
+
+  .public-theme .responsive-shell-height {
+    height: var(--rh-tablet, var(--rh-mobile, 300px)) !important;
   }
 
   .public-theme .ad-banner-block .ad-banner-empty {
