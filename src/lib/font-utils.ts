@@ -55,6 +55,13 @@ const SELF_HOSTED_FONT_VARS: Record<string, string> = {
   merriweather: "var(--font-merriweather)",
 };
 
+const SELF_HOSTED_VAR_NAMES: Record<string, string> = {
+  "var(--font-poppins)": "Poppins",
+  "var(--font-inter)": "Inter",
+  "var(--font-sora)": "Sora",
+  "var(--font-merriweather)": "Merriweather",
+};
+
 function mapSelfHostedFamily(cleanFamily: string): string {
   return SELF_HOSTED_FONT_VARS[cleanFamily.toLowerCase()] ?? cleanFamily;
 }
@@ -95,6 +102,12 @@ function joinFontFamilies(families: string[]): string {
     })
     .filter(Boolean)
     .join(", ");
+}
+
+export function denormalizeDeprecatedFontChoice(font?: string): string {
+  const value = typeof font === "string" ? font.trim() : "";
+  if (!value) return "";
+  return SELF_HOSTED_VAR_NAMES[value] ?? value;
 }
 
 export function normalizeDeprecatedFontChoice(font?: string, fallback = ""): string {

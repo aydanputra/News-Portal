@@ -17,6 +17,14 @@ export interface ReleaseNote {
 
 export const APP_CHANGELOG: ReleaseNote[] = [
   {
+    version: "1.0.7",
+    date: "2026-09-10",
+    notes: [
+      "Perbaiki dropdown tipe font kembali ke Inter (Default) setelah simpan",
+      "Denormalisasi font self-hosted di API admin agar menampilkan nama font mentah",
+    ],
+  },
+  {
     version: "1.0.6",
     date: "2026-09-10",
     notes: [

@@ -2,6 +2,12 @@
 
 Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
+## [1.0.7] - 2026-09-10
+
+### Perbaikan
+- Perbaiki dropdown tipe font di Pengaturan Global → Tipografi yang selalu kembali ke `Inter (Default)` setelah disimpan, meskipun render situs tetap memakai font terpilih.
+- Denormalisasi font self-hosted (`Inter`/`Poppins`/`Sora`/`Merriweather`) di API admin (`GET`/`PUT /api/admin/settings`) dari CSS variable `var(--font-*)` menjadi nama font mentah agar cocok dengan opsi dropdown admin.
+
 ## [1.0.6] - 2026-09-10
 
 ### Perbaikan

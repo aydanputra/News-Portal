@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { normalizeDeprecatedFontChoice } from "@/lib/font-utils";
+import { normalizeDeprecatedFontChoice, denormalizeDeprecatedFontChoice } from "@/lib/font-utils";
 import { unstable_cache } from "next/cache";
 
 const THEME_GLOBAL_ONLY_KEYS = [
@@ -122,6 +122,19 @@ export function normalizeDeprecatedSettingFonts(setting: any) {
   }
 
   return normalized;
+}
+
+export function denormalizeSettingFonts(setting: any) {
+  if (!setting || typeof setting !== "object") return setting;
+
+  const denormalized = { ...setting };
+  for (const key of FONT_SETTING_KEYS) {
+    if (typeof denormalized[key] === "string") {
+      denormalized[key] = denormalizeDeprecatedFontChoice(denormalized[key]);
+    }
+  }
+
+  return denormalized;
 }
 
 export function mergeThemeConfigWithSettings(baseSetting: any, themeConfig: unknown) {
