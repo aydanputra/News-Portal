@@ -2,15 +2,12 @@
 
 import { CLASSIC_BLOCKS, BlockDefinition as IBlockDefinition } from "@/themes/classic/blocks/registry";
 import { PRANALA_BLOCKS } from "@/themes/pranala/blocks/registry";
+import { resolveBlockTypeAlias } from "@/lib/block-aliases";
 
 export type BlockDefinition = IBlockDefinition;
 
-const BLOCK_TYPE_ALIASES: Record<string, string> = {
-  headline_2: "news_headline_big",
-  hero: "classic_hero",
-  news_list_highlight: "news_list",
-  news_slider: "news_grid_slider",
-};
+// Re-export agar pemakai lama (admin) tetap kompatibel.
+export { resolveBlockTypeAlias };
 
 // Registry Map
 const THEME_BLOCKS: Record<string, Record<string, BlockDefinition>> = {
@@ -25,10 +22,6 @@ export function getThemeBlocks(themeName: string = "classic"): BlockDefinition[]
   // Jika tema tidak ditemukan, fallback ke classic
   const blocks = THEME_BLOCKS[themeName] || THEME_BLOCKS["classic"];
   return Object.values(blocks || {});
-}
-
-export function resolveBlockTypeAlias(type: string): string {
-  return BLOCK_TYPE_ALIASES[type] || type;
 }
 
 export function getBlockDefinition(type: string, themeName: string = "classic"): BlockDefinition | undefined {

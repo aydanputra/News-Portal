@@ -4,10 +4,8 @@ import { parseStringPromise } from "xml2js";
 import { Role, PostStatus, PostType } from "@prisma/client";
 import fs from "fs";
 import path from "path";
-import { randomBytes } from "crypto";
-import { hashPassword } from "@/lib/auth";
+import bcrypt from "bcryptjs";
 import { assertRateLimit, isToolEnabledForRequest } from "@/lib/api-guards";
-import { internalError } from "@/lib/api-error";
 import { requireAdmin } from "@/lib/server-auth";
 import { normalizeRedirectPath } from "@/lib/redirects";
 
@@ -41,6 +39,41 @@ function getLegacyPostPath(item: any): string {
 function isValidDate(value: Date) {
     return !Number.isNaN(value.getTime());
 }
+
+// #region debug-point A:wp-import-formdata-logger
+async function reportWpImportDebug(
+    hypothesisId: string,
+    location: string,
+    msg: string,
+    data: Record<string, unknown>,
+    traceId: string,
+) {
+    try {
+        const envPath = path.join(process.cwd(), ".dbg", "wp-import-formdata.env");
+        let url = "http://127.0.0.1:7777/event";
+        let sessionId = "wp-import-formdata";
+        if (fs.existsSync(envPath)) {
+            const envText = fs.readFileSync(envPath, "utf8");
+            url = envText.match(/DEBUG_SERVER_URL=(.+)/)?.[1]?.trim() || url;
+            sessionId = envText.match(/DEBUG_SESSION_ID=(.+)/)?.[1]?.trim() || sessionId;
+        }
+        await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                sessionId,
+                runId: "pre-fix",
+                hypothesisId,
+                location,
+                msg: `[DEBUG] ${msg}`,
+                data,
+                traceId,
+                ts: Date.now(),
+            }),
+        }).catch(() => {});
+    } catch {}
+}
+// #endregion
 
 // Advanced WP Auto Paragraph function
 function wpAutoP(content: string) {
@@ -85,6 +118,7 @@ function wpAutoP(content: string) {
 }
 
 export async function POST(req: NextRequest) {
+    const traceId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     try {
         const admin = await requireAdmin();
         if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -97,15 +131,58 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // #region debug-point B:before-formdata
+        await reportWpImportDebug(
+            "B",
+            "src/app/api/admin/import/wordpress/route.ts:before-formdata",
+            "about to parse multipart body",
+            {
+                method: req.method,
+                pathname: req.nextUrl.pathname,
+                contentType: req.headers.get("content-type"),
+                contentLength: req.headers.get("content-length"),
+            },
+            traceId,
+        );
+        // #endregion
         const formData = await req.formData();
         const file = formData.get("file") as File;
         const mode = formData.get("mode") as string; // 'analyze' | 'import'
+
+        // #region debug-point C:after-formdata
+        await reportWpImportDebug(
+            "C",
+            "src/app/api/admin/import/wordpress/route.ts:after-formdata",
+            "multipart body parsed successfully",
+            {
+                mode,
+                hasFile: Boolean(file),
+                fileName: file?.name || null,
+                fileType: file?.type || null,
+                fileSize: typeof file?.size === "number" ? file.size : null,
+            },
+            traceId,
+        );
+        // #endregion
 
         if (!file) {
             return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
         }
 
         const xmlText = await file.text();
+        // #region debug-point D:after-file-text
+        await reportWpImportDebug(
+            "D",
+            "src/app/api/admin/import/wordpress/route.ts:after-file-text",
+            "xml text loaded",
+            {
+                mode,
+                fileName: file.name,
+                xmlLength: xmlText.length,
+            },
+            traceId,
+        );
+        // #endregion
         const result = await parseStringPromise(xmlText);
 
         if (!result.rss || !result.rss.channel || !result.rss.channel[0]) {
@@ -210,9 +287,8 @@ export async function POST(req: NextRequest) {
                 });
 
                 if (!user) {
-                    // Create dummy user with a random, non-guessable password.
-                    // The imported author must reset the password before signing in.
-                    const hashedPassword = await hashPassword(randomBytes(24).toString("base64url"));
+                    // Create dummy user
+                    const hashedPassword = await bcrypt.hash("temp-password-change-me", 10);
                     user = await prisma.user.create({
                         data: {
                             name: authorName,
@@ -265,8 +341,8 @@ export async function POST(req: NextRequest) {
                         if (authorMap.size > 0) {
                             authorId = authorMap.values().next().value;
                         } else {
-                            // Emergency fallback: Create a default admin user with a random password.
-                            const hashedAdminPassword = await hashPassword(randomBytes(24).toString("base64url"));
+                            // Emergency fallback: Create a default admin user
+                            const hashedAdminPassword = await bcrypt.hash("admin-password", 10);
                             const defaultAdmin = await prisma.user.upsert({
                                 where: { email: 'admin@imported.temp' },
                                 update: {},
@@ -488,7 +564,21 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
 
-    } catch (error: unknown) {
-        return internalError(error, { route: "POST /api/admin/import/wordpress" });
+    } catch (error: any) {
+        // #region debug-point E:catch
+        await reportWpImportDebug(
+            "E",
+            "src/app/api/admin/import/wordpress/route.ts:catch",
+            "import route failed",
+            {
+                errorName: error instanceof Error ? error.name : typeof error,
+                errorMessage: error instanceof Error ? error.message : String(error),
+                errorStack: error instanceof Error ? error.stack : null,
+            },
+            traceId,
+        );
+        // #endregion
+        console.error("Import Error:", error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

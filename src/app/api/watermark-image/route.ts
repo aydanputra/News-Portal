@@ -95,17 +95,10 @@ async function readInputBuffer(input: string): Promise<Buffer | null> {
     const url = new URL(value);
     if (await hostIsBlocked(url.hostname)) return null;
 
-    const response = await fetch(value, { redirect: "manual", cache: "force-cache" });
-    if (response.status < 200 || response.status >= 300) return null;
+    const response = await fetch(value, { redirect: "follow", cache: "force-cache" });
+    if (!response.ok) return null;
 
-    const location = response.headers.get("location");
-    if (location) {
-      const redirectedUrl = new URL(location, value);
-      if (await hostIsBlocked(redirectedUrl.hostname)) return null;
-      return readInputBuffer(redirectedUrl.toString());
-    }
-
-    const finalUrl = new URL(response.url || value);
+    const finalUrl = new URL(response.url);
     if (await hostIsBlocked(finalUrl.hostname)) return null;
 
     const arrayBuffer = await response.arrayBuffer();

@@ -179,7 +179,14 @@ export default function ArchiveClientController({
       className={loading ? "opacity-70 transition-opacity" : "transition-opacity"}
     >
       {isGrid ? (
-        <ArchivePostGrid block={listBlock} posts={posts} />
+        <ArchivePostGrid
+          block={listBlock}
+          posts={posts}
+          customTitle={customTitle}
+          accentColor={accentColor}
+          borderRadius={borderRadius}
+          setting={setting}
+        />
       ) : (
         <ArchivePostList
           block={listBlock}

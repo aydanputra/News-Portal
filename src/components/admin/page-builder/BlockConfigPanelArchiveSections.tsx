@@ -53,6 +53,7 @@ type ArchiveAdvancedProps = BlockConfigPanelSharedAdvancedProps & {
 
 const ARCHIVE_WIDGET_TYPES = new Set([
   "archive_header",
+  "archive_post_grid",
   "archive_post_list",
   "archive_pagination",
   "archive_empty_state",
@@ -581,6 +582,179 @@ export function renderArchiveVisualSections({
           alignKey: "listContentAlign",
           alignDefault: "left",
         })}
+      </>
+    );
+  }
+
+  if (childType === "archive_post_grid") {
+    return (
+      <>
+        <ArchiveSectionGroup title="Pengaturan Tata Letak">
+          {renderHeroTextSection(
+            "Grid Artikel",
+            <div className="grid grid-cols-2 gap-2">
+              <NumberField
+                label="Jumlah Artikel"
+                className={heroControlClass}
+                value={getConfigString("limit", "9")}
+                onChange={(value) => updateChildConfig("limit", value)}
+                min={1}
+                max={24}
+              />
+              <NumberField
+                label="Jumlah Kolom"
+                className={heroControlClass}
+                value={getConfigString("gridColumns", "3")}
+                onChange={(value) => updateChildConfig("gridColumns", value)}
+                min={1}
+                max={4}
+              />
+              <NumberField
+                label="Panjang Excerpt"
+                className={heroControlClass}
+                value={getConfigString("excerptLength", "120")}
+                onChange={(value) => updateChildResponsiveConfig("excerptLength", value)}
+                min={0}
+              />
+            </div>,
+          )}
+          {renderHeroTextSection(
+            "Elemen",
+            <div className="grid grid-cols-2 gap-2">
+              <ToggleField
+                label="Meta"
+                checked={getConfigBool("showMetaInfo", true)}
+                onChange={(value) => updateChildResponsiveConfig("showMetaInfo", value)}
+              />
+              <ToggleField
+                label="Excerpt"
+                checked={getConfigBool("showExcerpt", true)}
+                onChange={(value) => updateChildResponsiveConfig("showExcerpt", value)}
+              />
+            </div>,
+          )}
+        </ArchiveSectionGroup>
+        <ArchiveSectionGroup title="Pengaturan Teks">
+          {renderHeroTextSection(
+            "Judul",
+            <div className="grid grid-cols-2 gap-2">
+              <ColorPicker
+                label="Warna Judul"
+                configKey="titleColor"
+                globalDefault={globalNewsTitleColor}
+                triggerClassName={heroColorTriggerClass}
+                swatchClassName={heroColorSwatchClass}
+                inputClassName={heroColorInputClass}
+                child={child}
+                getConfigValue={getConfigValue}
+                updateChildResponsiveConfig={updateChildResponsiveConfig}
+                updateChildConfig={updateChildConfig}
+              />
+              <NumberField
+                label="Ukuran Judul"
+                className={heroControlClass}
+                value={getConfigString("titleFontSize", "18")}
+                onChange={(value) => updateChildResponsiveConfig("titleFontSize", value)}
+                min={12}
+              />
+              <SelectField
+                label="Ketebalan Judul"
+                className={heroControlClass}
+                value={getConfigString("titleFontWeight", "600")}
+                onChange={(value) => updateChildResponsiveConfig("titleFontWeight", value)}
+                options={[
+                  { value: "400", label: "Normal (400)" },
+                  { value: "500", label: "Medium (500)" },
+                  { value: "600", label: "Semi Bold (600)" },
+                  { value: "700", label: "Bold (700)" },
+                  { value: "800", label: "Extra Bold (800)" },
+                ]}
+              />
+              <FontFamilyPicker
+                value={getConfigString("titleFontFamily", "")}
+                onChange={(value) => updateChildResponsiveConfig("titleFontFamily", value || undefined)}
+              />
+            </div>,
+          )}
+          {renderHeroTextSection(
+            "Meta",
+            <div className="grid grid-cols-2 gap-2">
+              <ColorPicker
+                label="Warna Meta"
+                configKey="metaColor"
+                globalDefault={globalMetaTone}
+                triggerClassName={heroColorTriggerClass}
+                swatchClassName={heroColorSwatchClass}
+                inputClassName={heroColorInputClass}
+                child={child}
+                getConfigValue={getConfigValue}
+                updateChildResponsiveConfig={updateChildResponsiveConfig}
+                updateChildConfig={updateChildConfig}
+              />
+              <NumberField
+                label="Ukuran Meta"
+                className={heroControlClass}
+                value={getConfigString("metaFontSize", "12")}
+                onChange={(value) => updateChildResponsiveConfig("metaFontSize", value)}
+                min={10}
+              />
+              <SelectField
+                label="Ketebalan Meta"
+                className={heroControlClass}
+                value={getConfigString("metaFontWeight", "500")}
+                onChange={(value) => updateChildResponsiveConfig("metaFontWeight", value)}
+                options={[
+                  { value: "400", label: "Normal (400)" },
+                  { value: "500", label: "Medium (500)" },
+                  { value: "600", label: "Semi Bold (600)" },
+                ]}
+              />
+              <FontFamilyPicker
+                value={getConfigString("metaFontFamily", "")}
+                onChange={(value) => updateChildResponsiveConfig("metaFontFamily", value || undefined)}
+              />
+            </div>,
+          )}
+          {renderHeroTextSection(
+            "Excerpt",
+            <div className="grid grid-cols-2 gap-2">
+              <ColorPicker
+                label="Warna Excerpt"
+                configKey="excerptColor"
+                globalDefault={globalExcerptTone}
+                triggerClassName={heroColorTriggerClass}
+                swatchClassName={heroColorSwatchClass}
+                inputClassName={heroColorInputClass}
+                child={child}
+                getConfigValue={getConfigValue}
+                updateChildResponsiveConfig={updateChildResponsiveConfig}
+                updateChildConfig={updateChildConfig}
+              />
+              <NumberField
+                label="Ukuran Excerpt"
+                className={heroControlClass}
+                value={getConfigString("excerptFontSize", "14")}
+                onChange={(value) => updateChildResponsiveConfig("excerptFontSize", value)}
+                min={10}
+              />
+              <SelectField
+                label="Ketebalan Excerpt"
+                className={heroControlClass}
+                value={getConfigString("excerptFontWeight", "400")}
+                onChange={(value) => updateChildResponsiveConfig("excerptFontWeight", value)}
+                options={[
+                  { value: "400", label: "Normal (400)" },
+                  { value: "500", label: "Medium (500)" },
+                  { value: "600", label: "Semi Bold (600)" },
+                ]}
+              />
+              <FontFamilyPicker
+                value={getConfigString("excerptFontFamily", "")}
+                onChange={(value) => updateChildResponsiveConfig("excerptFontFamily", value || undefined)}
+              />
+            </div>,
+          )}
+        </ArchiveSectionGroup>
       </>
     );
   }

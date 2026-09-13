@@ -2,6 +2,18 @@
 
 import Link from "next/link";
 import React from "react";
+import { usePublicViewportStore } from "../components/public-ui-store";
+import { getResponsiveBool, getResponsiveValue } from "../blocks/responsive";
+import { resolveWidgetRadius } from "../blocks/radius";
+
+const normalizeCssSize = (raw: unknown): string | undefined => {
+  if (typeof raw === "number" && Number.isFinite(raw)) return `${raw}px`;
+  if (typeof raw !== "string") return undefined;
+  const trimmed = raw.trim();
+  if (trimmed === "") return undefined;
+  if (/^-?\d+(\.\d+)?$/.test(trimmed)) return `${trimmed}px`;
+  return trimmed;
+};
 
 interface ArchivePaginationProps {
   block: any;
@@ -127,6 +139,8 @@ const buildMobileVisibleItems = (currentPage: number, totalPages: number) => {
 
 export default function ArchivePagination({ block, currentPage, totalPages, basePath, onPageChange }: ArchivePaginationProps) {
   const config = block?.config || {};
+  const configRecord = config as Record<string, unknown>;
+  const device = usePublicViewportStore();
   const useClientNav = typeof onPageChange === "function";
   const maxVisible = Math.max(3, Math.min(9, Number(config.maxVisiblePages) || 5));
   const showPrevNext = config.showPrevNext !== false;
@@ -142,6 +156,32 @@ export default function ArchivePagination({ block, currentPage, totalPages, base
   const activeTextColorDesktop = typeof config.activeTextColor === "string" && config.activeTextColor.trim() ? config.activeTextColor : "#ffffff";
   const activeTextColorTablet = typeof config.tabletActiveTextColor === "string" && config.tabletActiveTextColor.trim() ? config.tabletActiveTextColor : activeTextColorDesktop;
   const activeTextColorMobile = typeof config.mobileActiveTextColor === "string" && config.mobileActiveTextColor.trim() ? config.mobileActiveTextColor : activeTextColorDesktop;
+
+  // Pengaturan "Latar" (kotak widget) dari panel builder.
+  const useBox = getResponsiveBool(configRecord, "useBox", device, false);
+  const boxBgImage = getResponsiveValue<string>(configRecord, "backgroundImage", device) || "";
+  const boxOverlayColor = getResponsiveValue<string>(configRecord, "backgroundOverlayColor", device) || "transparent";
+  const boxOverlayOpacityRaw = Number(getResponsiveValue<number | string>(configRecord, "backgroundOverlayOpacity", device) ?? 45);
+  const boxOverlayOpacity = Math.min(100, Math.max(0, Number.isFinite(boxOverlayOpacityRaw) ? boxOverlayOpacityRaw : 45));
+  const hasBoxOverlay = boxOverlayOpacity > 0 && boxOverlayColor.trim() !== "" && boxOverlayColor.trim().toLowerCase() !== "transparent";
+  const boxOverlayFill = hasBoxOverlay ? `color-mix(in srgb, ${boxOverlayColor} ${boxOverlayOpacity}%, transparent)` : "transparent";
+  const boxStyle: React.CSSProperties = useBox
+    ? {
+        backgroundColor: getResponsiveValue<string>(configRecord, "boxColor", device) || "transparent",
+        borderRadius: resolveWidgetRadius(getResponsiveValue(configRecord, "boxBorderRadius", device)),
+        paddingTop: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingTop", device)) ?? "0px",
+        paddingRight: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingRight", device)) ?? "0px",
+        paddingBottom: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingBottom", device)) ?? "0px",
+        paddingLeft: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingLeft", device)) ?? "0px",
+        backgroundImage: boxBgImage
+          ? (hasBoxOverlay ? `linear-gradient(${boxOverlayFill}, ${boxOverlayFill}), url("${boxBgImage}")` : `url("${boxBgImage}")`)
+          : undefined,
+        backgroundSize: boxBgImage ? (hasBoxOverlay ? `cover, ${getResponsiveValue<string>(configRecord, "backgroundSize", device) || "cover"}` : (getResponsiveValue<string>(configRecord, "backgroundSize", device) || "cover")) : undefined,
+        backgroundPosition: boxBgImage ? (hasBoxOverlay ? `center, ${getResponsiveValue<string>(configRecord, "backgroundPosition", device) || "center"}` : (getResponsiveValue<string>(configRecord, "backgroundPosition", device) || "center")) : undefined,
+        backgroundRepeat: boxBgImage ? (hasBoxOverlay ? `no-repeat, ${getResponsiveValue<string>(configRecord, "backgroundRepeat", device) || "no-repeat"}` : (getResponsiveValue<string>(configRecord, "backgroundRepeat", device) || "no-repeat")) : undefined,
+        backgroundAttachment: boxBgImage ? (getResponsiveValue<string>(configRecord, "backgroundAttachment", device) || "scroll") : undefined,
+      }
+    : {};
 
   if (totalPages <= 1) return null;
 
@@ -196,8 +236,9 @@ export default function ArchivePagination({ block, currentPage, totalPages, base
 
   return (
     <div
-      className="archive-pagination-block w-full pt-3"
+      className={`archive-pagination-block w-full ${useBox ? "" : "pt-3"}`}
       style={{
+        ...(useBox ? boxStyle : {}),
         "--archive-pagination-text-color-mobile": textColorMobile,
         "--archive-pagination-text-color-tablet": textColorTablet,
         "--archive-pagination-text-color-desktop": textColorDesktop,

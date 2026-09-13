@@ -3,6 +3,7 @@ import { getBuilderSourceBlocks } from "@/lib/page-builder-source-blocks";
 import { extractFirstSidebarChildren, resolveSectionChildrenWithSidebarSource } from "@/lib/sidebar-reference";
 import { getThemeDefaultPostBlocks } from "@/lib/post-builder-theme-registry";
 import { collectWidgetsRecursive, getOrder, hasId } from "@/lib/block-utils";
+import { sanitizeContent } from "@/lib/sanitizer";
 
 const POST_CARD_SELECT = {
   id: true,
@@ -148,6 +149,28 @@ async function getCategoryListWithCounts(limit: number) {
   return cats.map((category) => ({ ...category, postCount: sumDescendants(category.id) }));
 }
 
+/**
+ * Sanitasi HTML mentah (mis. `adCode`) pada pohon block di sisi server, supaya
+ * komponen client tidak perlu memuat `sanitize-html` (berat) ke bundle browser.
+ */
+function sanitizeBlockTree(blocks: any[]): any[] {
+  return blocks.map((block) => {
+    if (!block || typeof block !== "object") return block;
+    const config = block.config && typeof block.config === "object" ? block.config : null;
+    if (!config) return block;
+
+    let nextConfig = config;
+    if (typeof config.adCode === "string" && config.adCode.trim() !== "") {
+      nextConfig = { ...nextConfig, adCode: sanitizeContent(config.adCode) };
+    }
+    if (Array.isArray(config.children)) {
+      nextConfig = { ...nextConfig, children: sanitizeBlockTree(config.children) };
+    }
+
+    return nextConfig === config ? block : { ...block, config: nextConfig };
+  });
+}
+
 export async function getPageSidebarData(activeTheme: string) {
   const sourceBlocksByLocation = await getBuilderSourceBlocks(activeTheme);
   const rawBlocks = Array.isArray(sourceBlocksByLocation?.post) ? sourceBlocksByLocation.post : [];
@@ -165,7 +188,9 @@ export async function getPageSidebarData(activeTheme: string) {
     };
   });
 
-  const sidebarWidgets = extractFirstSidebarChildren([...effectiveBlocks].sort((a, b) => getOrder(a) - getOrder(b)));
+  const sidebarWidgets = sanitizeBlockTree(
+    extractFirstSidebarChildren([...effectiveBlocks].sort((a, b) => getOrder(a) - getOrder(b)))
+  );
   const widgets = collectWidgetsRecursive(sidebarWidgets);
   const uniqueWidgets = Array.from(new Map(widgets.filter(hasId).map((widget) => [widget.id, widget])).values());
   const blockData: Record<string, any[]> = {};

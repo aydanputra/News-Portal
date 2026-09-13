@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, type ResponsiveDevice } from "./responsive";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 
 type HeroSliderPost = {
   id?: string;

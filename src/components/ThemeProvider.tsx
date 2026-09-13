@@ -1,11 +1,9 @@
-"use client";
-
-import React from "react";
+import type { ReactNode } from "react";
 import {
   resolveThemeFontSynthesis,
   resolveThemeFontFamily,
 } from "@/lib/font-utils";
-import { safeStyleTagCss } from "@/lib/sanitizer";
+import { safeStyleTagCss } from "@/lib/url-safety";
 
 interface ThemeProviderProps {
   settings: {
@@ -20,7 +18,7 @@ interface ThemeProviderProps {
     homeContainerWidth?: string;
     [key: string]: any;
   };
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export default function ThemeProvider({ settings, children }: ThemeProviderProps) {

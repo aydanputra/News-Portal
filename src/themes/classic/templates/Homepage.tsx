@@ -2,7 +2,7 @@
 
 import React from "react";
 import { resolveThemeFontFamily } from "@/lib/font-utils";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 import { CLASSIC_BLOCKS } from "../blocks/registry";
 import Header from "../components/Header";
 import Footer from "../components/Footer";

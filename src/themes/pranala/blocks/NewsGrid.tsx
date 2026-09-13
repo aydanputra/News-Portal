@@ -480,7 +480,7 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
   const showMetaDesktop = getResponsiveBool(configRecord, "showMetaInfo", "desktop", getResponsiveBool(configRecord, "showMeta", "desktop", true));
   const showAuthorDesktop = getResponsiveBool(configRecord, "showAuthor", "desktop", true);
   const showDateDesktop = getResponsiveBool(configRecord, "showDate", "desktop", true);
-  const showExcerptDesktop = getResponsiveBool(configRecord, "showExcerpt", "desktop", false);
+  const showExcerptDesktop = getResponsiveBool(configRecord, "showExcerpt", "desktop", true);
 
   const showCategoryTablet = getResponsiveBool(configRecord, "showCategory", "tablet", true);
   const showMetaTablet = getResponsiveBool(configRecord, "showMetaInfo", "tablet", getResponsiveBool(configRecord, "showMeta", "tablet", true));
@@ -492,7 +492,7 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
   const showMetaMobile = getResponsiveBool(configRecord, "showMetaInfo", "mobile", getResponsiveBool(configRecord, "showMeta", "mobile", true));
   const showAuthorMobile = getResponsiveBool(configRecord, "showAuthor", "mobile", true);
   const showDateMobile = getResponsiveBool(configRecord, "showDate", "mobile", true);
-  const showExcerptMobile = getResponsiveBool(configRecord, "showExcerpt", "mobile", false);
+  const showExcerptMobile = getResponsiveBool(configRecord, "showExcerpt", "mobile", true);
 
   const excerptLenDesktop = toNumber(cfg.excerptLength, 120);
   const excerptLenTablet = toNumber(cfg.tabletExcerptLength ?? cfg.excerptLength, excerptLenDesktop);

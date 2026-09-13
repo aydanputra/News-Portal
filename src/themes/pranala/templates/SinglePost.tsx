@@ -9,7 +9,7 @@ import PranalaPostContent from "../components/PranalaPostContent";
 import PostWidgetRenderer from "../blockpost/PostWidgetRenderer";
 import SidebarWidgetRenderer from "../components/SidebarWidgetRenderer";
 import SidebarDebugPanel from "../components/SidebarDebugPanel";
-import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import { resolveBlockTypeAlias } from "@/lib/block-aliases";
 import { getFirstImageFromHtml } from "@/lib/content-images";
 import {
   resolveThemeFontFamily,
@@ -18,6 +18,7 @@ import {
 import { getYouTubeEmbedUrl } from "@/lib/utils";
 import { buildPostWatermarkedImageUrl } from "@/lib/post-image-watermark";
 import { getOrder, isVisible } from "@/lib/block-utils";
+import { sanitizeContent } from "@/lib/sanitizer";
 
 interface PranalaSinglePostProps {
   post: any;
@@ -186,6 +187,10 @@ const parseInlineRelatedPositions = (value: unknown): number[] => {
 export default function PranalaSinglePost({ post, setting, categories, blocks, blockData = {}, inlineRelatedPosts = [], menusByLocation, headerConfig, footerConfig, preview = false }: PranalaSinglePostProps) {
   const siteName = setting?.siteName || "Pranala News";
   const logoUrl = setting?.logoUrl;
+  // Sanitasi konten artikel sekali di sisi server lalu teruskan ke renderer
+  // client (PranalaPostContent) agar `sanitize-html` tidak ikut ke bundle browser.
+  const safePostContent = sanitizeContent(typeof post?.content === "string" ? post.content : "");
+  const sanitizedPost = post ? { ...post, content: safePostContent } : post;
   const accent = setting?.globalAccentColor || setting?.accentColor || "#f59e0b";
   const hoverColor = setting?.postHoverColor || setting?.homeHoverColor || setting?.globalAccentColor || "#2563eb";
   const metaColor = setting?.postMetaColor || setting?.globalMetaColor || setting?.homeMetaColor || "#9ca3af";
@@ -574,7 +579,7 @@ export default function PranalaSinglePost({ post, setting, categories, blocks, b
         <div className={responsiveHideClass}>
           <PostWidgetRenderer
             widget={widget}
-            post={post}
+            post={sanitizedPost}
             setting={setting}
             inlineRelatedPosts={inlineRelatedPosts}
             headingColor={headingColor}

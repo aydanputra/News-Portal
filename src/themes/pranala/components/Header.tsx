@@ -9,7 +9,7 @@ import { Menu, Search, ChevronDown, Moon, Sun } from "lucide-react";
 import type { PublicMenuItem } from "@/lib/public-menus";
 import AdBanner from "../blocks/AdBanner";
 import ImageUrlWidget from "@/components/shared/ImageUrlWidget";
-import { sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeExternalUrl } from "@/lib/url-safety";
 import { HEADER_BUILDER_CSS } from "./header-builder-styles";
 import { buildHeaderSectionLayoutStyles, resolveHeaderWidgetBoxStyle } from "./header-layout-utils";
 import {

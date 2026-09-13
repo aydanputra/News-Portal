@@ -19,13 +19,15 @@ export default function ArchivePostList({ block, posts, customTitle, accentColor
     authorName: typeof post?.author?.name === "string" ? post.author.name : post?.authorName,
   }));
 
-  const archiveNewsTitleSize = setting?.globalNewsTitleFontSize ?? "var(--archive-news-title-size, var(--home-news-title-size, 1.125rem))";
-  const archiveNewsTitleWeight = setting?.globalNewsTitleFontWeight ?? "var(--archive-news-title-weight, var(--home-news-title-weight, 600))";
-  const archiveNewsTitleLineHeight = setting?.globalNewsTitleLineHeight ?? "var(--archive-news-title-line-height, var(--home-news-title-line-height, 1.35))";
-  const archiveMetaWeight = setting?.globalMetaFontWeight ?? "var(--home-meta-weight, 500)";
-  const archiveMetaLineHeight = setting?.globalMetaLineHeight ?? "var(--home-meta-line-height, 1.4)";
-  const archiveExcerptWeight = setting?.globalExcerptFontWeight ?? "var(--home-excerpt-weight, 400)";
-  const archiveExcerptLineHeight = setting?.globalContentLineHeight ?? "var(--home-excerpt-line-height, 1.6)";
+  // Nilai per-widget dari panel selalu diutamakan; setting global arsip hanya
+  // dipakai sebagai fallback ketika widget belum diatur.
+  const archiveNewsTitleSize = config.titleFontSize ?? setting?.globalNewsTitleFontSize ?? "var(--archive-news-title-size, var(--home-news-title-size, 1.125rem))";
+  const archiveNewsTitleWeight = config.titleFontWeight ?? setting?.globalNewsTitleFontWeight ?? "var(--archive-news-title-weight, var(--home-news-title-weight, 600))";
+  const archiveNewsTitleLineHeight = config.titleLineHeight ?? setting?.globalNewsTitleLineHeight ?? "var(--archive-news-title-line-height, var(--home-news-title-line-height, 1.35))";
+  const archiveMetaWeight = config.metaFontWeight ?? setting?.globalMetaFontWeight ?? "var(--home-meta-weight, 500)";
+  const archiveMetaLineHeight = config.metaLineHeight ?? setting?.globalMetaLineHeight ?? "var(--home-meta-line-height, 1.4)";
+  const archiveExcerptWeight = config.excerptFontWeight ?? setting?.globalExcerptFontWeight ?? "var(--home-excerpt-weight, 400)";
+  const archiveExcerptLineHeight = config.excerptLineHeight ?? setting?.globalContentLineHeight ?? "var(--home-excerpt-line-height, 1.6)";
 
   const adaptedBlock = {
     ...block,
@@ -57,26 +59,26 @@ export default function ArchivePostList({ block, posts, customTitle, accentColor
       tabletTitleMarginBottom: config.tabletTitleMarginBottom ?? config.titleMarginBottom ?? 6,
       mobileTitleMarginBottom: config.mobileTitleMarginBottom ?? config.titleMarginBottom ?? 6,
       titleFontSize: archiveNewsTitleSize,
-      tabletTitleFontSize: archiveNewsTitleSize,
-      mobileTitleFontSize: archiveNewsTitleSize,
+      tabletTitleFontSize: config.tabletTitleFontSize ?? archiveNewsTitleSize,
+      mobileTitleFontSize: config.mobileTitleFontSize ?? archiveNewsTitleSize,
       titleFontWeight: archiveNewsTitleWeight,
-      tabletTitleFontWeight: archiveNewsTitleWeight,
-      mobileTitleFontWeight: archiveNewsTitleWeight,
+      tabletTitleFontWeight: config.tabletTitleFontWeight ?? archiveNewsTitleWeight,
+      mobileTitleFontWeight: config.mobileTitleFontWeight ?? archiveNewsTitleWeight,
       titleLineHeight: archiveNewsTitleLineHeight,
-      tabletTitleLineHeight: archiveNewsTitleLineHeight,
-      mobileTitleLineHeight: archiveNewsTitleLineHeight,
+      tabletTitleLineHeight: config.tabletTitleLineHeight ?? archiveNewsTitleLineHeight,
+      mobileTitleLineHeight: config.mobileTitleLineHeight ?? archiveNewsTitleLineHeight,
       metaFontWeight: archiveMetaWeight,
-      tabletMetaFontWeight: archiveMetaWeight,
-      mobileMetaFontWeight: archiveMetaWeight,
+      tabletMetaFontWeight: config.tabletMetaFontWeight ?? archiveMetaWeight,
+      mobileMetaFontWeight: config.mobileMetaFontWeight ?? archiveMetaWeight,
       metaLineHeight: archiveMetaLineHeight,
-      tabletMetaLineHeight: archiveMetaLineHeight,
-      mobileMetaLineHeight: archiveMetaLineHeight,
+      tabletMetaLineHeight: config.tabletMetaLineHeight ?? archiveMetaLineHeight,
+      mobileMetaLineHeight: config.mobileMetaLineHeight ?? archiveMetaLineHeight,
       excerptFontWeight: archiveExcerptWeight,
-      tabletExcerptFontWeight: archiveExcerptWeight,
-      mobileExcerptFontWeight: archiveExcerptWeight,
+      tabletExcerptFontWeight: config.tabletExcerptFontWeight ?? archiveExcerptWeight,
+      mobileExcerptFontWeight: config.mobileExcerptFontWeight ?? archiveExcerptWeight,
       excerptLineHeight: archiveExcerptLineHeight,
-      tabletExcerptLineHeight: archiveExcerptLineHeight,
-      mobileExcerptLineHeight: archiveExcerptLineHeight,
+      tabletExcerptLineHeight: config.tabletExcerptLineHeight ?? archiveExcerptLineHeight,
+      mobileExcerptLineHeight: config.mobileExcerptLineHeight ?? archiveExcerptLineHeight,
     }
   };
 

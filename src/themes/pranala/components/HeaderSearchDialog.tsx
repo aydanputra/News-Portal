@@ -103,20 +103,23 @@ export default function HeaderSearchDialog({
 
   return (
     <div
-      className="fixed inset-0 z-[250] bg-black/50 flex items-start justify-center px-4 py-16"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+      className="fixed inset-0 z-[250] overflow-y-auto bg-black/50 px-4 py-6 sm:py-10 md:py-16"
       role="dialog"
       aria-modal="true"
       aria-label="Search"
     >
-      <div className="w-full max-w-xl rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-4 shadow-xl">
+      <div
+        className="flex min-h-full items-start justify-center md:items-center"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) onClose();
+        }}
+      >
+        <div className="w-full max-w-xl rounded-2xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)] p-4 shadow-xl">
         <div className="mb-3 flex items-center justify-between">
-          <div className="text-sm font-semibold text-[var(--fg-primary)]">Search</div>
+          <div className="text-sm font-semibold [color:var(--home-widget-title-color,var(--fg-primary))]">Search</div>
           <button
             type="button"
-            className="rounded-lg p-2 [color:var(--muted-text,var(--fg-muted))] hover:bg-[var(--bg-surface)] hover:text-[var(--fg-primary)]"
+            className="rounded-lg p-2 [color:var(--muted-text,var(--fg-muted))] hover:bg-[color:var(--bg-surface)] hover:text-[color:var(--fg-primary)]"
             onClick={onClose}
             aria-label="Close"
           >
@@ -137,7 +140,7 @@ export default function HeaderSearchDialog({
             router.push(`/search?q=${encodeURIComponent(query)}`);
           }}
         >
-          <div className="flex h-11 min-w-0 items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-base)] px-3">
+          <div className="flex h-11 min-w-0 items-center gap-2 rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-base)] px-3">
             <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] [color:var(--muted-text,var(--fg-muted))]" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" />
@@ -146,14 +149,14 @@ export default function HeaderSearchDialog({
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
               onFocus={() => setSuggestionsVisible(true)}
-              className="min-w-0 flex-1 bg-transparent text-sm text-[var(--fg-primary)] outline-none placeholder:text-[var(--fg-secondary)] placeholder:opacity-80"
+              className="min-w-0 flex-1 bg-transparent text-sm [color:var(--fg-primary)] outline-none placeholder:[color:var(--muted-text,var(--fg-secondary))] placeholder:opacity-80"
               placeholder={placeholder}
               autoFocus
             />
           </div>
           <button
             type="submit"
-            className="h-11 w-full rounded-xl bg-[var(--accent)] px-4 text-sm font-medium text-white transition-colors hover:bg-[var(--accent-hover)] sm:w-auto sm:min-w-[104px]"
+            className="h-11 w-full rounded-xl bg-[color:var(--accent)] px-4 text-sm font-medium text-white transition-colors hover:bg-[color:var(--accent-hover)] sm:w-auto sm:min-w-[104px]"
           >
             {buttonLabel}
           </button>
@@ -162,13 +165,13 @@ export default function HeaderSearchDialog({
         {suggestionsVisible && (
           <div className="mt-3">
             <div className="mb-2 flex items-center justify-between">
-              <div className="text-xs font-semibold text-[var(--fg-secondary)]">{searchValue.trim() ? "Rekomendasi" : "Populer"}</div>
+              <div className="text-xs font-semibold [color:var(--home-widget-title-color,var(--fg-secondary))]">{searchValue.trim() ? "Rekomendasi" : "Populer"}</div>
               {suggestionsLoading && <div className="animate-pulse text-[10px] [color:var(--muted-text,var(--fg-muted))]">Memuat…</div>}
             </div>
 
-            <div className="min-h-[156px] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-elevated)]">
+            <div className="min-h-[156px] overflow-hidden rounded-xl border border-[color:var(--border)] bg-[color:var(--bg-elevated)]">
               {suggestions.length > 0 ? (
-                <div className="animate-fade-in divide-y divide-[var(--border)]">
+                <div className="animate-fade-in divide-y divide-[color:var(--border)]">
                   {suggestions.map((post: any) => {
                     const href = buildPostHref(post);
                     const thumbUrl = getPostThumbUrl(post);
@@ -179,12 +182,12 @@ export default function HeaderSearchDialog({
                       <Link
                         key={String(post.id || href)}
                         href={href}
-                        className="block px-3 py-2.5 transition-colors hover:bg-[var(--bg-surface)]"
+                        className="block px-3 py-2.5 transition-colors hover:bg-[color:var(--bg-surface)]"
                         onClick={onClose}
                       >
                         <div className="flex items-start gap-3">
                           <div
-                            className="relative h-12 w-16 shrink-0 overflow-hidden bg-[var(--bg-surface)] sm:h-14 sm:w-20"
+                            className="relative h-12 w-16 shrink-0 overflow-hidden bg-[color:var(--bg-surface)] sm:h-14 sm:w-20"
                             style={{ borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))" }}
                           >
                             {thumbUrl ? (
@@ -194,10 +197,29 @@ export default function HeaderSearchDialog({
                             )}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="line-clamp-2 text-[1rem] font-semibold leading-snug text-[var(--fg-primary)] sm:text-[1.08rem]" style={{ fontSynthesis: "var(--font-heading-synthesis, none)", fontFamily: "var(--font-heading, sans-serif)" }}>
+                            <div
+                              className="search-modal-news-title line-clamp-2"
+                              style={{
+                                color: "var(--home-news-title-color, var(--fg-primary))",
+                                fontWeight: "var(--home-news-title-weight, 600)",
+                                fontFamily: "var(--home-news-title-font, var(--font-heading, sans-serif))",
+                                fontSynthesis: "var(--home-news-title-synthesis, var(--font-heading-synthesis, none))",
+                              }}
+                            >
                               {post?.title}
                             </div>
-                            <div className="mt-1 text-[0.8rem] leading-5 text-[var(--fg-secondary)] sm:text-[0.84rem]" style={{ fontSynthesis: "var(--font-body-synthesis, none)", fontFamily: "var(--font-body, sans-serif)" }}>
+                            <div
+                              className="mt-1"
+                              style={{
+                                color: "var(--home-meta-color, var(--fg-secondary))",
+                                fontSize: "var(--home-meta-size, 0.75rem)",
+                                fontWeight: "var(--home-meta-weight, 500)",
+                                lineHeight: "var(--home-meta-line-height, 1.4)",
+                                fontFamily: "var(--home-meta-font, var(--font-body, sans-serif))",
+                                fontSynthesis: "var(--home-meta-synthesis, var(--font-body-synthesis, none))",
+                                fontSizeAdjust: "var(--font-body-size-adjust, none)",
+                              }}
+                            >
                               {metaParts.join(" • ")}
                             </div>
                           </div>
@@ -214,6 +236,7 @@ export default function HeaderSearchDialog({
             </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

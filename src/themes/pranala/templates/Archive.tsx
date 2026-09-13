@@ -9,7 +9,7 @@ import ArchiveEmptyState from "../blockarchive/ArchiveEmptyState";
 import Section from "../blocks/Section";
 import NewsGrid from "../blocks/NewsGrid";
 import { PRANALA_BLOCKS } from "../blocks/registry";
-import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import { resolveBlockTypeAlias } from "@/lib/block-aliases";
 import {
   resolveThemeFontFamily,
   resolveThemeFontSynthesis,
@@ -142,6 +142,102 @@ const resolvePublicFont = (font: unknown, fallback = "var(--font-body, sans-seri
   const value = typeof font === "string" ? font.trim() : "";
   if (!value) return fallback;
   return resolveThemeFontFamily(value, fallback);
+};
+
+// Pengaturan "Latar" (kotak/background) untuk widget arsip yang komponennya tidak
+// mengonsumsi sendiri. Diterapkan pada wrapper template agar berlaku juga saat
+// widget dirender lewat controller/renderer sidebar.
+// Catatan: archive_post_list TIDAK termasuk karena NewsList sudah mengonsumsi
+// useBox/boxColor/padding/background sendiri (agar tidak dobel padding).
+const ARCHIVE_WRAPPER_BOX_TYPES = new Set([
+  "archive_header",
+  "archive_pagination",
+  "archive_empty_state",
+]);
+
+const ARCHIVE_WRAPPER_BOX_CLASS = [
+  "bg-[var(--awb-bg-m)] md:bg-[var(--awb-bg-t)] lg:bg-[var(--awb-bg-d)]",
+  "rounded-[var(--awb-radius-m)] md:rounded-[var(--awb-radius-t)] lg:rounded-[var(--awb-radius-d)]",
+  "pt-[var(--awb-pt-m)] pr-[var(--awb-pr-m)] pb-[var(--awb-pb-m)] pl-[var(--awb-pl-m)]",
+  "md:pt-[var(--awb-pt-t)] md:pr-[var(--awb-pr-t)] md:pb-[var(--awb-pb-t)] md:pl-[var(--awb-pl-t)]",
+  "lg:pt-[var(--awb-pt-d)] lg:pr-[var(--awb-pr-d)] lg:pb-[var(--awb-pb-d)] lg:pl-[var(--awb-pl-d)]",
+  "[background-image:var(--awb-img-m)] md:[background-image:var(--awb-img-t)] lg:[background-image:var(--awb-img-d)]",
+  "[background-size:var(--awb-size-m)] md:[background-size:var(--awb-size-t)] lg:[background-size:var(--awb-size-d)]",
+  "[background-position:var(--awb-pos-m)] md:[background-position:var(--awb-pos-t)] lg:[background-position:var(--awb-pos-d)]",
+  "[background-repeat:var(--awb-rep-m)] md:[background-repeat:var(--awb-rep-t)] lg:[background-repeat:var(--awb-rep-d)]",
+  "[background-attachment:var(--awb-att-m)] md:[background-attachment:var(--awb-att-t)] lg:[background-attachment:var(--awb-att-d)]",
+].join(" ");
+
+const buildArchiveBoxVars = (config: any): Record<string, string> => {
+  const vars: Record<string, string> = {};
+  const readString = (key: string, device: "desktop" | "tablet" | "mobile", fallback: string) => {
+    const value = getResponsiveValue(config, key, device);
+    return typeof value === "string" && value.trim() !== "" ? value.trim() : fallback;
+  };
+  const devices: Array<[string, "desktop" | "tablet" | "mobile"]> = [
+    ["d", "desktop"],
+    ["t", "tablet"],
+    ["m", "mobile"],
+  ];
+
+  devices.forEach(([suffix, device]) => {
+    if (!isTruthy(getResponsiveValue(config, "useBox", device))) {
+      vars[`--awb-bg-${suffix}`] = "transparent";
+      vars[`--awb-radius-${suffix}`] = "0";
+      vars[`--awb-img-${suffix}`] = "none";
+      vars[`--awb-size-${suffix}`] = "auto";
+      vars[`--awb-pos-${suffix}`] = "center";
+      vars[`--awb-rep-${suffix}`] = "no-repeat";
+      vars[`--awb-att-${suffix}`] = "scroll";
+      vars[`--awb-pt-${suffix}`] = "0px";
+      vars[`--awb-pr-${suffix}`] = "0px";
+      vars[`--awb-pb-${suffix}`] = "0px";
+      vars[`--awb-pl-${suffix}`] = "0px";
+      return;
+    }
+
+    const boxColor = readString("boxColor", device, "transparent");
+    const imageUrl = readString("backgroundImage", device, "").replace(/"/g, '\\"');
+    const overlayColor = readString("backgroundOverlayColor", device, "");
+    const overlayOpacityRaw = Number(getResponsiveValue(config, "backgroundOverlayOpacity", device));
+    const overlayOpacity = Math.min(100, Math.max(0, Number.isFinite(overlayOpacityRaw) ? overlayOpacityRaw : 45));
+    const hasOverlay = imageUrl !== "" && overlayOpacity > 0 && overlayColor !== "" && overlayColor.toLowerCase() !== "transparent";
+    const overlayFill = hasOverlay ? `color-mix(in srgb, ${overlayColor} ${overlayOpacity}%, transparent)` : null;
+    const bgSize = readString("backgroundSize", device, "cover");
+    const bgPosition = readString("backgroundPosition", device, "center");
+    const bgRepeat = readString("backgroundRepeat", device, "no-repeat");
+
+    vars[`--awb-bg-${suffix}`] = boxColor;
+    vars[`--awb-radius-${suffix}`] = normalizeRadius(getResponsiveValue(config, "boxBorderRadius", device), "var(--home-main-box-radius, 0.75rem)");
+    vars[`--awb-img-${suffix}`] = imageUrl === ""
+      ? "none"
+      : hasOverlay
+        ? `linear-gradient(${overlayFill}, ${overlayFill}), url("${imageUrl}")`
+        : `url("${imageUrl}")`;
+    vars[`--awb-size-${suffix}`] = imageUrl === "" ? "auto" : hasOverlay ? `cover, ${bgSize}` : bgSize;
+    vars[`--awb-pos-${suffix}`] = imageUrl === "" ? "center" : hasOverlay ? `center, ${bgPosition}` : bgPosition;
+    vars[`--awb-rep-${suffix}`] = imageUrl === "" ? "no-repeat" : hasOverlay ? `no-repeat, ${bgRepeat}` : bgRepeat;
+    vars[`--awb-att-${suffix}`] = readString("backgroundAttachment", device, "scroll");
+    vars[`--awb-pt-${suffix}`] = formatSpacing(getResponsiveValue(config, "boxPaddingTop", device)) ?? "0px";
+    vars[`--awb-pr-${suffix}`] = formatSpacing(getResponsiveValue(config, "boxPaddingRight", device)) ?? "0px";
+    vars[`--awb-pb-${suffix}`] = formatSpacing(getResponsiveValue(config, "boxPaddingBottom", device)) ?? "0px";
+    vars[`--awb-pl-${suffix}`] = formatSpacing(getResponsiveValue(config, "boxPaddingLeft", device)) ?? "0px";
+  });
+
+  return vars;
+};
+
+const renderArchiveWidgetBox = (widget: any, content: React.ReactNode) => {
+  if (content == null || content === false) return content;
+  if (!ARCHIVE_WRAPPER_BOX_TYPES.has(String(widget?.type || ""))) return content;
+  return (
+    <div
+      className={`w-full min-w-0 ${ARCHIVE_WRAPPER_BOX_CLASS}`.trim()}
+      style={buildArchiveBoxVars(widget?.config || {}) as React.CSSProperties}
+    >
+      {content}
+    </div>
+  );
 };
 
 export default function PranalaArchive({
@@ -365,12 +461,12 @@ export default function PranalaArchive({
         style={styleVars}
         className={`w-full min-w-0 ${growClass} ${selfAlignClass} [text-align:var(--aw-ta-m)] md:[text-align:var(--aw-ta-t)] lg:[text-align:var(--aw-ta-d)] mt-[var(--aw-mt-m)] mr-[var(--aw-mr-m)] mb-[var(--aw-mb-m)] ml-[var(--aw-ml-m)] pt-[var(--aw-pt-m)] pr-[var(--aw-pr-m)] pb-[var(--aw-pb-m)] pl-[var(--aw-pl-m)] md:mt-[var(--aw-mt-t)] md:mr-[var(--aw-mr-t)] md:mb-[var(--aw-mb-t)] md:ml-[var(--aw-ml-t)] md:pt-[var(--aw-pt-t)] md:pr-[var(--aw-pr-t)] md:pb-[var(--aw-pb-t)] md:pl-[var(--aw-pl-t)] lg:mt-[var(--aw-mt-d)] lg:mr-[var(--aw-mr-d)] lg:mb-[var(--aw-mb-d)] lg:ml-[var(--aw-ml-d)] lg:pt-[var(--aw-pt-d)] lg:pr-[var(--aw-pr-d)] lg:pb-[var(--aw-pb-d)] lg:pl-[var(--aw-pl-d)]`.trim()}
       >
-        {content}
+        {renderArchiveWidgetBox(widget, content)}
       </div>
     );
   };
 
-  const renderArchiveWidget = (widget: any) => {
+  const renderArchiveWidgetInner = (widget: any) => {
     if (!widget || widget.isVisible === false) return null;
 
     // Untuk memastikan urutan data berita populer dll konsisten dengan Homepage,
@@ -463,31 +559,14 @@ export default function PranalaArchive({
 
     const displayTitle = widget?.title && widget.title.trim() !== "" ? widget.title : widget?.config?.title || "";
 
-    const archiveFallbackNewsTitleTypes = new Set([
-      "news_hero_slider",
-      "news_grid_slider",
-      "news_list",
-      "news_grid",
-      "news_bullet_list",
-      "sidebar_widget",
-    ]);
-
+    // Pertahankan seluruh config widget apa adanya agar setiap pengaturan teks
+    // (ukuran/ketebalan/line-height/warna judul, meta, excerpt) dari panel
+    // benar-benar diterapkan. Widget yang tidak punya nilai eksplisit akan
+    // otomatis memakai variabel global arsip sebagai fallback di komponennya.
     const mergedConfig = {
       ...(widget?.config || {}),
       title: displayTitle,
     } as Record<string, unknown>;
-
-    if (archiveFallbackNewsTitleTypes.has(effectiveType)) {
-      delete mergedConfig.titleFontSize;
-      delete mergedConfig.titleFontWeight;
-      delete mergedConfig.titleLineHeight;
-      delete mergedConfig.mobileTitleFontSize;
-      delete mergedConfig.mobileTitleFontWeight;
-      delete mergedConfig.mobileTitleLineHeight;
-      delete mergedConfig.tabletTitleFontSize;
-      delete mergedConfig.tabletTitleFontWeight;
-      delete mergedConfig.tabletTitleLineHeight;
-    }
 
     const Component = blockDef.component as React.ComponentType<Record<string, unknown>>;
     const mergedWidget = {
@@ -497,7 +576,7 @@ export default function PranalaArchive({
     };
 
     return (
-      <div className={`relative group/widget w-full min-w-0 ${getResponsiveHideClass(mergedWidget?.config)}`.trim()}>
+      <div className="relative group/widget w-full min-w-0">
         <Component
           key={widget.id}
           block={mergedWidget}
@@ -509,6 +588,15 @@ export default function PranalaArchive({
         />
       </div>
     );
+  };
+
+  // Terapkan pengaturan "Visibilitas" (Sembunyikan di Desktop/Tablet/Mobile) untuk
+  // SEMUA widget, termasuk widget arsip yang mengembalikan komponen lebih awal.
+  const renderArchiveWidget = (widget: any) => {
+    const content = renderArchiveWidgetInner(widget);
+    const hideClass = getResponsiveHideClass(widget?.config);
+    if (!hideClass || content == null) return content;
+    return <div className={`w-full min-w-0 ${hideClass}`.trim()}>{content}</div>;
   };
 
   const renderSection = (section: any, isNested = false) => {
@@ -606,7 +694,7 @@ export default function PranalaArchive({
     if (block.type !== "section") {
       return (
         <div key={block.id} className={containerClass} style={containerStyle}>
-          {renderArchiveWidget(block)}
+          {renderArchiveWidgetBox(block, renderArchiveWidget(block))}
         </div>
       );
     }

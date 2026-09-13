@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValues } from "./responsive";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 
 type HeroSplitPost = {
   id?: string;

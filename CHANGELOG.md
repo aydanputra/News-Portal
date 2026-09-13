@@ -1,23 +1,29 @@
 # Changelog
 
+Semua perubahan penting pada CMS ini dicatat di sini. Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/), dan versi mengikuti [Semantic Versioning](https://semver.org/lang/id/).
+
 ## [1.0.11] - 2026-09-13
 
+### Perbaikan
 - Widget Gambar: tampilkan gambar link eksternal (tambah `referrerPolicy="no-referrer"`).
 - Widget Gambar: hilangkan ruang kosong atas-bawah saat `object-fit: contain` tanpa tinggi eksplisit.
 
 ## [1.0.10] - 2026-09-13
 
+### Perbaikan
 - Mode gelap admin: aktifkan `darkMode: "class"` agar varian `dark:` mengikuti kelas `.dark`.
 - Perbaiki warna status/badge/alert yang tetap terang (tidak terbaca) di Pengaturan saat mode gelap.
 
 ## [1.0.9] - 2026-09-12
 
+### Perbaikan
 - Halaman statis: judul & konten terbaca jelas di mode gelap.
 - Widget grid (News Grid, Grid Slider, Arsip): background konten mengisi penuh kartu, hilangkan bidang gelap di bawah judul.
 - Background konten grid: bagian atas tetap kotak, bagian bawah mengikuti border radius global.
 
 ## [1.0.8] - 2026-09-12
 
+### Perbaikan
 - Tipografi halaman Arsip (kategori/tag/pencarian) kini mengikuti Tipografi Homepage, fallback ke Global.
 - Perbaiki nilai tipografi tersimpan tertimpa theme config lama sehingga perubahan teks tidak tampil.
 - Hero slider hasil pencarian menampilkan berita hasil pencarian terkait.
@@ -26,49 +32,76 @@
 
 ## [1.0.7] - 2026-09-10
 
-- Perbaiki dropdown tipe font kembali ke Inter (Default) setelah simpan.
-- Denormalisasi font self-hosted di API admin agar menampilkan nama font mentah.
+### Perbaikan
+- Perbaiki dropdown tipe font di Pengaturan Global → Tipografi yang selalu kembali ke `Inter (Default)` setelah disimpan, meskipun render situs tetap memakai font terpilih.
+- Denormalisasi font self-hosted (`Inter`/`Poppins`/`Sora`/`Merriweather`) di API admin (`GET`/`PUT /api/admin/settings`) dari CSS variable `var(--font-*)` menjadi nama font mentah agar cocok dengan opsi dropdown admin.
 
 ## [1.0.6] - 2026-09-10
 
-- Perbaiki preview media baru tidak muncul (404) hingga menunggu rebuild.
-- Serve `/uploads/*` lewat route dinamis agar file runtime langsung tersedia.
-- 404 media tidak lagi di-cache (no-store) dan tidak menetap lama di CDN.
+### Perbaikan
+- Perbaiki preview media yang baru diunggah tidak muncul (404) hingga menunggu rebuild: file yang ditulis ke `public/uploads` saat runtime tidak diserve oleh Next.js karena hanya file build-time yang tersedia di route statis `public/`.
+- Kembalikan rewrite `/uploads/*` ke route handler dinamis `/api/uploads/*` agar file yang baru diunggah langsung tersedia.
+- Tandai route `/api/uploads/*` `force-dynamic` agar tidak di-prerender/di-cache oleh Next.
+- 404 media kini `Cache-Control: no-store` (tidak menetap lama di CDN/browser), sementara file valid tetap `immutable`.
 
 ## [1.0.5] - 2026-09-09
 
-- Merriweather self-hosted, hentikan request remote Merriweather.
-- Petakan font self-hosted ke CSS variable di semua renderer.
-- Kurangi preload font tak terpakai (Poppins/Sora).
-- HeroSlider deteksi device via useEffect (kurangi render delay).
+### Performa
+- `Merriweather` kini self-hosted via `next/font/google`; hentikan request remote `Merriweather` dari tema pranala (mengurangi render-blocking font).
+- Petakan font self-hosted (`Inter`/`Poppins`/`Sora`/`Merriweather`) ke CSS variable `next/font` di semua renderer (heading, body, dan widget) agar glyph tetap tampil tanpa request eksternal.
+- Kurangi preload font yang tidak aktif di tema (`Poppins` 7 weight dan `Sora`) agar tidak bersaing dengan gambar LCP.
+- Ganti `useLayoutEffect` ke `useEffect` pada deteksi device `HeroSlider` agar tidak memblokir render pertama (menekan `elementRenderDelay`).
 
 ## [1.0.4] - 2026-09-09
 
-- Logo header diprioritaskan (priority + fetchPriority high) agar FCP/LCP lebih cepat.
-- Hentikan duplikasi request font Poppins/Inter/Sora yang sudah self-hosted.
+### Performa
+- Logo header di atas fold kini `priority` + `fetchPriority="high"` agar tidak menunda FCP/LCP.
+- Hentikan request duplikat font `Poppins`/`Inter`/`Sora` yang sudah self-hosted via `next/font` (bersihkan beban remote font).
 
 ## [1.0.3] - 2026-09-09
 
-- Stabil CLS Hero/HeroSlider via CSS variable responsif.
-- Stabil CLS slot iklan (reserve tinggi minimum).
-- Font Google remote dimuat async agar FCP lebih cepat.
-- Gambar `/uploads` diserve statis langsung (LCP lebih cepat).
+### Performa
+- Stabil CLS Hero & HeroSlider: tinggi shell kini via CSS variable responsif (`--rh-*`), bukan state JS.
+- Stabil CLS slot iklan (AdBanner): reserve tinggi minimum agar slot tidak menyusut setelah fetch.
+- Font Google remote dimuat async (non render-blocking) untuk mempercepat FCP.
+- Hapus rewrite `/uploads` ke API agar gambar diserve statis langsung dari `public/uploads` (LCP lebih cepat).
 
 ## [1.0.2] - 2026-09-09
 
-- Perbaiki Font Size widget post_content (Konten Artikel) tidak berubah dari Tipografi Single Post global maupun pengaturan widget langsung.
-- Hapus nilai bawaan fontSize:18 yang tersisa di preset & blok lama.
-- Wariskan font-size & line-height ke paragraf/daftar/kutipan konten artikel.
+### Perbaikan
+- Perbaiki pengaturan Font Size widget `post_content` (Konten Artikel) yang tidak berubah, baik dari Tipografi Single Post global maupun pengaturan widget langsung.
+- Hapus nilai bawaan `fontSize:18` yang tersisa pada preset dan blok lama agar fallback tipografi global berfungsi.
+- Normalisasi blok publik dari cache agar blok lama dengan `fontSize:18` dibersihkan.
+- Wariskan `font-size` dan `line-height` ke paragraf, daftar, dan kutipan konten artikel agar ukuran font mengikuti pengaturan.
 
 ## [1.0.1] - 2026-09-09
 
-- Konsistensi tipografi semua widget (Homepage, Post, Archive, Header, Footer) mengikuti tipografi global.
-- Font picker widget 3 tingkatan: fallback tipografi global, tipografi halaman, dan pilih font langsung.
+### Perbaikan
+- Konsistensi tipografi: seluruh widget (Homepage, Post, Archive, Header, Footer) kini mengikuti pengaturan Tipografi Global.
+- Font picker widget kini memiliki 3 tingkatan: fallback Tipografi Global, Tipografi Halaman (Homepage/Single Post), dan pemilihan font langsung di pengaturan widget.
 
 ## [1.0.0] - 2026-09-08
 
-- 2FA opt-in untuk admin.
-- Monitoring produktivitas penulis + filter rentang tanggal.
-- Hardening keamanan (sandi, rate limiting, CORS, security headers).
-- Optimasi performa mobile (font, gambar, CLS).
-- Pencatatan versi & tanggal update.
+### Ditambahkan
+- Autentikasi dua faktor (2FA) opt-in untuk akun admin.
+- Monitoring produktivitas penulis + filter rentang tanggal pada berita populer.
+- Pencatatan versi & tanggal rilis di dashboard dan Pengaturan → Status Sistem.
+
+### Keamanan
+- Kebijakan sandi yang lebih ketat.
+- Hardening middleware autentikasi & otorisasi.
+- Rate limiting, pencabutan token JWT (revocation), allowlist CORS, dan security headers.
+- Validasi upload, cookie CSRF, mitigasi SSRF, dan salt kunci AI.
+
+### Performa
+- Self-host font Poppins, defer GA4, dan stabilisasi CLS hero/iklan.
+- Lazy-load gambar artikel, batch view counter, serta cache settings/analytics.
+- Optimasi next/image untuk artikel dan cache immutable untuk `/uploads`.
+
+### Perbaikan
+- Lockfile cross-platform (Linux sharp/swc) agar `npm ci` dan build VPS berhasil.
+- Regenerasi `package-lock.json` agar dependensi lengkap untuk `npm ci`.
+
+## [0.1.0] - 2026-05-27
+
+- Rilis awal CMS (baseline produksi).

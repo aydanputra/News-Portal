@@ -1,6 +1,6 @@
 "use client";
 
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 import type { PublicViewportDevice } from "./public-ui-store";
 
 export const isTruthy = (value: unknown) => value === true || value === "true" || value === 1 || value === "1";

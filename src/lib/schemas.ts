@@ -1,6 +1,7 @@
 
 import { z } from "zod";
-import { sanitizeContent, sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeContent } from "@/lib/sanitizer";
+import { sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/url-safety";
 
 export const HomepageBlockConfigSchema = z.object({
   // Layout

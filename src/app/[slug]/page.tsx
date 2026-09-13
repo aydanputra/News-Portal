@@ -45,7 +45,6 @@ const getRedirectByPath = cache(async (path: string) => {
       return await prisma.redirectRule.findUnique({
         where: { oldPath: normalizedPath },
         select: {
-          id: true,
           newPath: true,
           statusCode: true,
           isActive: true,
@@ -53,19 +52,9 @@ const getRedirectByPath = cache(async (path: string) => {
       });
     },
     [`redirect:${normalizedPath}`],
-    { tags: ["redirect-rule"], revalidate: 300 },
+    { tags: ["redirects"], revalidate: 300 },
   );
   return cached();
-});
-
-// Catat hit redirect (fire-and-forget). Di-dedupe per request via React cache().
-const recordRedirectHit = cache(async (id: string) => {
-  await prisma.redirectRule
-    .update({
-      where: { id },
-      data: { hitCount: { increment: 1 }, lastHitAt: new Date() },
-    })
-    .catch(() => null);
 });
 
 const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
@@ -114,7 +103,6 @@ export async function generateMetadata(
     ]);
 
     if (redirectRule?.isActive && redirectRule.newPath) {
-      void recordRedirectHit(redirectRule.id);
       permanentRedirect(redirectRule.newPath);
     }
 
@@ -181,7 +169,6 @@ export default async function CustomPage(props: { params: Promise<{ slug: string
 
   const redirectRule = await getRedirectByPath(`/${slug}`);
   if (redirectRule?.isActive && redirectRule.newPath) {
-    void recordRedirectHit(redirectRule.id);
     permanentRedirect(redirectRule.newPath);
   }
 

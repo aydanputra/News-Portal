@@ -4,7 +4,7 @@ import React, { useSyncExternalStore } from "react";
 import { WidgetRenderContext } from "./types";
 import { toPx } from "./helpers";
 import { POST_WIDGET_COMPONENTS } from "./widget-registry";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 
 type PublicDeviceTab = "desktop" | "tablet" | "mobile";
 

@@ -5,7 +5,8 @@ import ThemeProvider from "@/components/ThemeProvider";
 import { getSettings, FONT_SETTING_KEYS } from "@/lib/settings";
 import { getThemeFontLoadFamilies } from "@/lib/font-utils";
 import { inter, poppins, sora, merriweather } from "@/lib/fonts";
-import { sanitizeInsertCode, safeStyleTagCss } from "@/lib/sanitizer";
+import { sanitizeInsertCode } from "@/lib/sanitizer";
+import { safeStyleTagCss } from "@/lib/url-safety";
 
 function renderInsertCodeHead(snippet: unknown) {
   const raw = sanitizeInsertCode(snippet, "head");

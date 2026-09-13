@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { normalizeDeprecatedFontChoice } from "@/lib/font-utils";
+import { normalizeDeprecatedFontChoice, denormalizeDeprecatedFontChoice } from "@/lib/font-utils";
 import { unstable_cache } from "next/cache";
 
 const THEME_GLOBAL_ONLY_KEYS = [
@@ -32,7 +32,7 @@ const THEME_GLOBAL_ONLY_KEYS = [
   "updatedAt",
 ] as const;
 
-export const THEME_GLOBAL_STYLE_SYNC_KEYS = [
+const THEME_GLOBAL_STYLE_COLOR_KEYS = [
   "homeWidgetTitleColor",
   "homeNewsTitleColor",
   "homeHoverColor",
@@ -81,6 +81,12 @@ export const THEME_GLOBAL_STYLE_SYNC_KEYS = [
   "postInlineRelatedTitleColor",
   "postInlineRelatedTextColor",
   "postInlineRelatedHoverColor",
+] as const;
+
+// Tipografi global hanya disinkronkan ke themeConfig saat Simpan Global.
+// Sengaja TIDAK dimasukkan ke THEME_SETTING_PRESERVE_KEYS, supaya nilai
+// per-tema (yang dipakai pengaturan modal widget) tetap menang saat merge.
+const THEME_GLOBAL_TYPOGRAPHY_KEYS = [
   // Typography - Homepage
   "homeWidgetTitleFontSize",
   "homeWidgetTitleFontWeight",
@@ -130,9 +136,14 @@ export const THEME_GLOBAL_STYLE_SYNC_KEYS = [
   "archiveMetaFont",
 ] as const;
 
+export const THEME_GLOBAL_STYLE_SYNC_KEYS = [
+  ...THEME_GLOBAL_STYLE_COLOR_KEYS,
+  ...THEME_GLOBAL_TYPOGRAPHY_KEYS,
+] as const;
+
 const THEME_SETTING_PRESERVE_KEYS = [
   ...THEME_GLOBAL_ONLY_KEYS,
-  ...THEME_GLOBAL_STYLE_SYNC_KEYS,
+  ...THEME_GLOBAL_STYLE_COLOR_KEYS,
 ] as const;
 
 export const FONT_SETTING_KEYS = [
@@ -158,31 +169,30 @@ export const FONT_SETTING_KEYS = [
   "globalContentFont",
 ] as const;
 
-function normalizeAdminFontChoice(font: unknown): string {
-  if (typeof font !== "string") return "Inter";
-  const value = font
-    .replace(/var\(--font-(poppins|inter|sora|merriweather)\)/gi, (_, family: string) => family)
-    .trim();
-  if (!value) return "Inter";
-
-  return value
-    .split(",")
-    .map((family) => family.trim().replace(/^['"]|['"]$/g, ""))
-    .filter((family) => family && !["helvetica", "helvetica neue"].includes(family.toLowerCase()))
-    .join(", ") || "Inter";
-}
-
 export function normalizeDeprecatedSettingFonts(setting: any) {
   if (!setting || typeof setting !== "object") return setting;
 
   const normalized = { ...setting };
   for (const key of FONT_SETTING_KEYS) {
     if (typeof normalized[key] === "string") {
-      normalized[key] = normalizeAdminFontChoice(normalized[key]);
+      normalized[key] = normalizeDeprecatedFontChoice(normalized[key], "Inter");
     }
   }
 
   return normalized;
+}
+
+export function denormalizeSettingFonts(setting: any) {
+  if (!setting || typeof setting !== "object") return setting;
+
+  const denormalized = { ...setting };
+  for (const key of FONT_SETTING_KEYS) {
+    if (typeof denormalized[key] === "string") {
+      denormalized[key] = denormalizeDeprecatedFontChoice(denormalized[key]);
+    }
+  }
+
+  return denormalized;
 }
 
 export function mergeThemeConfigWithSettings(baseSetting: any, themeConfig: unknown) {

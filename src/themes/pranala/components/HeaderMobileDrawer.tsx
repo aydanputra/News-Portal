@@ -6,7 +6,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ChevronDown, Facebook, Instagram, Link2, Twitter, X, Youtube } from "lucide-react";
 import type { PublicMenuItem } from "@/lib/public-menus";
-import { sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeExternalUrl } from "@/lib/url-safety";
 import { getThemeFontLoadFamilies, resolveThemeFontFamily } from "@/lib/font-utils";
 
 function TiktokIcon(props: React.SVGProps<SVGSVGElement>) {

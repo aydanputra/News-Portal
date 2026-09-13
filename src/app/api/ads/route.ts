@@ -5,7 +5,7 @@ import { revalidateTag, unstable_cache } from "next/cache";
 import { z } from "zod";
 import { assertRateLimit } from "@/lib/api-guards";
 import { requireAdmin } from "@/lib/server-auth";
-import { sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeExternalUrl } from "@/lib/url-safety";
 
 const ALLOWED_PAGE_TYPES = new Set([
   "HOME",
@@ -226,7 +226,11 @@ export async function GET(request: Request) {
         { tags: ["ads"], revalidate: 60 },
       );
 
-      return NextResponse.json(await cached());
+      // Izinkan browser meng-cache respons iklan publik agar navigasi berikutnya
+      // tidak perlu round-trip lagi (server sendiri sudah cache 60 detik).
+      return NextResponse.json(await cached(), {
+        headers: { "Cache-Control": "public, max-age=30, stale-while-revalidate=60" },
+      });
     }
 
     // Jika Admin (tanpa activeOnly), butuh Auth

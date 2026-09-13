@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool } from "./responsive";
 import { normalizeLegacyGlobalImageRadius, resolveWidgetRadius } from "./radius";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 import { getSingleCategoryArchiveSlug, getSingleTagArchiveSlug } from "@/lib/category-filters";
 
 type NewsListCategory = {
@@ -809,7 +809,7 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const excerptLengthMobile = getNumberFromValue(cfg.mobileExcerptLength ?? cfg.excerptLength, 120);
   const excerptLengthTablet = getNumberFromValue(cfg.tabletExcerptLength ?? cfg.excerptLength, excerptLengthMobile);
   const excerptLengthDesktop = getNumberFromValue(cfg.excerptLength, excerptLengthTablet);
-  const showExcerptFallback = typeof cfg.showExcerpt === 'boolean' ? cfg.showExcerpt : false;
+  const showExcerptFallback = typeof cfg.showExcerpt === 'boolean' ? cfg.showExcerpt : true;
   const showImageFallback = typeof cfg.showImage === 'boolean' ? cfg.showImage : true;
   const showImageMobile = getResponsiveBool(configRecord, "showImage", "mobile", showImageFallback);
   const showImageTablet = getResponsiveBool(configRecord, "showImage", "tablet", showImageFallback);

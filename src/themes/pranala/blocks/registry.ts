@@ -1,20 +1,24 @@
 // src/themes/pranala/blocks/registry.ts
 
 import type { LucideIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Layout, Maximize, List, PanelRight, Tag, Megaphone, Newspaper, Grid2x2, Image as ImageIcon } from "lucide-react";
-import Hero from "./Hero";
-import Section from "./Section";
-import NewsList from "./NewsList";
-import NewsGrid from "./NewsGrid";
-import HeadlineBig from "./HeadlineBig";
-import BulletList from "./BulletList";
-import SidebarWidget from "./SidebarWidget";
-import TagCloud from "./TagCloud";
-import AdBanner from "./AdBanner";
-import HeroSplit4 from "./HeroSplit4";
-import HeroSlider from "./HeroSlider";
-import NewsGridSlider from "./NewsGridSlider";
-import ImageUrlWidget from "@/components/shared/ImageUrlWidget";
+
+// Komponen blok dimuat lazy (code-split) agar halaman publik hanya mengunduh
+// chunk blok yang benar-benar dirender, bukan seluruh 13 blok sekaligus.
+const Hero = dynamic(() => import("./Hero"));
+const Section = dynamic(() => import("./Section"));
+const NewsList = dynamic(() => import("./NewsList"));
+const NewsGrid = dynamic(() => import("./NewsGrid"));
+const HeadlineBig = dynamic(() => import("./HeadlineBig"));
+const BulletList = dynamic(() => import("./BulletList"));
+const SidebarWidget = dynamic(() => import("./SidebarWidget"));
+const TagCloud = dynamic(() => import("./TagCloud"));
+const AdBanner = dynamic(() => import("./AdBanner"));
+const HeroSplit4 = dynamic(() => import("./HeroSplit4"));
+const HeroSlider = dynamic(() => import("./HeroSlider"));
+const NewsGridSlider = dynamic(() => import("./NewsGridSlider"));
+const ImageUrlWidget = dynamic(() => import("@/components/shared/ImageUrlWidget"));
 
 // Block Definition Interface
 export interface BlockDefinition {

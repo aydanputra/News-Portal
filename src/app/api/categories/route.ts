@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/server-auth";
 import { slugify } from "@/lib/utils";
@@ -107,6 +108,9 @@ export async function POST(request: Request) {
         parentId: parentId || null,
       },
     });
+
+    revalidateTag("categories");
+    revalidateTag("homepage");
 
     return NextResponse.json(category);
   } catch (error) {

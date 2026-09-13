@@ -1,6 +1,69 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isBypassedRedirectPath, normalizeRedirectPath } from "@/lib/redirects";
 import { AUTH_COOKIE_NAME } from "@/lib/auth-cookie";
+
+// Cache hasil resolusi redirect di memory isolate middleware.
+// Tanpa ini setiap request publik melakukan hop HTTP loopback ke
+// /api/redirects/resolve (fetch no-store) sebelum halaman dirender,
+// yang menambah latensi TTFB di semua halaman.
+const REDIRECT_CACHE_TTL_MS = 30_000;
+const REDIRECT_CACHE_MAX_ENTRIES = 500;
+
+type RedirectLookup =
+  | { found: true; location: string; statusCode: number }
+  | { found: false };
+
+type RedirectCacheEntry = { value: RedirectLookup; expiresAt: number };
+
+const redirectCache = new Map<string, RedirectCacheEntry>();
+const redirectInflight = new Map<string, Promise<RedirectLookup>>();
+
+async function fetchRedirectLookup(resolvedPath: string): Promise<RedirectLookup> {
+  const internalPort = process.env.PORT || "3000";
+  const resolveUrl = new URL("/api/redirects/resolve", `http://127.0.0.1:${internalPort}`);
+  resolveUrl.searchParams.set("path", resolvedPath);
+  const response = await fetch(resolveUrl, {
+    headers: { "x-middleware-request": "1" },
+    cache: "no-store",
+  });
+
+  if (!response.ok) return { found: false };
+
+  const json = await response.json().catch(() => null);
+  if (json?.found && typeof json.location === "string" && json.location.trim() !== "") {
+    return {
+      found: true,
+      location: json.location,
+      statusCode: Number(json.statusCode) || 301,
+    };
+  }
+  return { found: false };
+}
+
+function resolveRedirectCached(resolvedPath: string): Promise<RedirectLookup> {
+  const now = Date.now();
+  const cached = redirectCache.get(resolvedPath);
+  if (cached && cached.expiresAt > now) {
+    return Promise.resolve(cached.value);
+  }
+
+  const inflight = redirectInflight.get(resolvedPath);
+  if (inflight) return inflight;
+
+  const request = fetchRedirectLookup(resolvedPath)
+    .then((value) => {
+      if (redirectCache.size >= REDIRECT_CACHE_MAX_ENTRIES) redirectCache.clear();
+      redirectCache.set(resolvedPath, { value, expiresAt: Date.now() + REDIRECT_CACHE_TTL_MS });
+      return value;
+    })
+    .finally(() => {
+      redirectInflight.delete(resolvedPath);
+    });
+
+  redirectInflight.set(resolvedPath, request);
+  return request;
+}
 
 function isStateChanging(method: string): boolean {
   return method === "POST" || method === "PUT" || method === "PATCH" || method === "DELETE";
@@ -70,9 +133,27 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 
-  // Resolusi redirect (redirectRule) tidak lagi di middleware.
-  // Dilakukan di layer server component ([slug] & [slug]/[postSlug]) memakai
-  // unstable_cache + tag "redirect-rule" agar tidak ada HTTP call per request.
+  if (
+    request.method === "GET" &&
+    !pathname.startsWith("/admin") &&
+    !isBypassedRedirectPath(pathname)
+  ) {
+    try {
+      const resolvedPath = normalizeRedirectPath(`${pathname}${request.nextUrl.search || ""}`);
+      const lookup = await resolveRedirectCached(resolvedPath);
+
+      if (lookup.found) {
+        const targetUrl = new URL(lookup.location, request.url);
+        if (!targetUrl.search && request.nextUrl.search) {
+          targetUrl.search = request.nextUrl.search;
+        }
+        return NextResponse.redirect(targetUrl, lookup.statusCode);
+      }
+    } catch {
+      // Abaikan error redirect resolver agar request publik tetap lanjut normal.
+    }
+  }
+
   return NextResponse.next({
     request: {
       headers: requestHeaders,

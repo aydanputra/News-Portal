@@ -3,7 +3,10 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeExternalUrl } from "@/lib/url-safety";
+import { getResponsiveBool, getResponsiveValue } from "@/themes/pranala/blocks/responsive";
+import { resolveWidgetRadius } from "@/themes/pranala/blocks/radius";
+import { usePublicViewportStore } from "@/themes/pranala/components/public-ui-store";
 
 type ImageUrlWidgetConfig = {
   imageUrl?: string;
@@ -15,6 +18,21 @@ type ImageUrlWidgetConfig = {
   imageHeight?: string;
   borderRadius?: string;
   showShadow?: boolean | string;
+  // Pengaturan "Latar" (kotak widget) dari panel builder.
+  useBox?: boolean | string;
+  boxColor?: string;
+  backgroundImage?: string;
+  backgroundSize?: string;
+  backgroundPosition?: string;
+  backgroundRepeat?: string;
+  backgroundAttachment?: string;
+  backgroundOverlayColor?: string;
+  backgroundOverlayOpacity?: number | string;
+  boxBorderRadius?: string | number;
+  boxPaddingTop?: number | string;
+  boxPaddingRight?: number | string;
+  boxPaddingBottom?: number | string;
+  boxPaddingLeft?: number | string;
 };
 
 type ImageUrlWidgetProps = {
@@ -67,6 +85,8 @@ const normalizeObjectFit = (raw: unknown): React.CSSProperties["objectFit"] => {
 
 export default function ImageUrlWidget({ config, block, title = "", customTitle = "", className = "" }: ImageUrlWidgetProps) {
   const resolvedConfig = config ?? block?.config ?? null;
+  const configRecord = (resolvedConfig ?? {}) as Record<string, unknown>;
+  const device = usePublicViewportStore();
   const resolvedTitle = customTitle || title || block?.title || (typeof resolvedConfig?.altText === "string" ? resolvedConfig.altText : "") || "";
   const imageUrl = normalizeImageUrl(resolvedConfig?.imageUrl);
   if (!imageUrl) return null;
@@ -89,6 +109,41 @@ export default function ImageUrlWidget({ config, block, title = "", customTitle 
   // atau tinggi eksplisit diberikan. Untuk "contain" tanpa tinggi eksplisit,
   // render sesuai rasio asli gambar agar tidak ada ruang kosong atas/bawah.
   const usesFixedBox = Boolean(imageHeight) || objectFit === "cover" || objectFit === "fill";
+
+  // Pengaturan "Latar" pada panel widget (responsif: base/tablet*/mobile*).
+  const boxUse = getResponsiveBool(configRecord, "useBox", device, false);
+  const boxColor = getResponsiveValue<string>(configRecord, "boxColor", device) || "transparent";
+  const boxBgImage = getResponsiveValue<string>(configRecord, "backgroundImage", device) || "";
+  const boxBgSize = getResponsiveValue<string>(configRecord, "backgroundSize", device) || "cover";
+  const boxBgPosition = getResponsiveValue<string>(configRecord, "backgroundPosition", device) || "center";
+  const boxBgRepeat = getResponsiveValue<string>(configRecord, "backgroundRepeat", device) || "no-repeat";
+  const boxBgAttachment = getResponsiveValue<string>(configRecord, "backgroundAttachment", device) || "scroll";
+  const boxOverlayColor = getResponsiveValue<string>(configRecord, "backgroundOverlayColor", device) || "transparent";
+  const boxOverlayOpacityRaw = Number(getResponsiveValue<number | string>(configRecord, "backgroundOverlayOpacity", device) ?? 45);
+  const boxOverlayOpacity = Math.min(100, Math.max(0, Number.isFinite(boxOverlayOpacityRaw) ? boxOverlayOpacityRaw : 45));
+  const hasBoxOverlay = boxOverlayOpacity > 0 && boxOverlayColor.trim() !== "" && boxOverlayColor.trim().toLowerCase() !== "transparent";
+  const boxOverlayFill = hasBoxOverlay ? `color-mix(in srgb, ${boxOverlayColor} ${boxOverlayOpacity}%, transparent)` : "transparent";
+  const boxGlobalRadius = borderRadius ?? "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))";
+  const boxStyle: React.CSSProperties | undefined = boxUse
+    ? {
+        backgroundColor: boxColor,
+        borderRadius: resolveWidgetRadius(getResponsiveValue(configRecord, "boxBorderRadius", device), boxGlobalRadius),
+        border: "var(--box-border, 1px solid #f3f4f6)",
+        boxShadow: "var(--box-shadow, 0 1px 2px 0 rgb(0 0 0 / 0.05))",
+        paddingTop: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingTop", device)) ?? "0px",
+        paddingRight: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingRight", device)) ?? "0px",
+        paddingBottom: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingBottom", device)) ?? "0px",
+        paddingLeft: normalizeCssSize(getResponsiveValue(configRecord, "boxPaddingLeft", device)) ?? "0px",
+        backgroundImage: boxBgImage
+          ? (hasBoxOverlay ? `linear-gradient(${boxOverlayFill}, ${boxOverlayFill}), url("${boxBgImage}")` : `url("${boxBgImage}")`)
+          : undefined,
+        backgroundSize: boxBgImage ? (hasBoxOverlay ? `cover, ${boxBgSize}` : boxBgSize) : undefined,
+        backgroundPosition: boxBgImage ? (hasBoxOverlay ? `center, ${boxBgPosition}` : boxBgPosition) : undefined,
+        backgroundRepeat: boxBgImage ? (hasBoxOverlay ? `no-repeat, ${boxBgRepeat}` : boxBgRepeat) : undefined,
+        backgroundAttachment: boxBgImage ? boxBgAttachment : undefined,
+      }
+    : undefined;
+
   const containerStyle: React.CSSProperties = {
     position: "relative",
     width: imageWidth ?? "100%",
@@ -141,34 +196,30 @@ export default function ImageUrlWidget({ config, block, title = "", customTitle 
   const linkClassName = "inline-block max-w-full align-top";
 
   if (!linkUrl) {
-    return <div className={wrapperClassName}>{image}</div>;
+    return <div className={wrapperClassName} style={boxStyle}>{image}</div>;
   }
 
-  if (linkUrl.startsWith("/")) {
-    return (
-      <div className={wrapperClassName}>
-        <Link
-          href={linkUrl}
-          className={linkClassName}
-          target={openInNewTab ? "_blank" : undefined}
-          rel={openInNewTab ? "noreferrer noopener" : undefined}
-        >
-          {image}
-        </Link>
-      </div>
-    );
-  }
-
-  return (
-    <div className={wrapperClassName}>
-      <a
-        href={linkUrl}
-        className={linkClassName}
-        target={openInNewTab ? "_blank" : undefined}
-        rel={openInNewTab ? "noreferrer noopener" : undefined}
-      >
-        {image}
-      </a>
-    </div>
+  const linkedImage = linkUrl.startsWith("/") ? (
+    <Link
+      href={linkUrl}
+      className={linkClassName}
+      target={openInNewTab ? "_blank" : undefined}
+      rel={openInNewTab ? "noreferrer noopener" : undefined}
+      style={boxUse ? { display: "block" } : undefined}
+    >
+      {image}
+    </Link>
+  ) : (
+    <a
+      href={linkUrl}
+      className={linkClassName}
+      target={openInNewTab ? "_blank" : undefined}
+      rel={openInNewTab ? "noreferrer noopener" : undefined}
+      style={boxUse ? { display: "block" } : undefined}
+    >
+      {image}
+    </a>
   );
+
+  return <div className={wrapperClassName} style={boxStyle}>{linkedImage}</div>;
 }

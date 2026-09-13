@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 
 interface SectionProps {
   block: any;

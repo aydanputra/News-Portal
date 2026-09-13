@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import React from "react";
-import { sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeExternalUrl } from "@/lib/url-safety";
+import { usePublicViewportStore } from "../components/public-ui-store";
+import { getResponsiveBool } from "../blocks/responsive";
 
 interface ArchiveEmptyStateProps {
   block: any;
@@ -9,6 +13,10 @@ interface ArchiveEmptyStateProps {
 
 export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateProps) {
   const config = block?.config || {};
+  const device = usePublicViewportStore();
+  // Latar (useBox) digambar oleh wrapper Archive.tsx (.awb-*). Saat aktif,
+  // permukaan dashed bawaan dimatikan agar warna/gambar latar terlihat penuh.
+  const useBox = getResponsiveBool(config as Record<string, unknown>, "useBox", device, false);
   if (!isEmpty) return null;
 
   const title = typeof config.emptyTitle === "string" && config.emptyTitle.trim()
@@ -21,7 +29,10 @@ export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateP
     ? config.emptyButtonText.trim()
     : "";
   const ctaHref = sanitizeExternalUrl(config.emptyButtonHref) || "/";
-  const align = config.textAlign === "left" || config.textAlign === "right" ? config.textAlign : "center";
+  const normalizeAlign = (value: unknown) => (value === "left" || value === "right" ? value : "center");
+  const alignDesktop = normalizeAlign(config.textAlign);
+  const alignTablet = normalizeAlign(config.tabletTextAlign ?? config.textAlign);
+  const alignMobile = normalizeAlign(config.mobileTextAlign ?? config.textAlign);
   const titleColorDesktop = typeof config.titleColor === "string" && config.titleColor.trim() ? config.titleColor : "var(--home-widget-title-color, var(--heading-color, #111827))";
   const titleColorTablet = typeof config.tabletTitleColor === "string" && config.tabletTitleColor.trim() ? config.tabletTitleColor : titleColorDesktop;
   const titleColorMobile = typeof config.mobileTitleColor === "string" && config.mobileTitleColor.trim() ? config.mobileTitleColor : titleColorDesktop;
@@ -34,9 +45,12 @@ export default function ArchiveEmptyState({ block, isEmpty }: ArchiveEmptyStateP
 
   return (
     <div
-      className="public-theme archive-empty-block rounded-[var(--home-main-box-radius,0.75rem)] border border-dashed border-[var(--border,#e5e7eb)] bg-[var(--bg-surface,#f9fafb)] px-6 py-12"
+      className={`public-theme archive-empty-block rounded-[var(--home-main-box-radius,0.75rem)]${useBox ? "" : " border border-dashed border-[var(--border,#e5e7eb)] bg-[var(--bg-surface,#f9fafb)] px-6 py-12"}`}
       style={{
-        textAlign: align as React.CSSProperties["textAlign"],
+        textAlign: "var(--archive-empty-align, center)" as React.CSSProperties["textAlign"],
+        "--archive-empty-align-mobile": alignMobile,
+        "--archive-empty-align-tablet": alignTablet,
+        "--archive-empty-align-desktop": alignDesktop,
         "--archive-empty-title-color-mobile": titleColorMobile,
         "--archive-empty-title-color-tablet": titleColorTablet,
         "--archive-empty-title-color-desktop": titleColorDesktop,

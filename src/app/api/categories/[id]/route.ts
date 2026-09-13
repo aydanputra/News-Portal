@@ -1,5 +1,6 @@
 
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/server-auth";
 import { slugify } from "@/lib/utils";
@@ -41,6 +42,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       },
     });
 
+    revalidateTag("categories");
+    revalidateTag("homepage");
+
     return NextResponse.json(category);
   } catch (error) {
     console.error("PUT /api/categories/[id] error:", error);
@@ -79,6 +83,9 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     }
 
     await prisma.category.delete({ where: { id } });
+
+    revalidateTag("categories");
+    revalidateTag("homepage");
 
     return NextResponse.json({ message: "Kategori berhasil dihapus" });
   } catch (error) {

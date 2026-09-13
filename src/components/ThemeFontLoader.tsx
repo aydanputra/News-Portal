@@ -1,19 +1,19 @@
-"use client";
-
-import React from "react";
 import {
   getThemeFontLoadFamilies,
   resolveThemeFontSynthesis,
   resolveThemeFontFamily,
 } from "@/lib/font-utils";
+import { safeStyleTagCss } from "@/lib/url-safety";
 
 interface ThemeFontLoaderProps {
   headingFont: string;
   bodyFont: string;
 }
 
-// Daftar font yang tersedia secara lokal
-const AVAILABLE_LOCAL_FONTS = ['lato', 'poppins', 'inter', 'roboto'];
+// Font yang benar-benar tersedia sebagai file lokal di /public/fonts/<slug>/style.css.
+// Font self-hosted lain (inter, sora, merriweather) sudah dimuat lewat next/font
+// di app/layout.tsx sehingga tidak perlu link tambahan di sini.
+const AVAILABLE_LOCAL_FONTS = ["lato", "poppins"];
 
 export default function ThemeFontLoader({ headingFont, bodyFont }: ThemeFontLoaderProps) {
   // Generate list font yang unik
@@ -25,39 +25,63 @@ export default function ThemeFontLoader({ headingFont, bodyFont }: ThemeFontLoad
   const bodySizeAdjust = "none";
   const headingFontSynthesis = resolveThemeFontSynthesis(headingFont);
   const bodyFontSynthesis = resolveThemeFontSynthesis(bodyFont);
-  
+
   if (uniqueFonts.length === 0) return null;
 
-  // Generate Google Fonts URL
-  const fontQuery = uniqueFonts.map(font => `family=${font.replace(/ /g, "+")}:wght@300;400;500;600;700`).join("&");
-  const googleFontsUrl = `https://fonts.googleapis.com/css2?${fontQuery}&display=swap`;
+  const localFontSlugs = uniqueFonts
+    .map((font) => font.toLowerCase().replace(/ /g, "-"))
+    .filter((slug) => AVAILABLE_LOCAL_FONTS.includes(slug));
+
+  // Font yang belum tersedia lokal dimuat dari Google Fonts sebagai fallback.
+  const remoteFonts = uniqueFonts.filter(
+    (font) => !AVAILABLE_LOCAL_FONTS.includes(font.toLowerCase().replace(/ /g, "-")),
+  );
+  const fontQuery = remoteFonts
+    .map((font) => `family=${font.replace(/ /g, "+")}:wght@300;400;500;600;700`)
+    .join("&");
+  const googleFontsUrl = fontQuery
+    ? `https://fonts.googleapis.com/css2?${fontQuery}&display=swap`
+    : "";
 
   return (
     <>
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      
-      {/* Load font lokal jika tersedia */}
-      {uniqueFonts.map(font => {
-        const slug = font.toLowerCase().replace(/ /g, '-');
-        
-        // Skip jika font tidak tersedia secara lokal
-        if (!AVAILABLE_LOCAL_FONTS.includes(slug)) return null;
+      {googleFontsUrl ? (
+        <>
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        </>
+      ) : null}
 
-        return (
-          <link 
-            key={`local-${font}`}
-            href={`/fonts/${slug}/style.css`} 
-            rel="stylesheet" 
+      {/* Font lokal (same-origin, file sudah diself-host) */}
+      {localFontSlugs.map((slug) => (
+        <link key={`local-${slug}`} href={`/fonts/${slug}/style.css`} rel="stylesheet" />
+      ))}
+
+      {/* Google Fonts dimuat non-blocking: media="print" lalu diganti ke "all"
+          setelah stylesheet selesai dimuat. */}
+      {googleFontsUrl ? (
+        <>
+          <link
+            id="theme-remote-fonts"
+            href={googleFontsUrl}
+            rel="stylesheet"
+            media="print"
           />
-        );
-      })}
+          <script
+            dangerouslySetInnerHTML={{
+              __html:
+                "(function(){var l=document.getElementById('theme-remote-fonts');" +
+                "if(!l)return;var a=function(){l.media='all';};" +
+                "if(l.sheet){a();}else{l.addEventListener('load',a,{once:true});setTimeout(a,3000);}})();",
+            }}
+          />
+        </>
+      ) : null}
 
-      {/* Selalu load Google Fonts sebagai fallback */}
-      <link href={googleFontsUrl} rel="stylesheet" />
-      
-      {/* Inline style untuk fallback font */}
-      <style jsx global>{`
+      {/* Fallback font-family bila CSS variable belum tersedia */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: safeStyleTagCss(`
         body {
           font-family: ${resolvedBodyFont};
           font-synthesis: ${bodyFontSynthesis};
@@ -68,7 +92,9 @@ export default function ThemeFontLoader({ headingFont, bodyFont }: ThemeFontLoad
           font-synthesis: ${headingFontSynthesis};
           font-size-adjust: ${headingSizeAdjust};
         }
-      `}</style>
+      `),
+        }}
+      />
     </>
   );
 }

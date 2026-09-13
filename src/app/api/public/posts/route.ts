@@ -4,7 +4,8 @@ import { unstable_cache } from "next/cache";
 import { z } from "zod";
 import { applyCategoryFiltersToWhere, applyTagFiltersToWhere, normalizeSlugArray } from "@/lib/category-filters";
 
-export const revalidate = 60;
+// Route ini membaca searchParams sehingga selalu dinamis; caching data
+// ditangani unstable_cache di dalam handler.
 export const dynamic = "force-dynamic";
 
 const searchParamsSchema = z.object({
@@ -134,6 +135,7 @@ export async function GET(request: Request) {
         {
           OR: [
             { title: { contains: query, mode: "insensitive" as const } },
+            { excerpt: { contains: query, mode: "insensitive" as const } },
           ],
         },
       ];
@@ -195,7 +197,7 @@ export async function GET(request: Request) {
         return { posts, total };
       },
       [cacheKey],
-      { tags: ["posts"], revalidate },
+      { tags: ["posts"], revalidate: 60 },
     );
     const { posts, total } = await cached();
 

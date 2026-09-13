@@ -5,7 +5,7 @@ import { PRANALA_BLOCKS } from "../blocks/registry";
 import Section from "../blocks/Section"; // Direct import to ensure it works
 import Header from "../components/Header";
 import Footer from "../components/Footer";
-import { resolveBlockTypeAlias } from "@/lib/block-registry";
+import { resolveBlockTypeAlias } from "@/lib/block-aliases";
 import {
     resolveThemeFontFamily,
     resolveThemeFontSynthesis,

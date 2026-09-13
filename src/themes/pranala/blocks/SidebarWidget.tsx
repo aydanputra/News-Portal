@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getResponsiveBool, getResponsiveBoolValues, getResponsiveValue, getResponsiveValues, type ResponsiveDevice } from "./responsive";
 import { normalizeLegacyGlobalImageRadius, resolveWidgetRadius } from "./radius";
-import { sanitizeContent, sanitizeCssUrl } from "@/lib/sanitizer";
+import { sanitizeCssUrl } from "@/lib/url-safety";
 import { getFirstImageFromContent, getPostImageUrl } from "../blockpost/helpers";
 
 interface SidebarWidgetProps {
@@ -642,7 +642,7 @@ export default function SidebarWidget({ block, posts, categories, customTitle, a
                 style={{ borderRadius: 'var(--home-main-box-radius, 0.25rem)' }}
             >
                 {typeof config?.adCode === "string" && config.adCode.trim() !== "" ? (
-                    <div dangerouslySetInnerHTML={{ __html: sanitizeContent(config.adCode) }} />
+                    <div dangerouslySetInnerHTML={{ __html: config.adCode }} />
                 ) : (
                     <span>Space Iklan</span>
                 )}

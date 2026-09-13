@@ -15,6 +15,7 @@ export const PRANALA_ARCHIVE_WIDGET_GROUPS: { main: ArchiveWidgetDefinition[]; s
     { type: "archive_header", label: "Header Arsip", icon: Layout, desc: "Judul dan deskripsi halaman arsip." },
     { type: "news_hero_slider", label: "Hero Slider", icon: Newspaper, desc: "Slider headline arsip dengan navigasi panah, dots, dan thumbnail mini." },
     { type: "news_grid", label: "Grid News", icon: Grid2x2, desc: "Grid berita arsip dengan tampilan visual penuh seperti Homepage Builder." },
+    { type: "archive_post_grid", label: "Grid Artikel", icon: Grid2x2, desc: "Daftar artikel arsip dalam bentuk grid kartu." },
     { type: "archive_post_list", label: "List Artikel", icon: List, desc: "Daftar artikel arsip dalam bentuk list." },
     { type: "archive_pagination", label: "Pagination Arsip", icon: Waypoints, desc: "Navigasi halaman archive." },
     { type: "archive_empty_state", label: "Empty State", icon: CircleOff, desc: "Tampilan saat archive tidak memiliki artikel." }

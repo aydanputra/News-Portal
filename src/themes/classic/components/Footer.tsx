@@ -2,7 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { Fragment } from "react";
 import { Facebook, Twitter, Instagram, Youtube, Linkedin } from "lucide-react";
-import { sanitizeContent, sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeContent } from "@/lib/sanitizer";
+import { sanitizeCssUrl, sanitizeExternalUrl } from "@/lib/url-safety";
 import ImageUrlWidget from "@/components/shared/ImageUrlWidget";
 
 interface FooterProps {

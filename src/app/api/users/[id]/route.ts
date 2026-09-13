@@ -4,7 +4,6 @@ import { requireAdmin } from "@/lib/server-auth";
 import { Role } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { validatePasswordStrength } from "@/lib/password-policy";
-import { internalError } from "@/lib/api-error";
 
 // Helper: Get User
 async function getUser(id: string) {
@@ -50,8 +49,9 @@ export async function GET(
 
     return NextResponse.json(user);
 
-  } catch (error: unknown) {
-    return internalError(error, { route: "GET /api/users/[id]" });
+  } catch (error: any) {
+    console.error("Get User Error:", error);
+    return NextResponse.json({ error: error.message || "Failed to fetch user" }, { status: 500 });
   }
 }
 
@@ -127,8 +127,9 @@ export async function PUT(
 
       return NextResponse.json(updatedUser);
   
-    } catch (error: unknown) {
-      return internalError(error, { route: "PUT /api/users/[id]" });
+    } catch (error) {
+      console.error("Update User Error:", error);
+      return NextResponse.json({ error: "Failed to update user" }, { status: 500 });
     }
 }
 
@@ -165,7 +166,8 @@ export async function DELETE(
 
       return NextResponse.json({ success: true });
   
-    } catch (error: unknown) {
-      return internalError(error, { route: "DELETE /api/users/[id]" });
+    } catch (error) {
+      console.error("Delete User Error:", error);
+      return NextResponse.json({ error: "Failed to delete user" }, { status: 500 });
     }
 }

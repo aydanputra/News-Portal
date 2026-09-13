@@ -5,7 +5,7 @@ import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { assertRateLimit } from "@/lib/api-guards";
 import { requireAdmin } from "@/lib/server-auth";
-import { sanitizeExternalUrl } from "@/lib/sanitizer";
+import { sanitizeExternalUrl } from "@/lib/url-safety";
 
 const ALLOWED_PAGE_TYPES = new Set([
   "HOME",

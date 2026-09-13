@@ -1,4 +1,8 @@
+"use client";
+
 import React from "react";
+import { usePublicViewportStore } from "../components/public-ui-store";
+import { getResponsiveBool, getResponsiveValue } from "../blocks/responsive";
 
 interface ArchiveHeaderProps {
   block: any;
@@ -17,10 +21,18 @@ const toPx = (value: unknown, fallback: string) => {
 
 export default function ArchiveHeader({ block, title, description, totalPosts }: ArchiveHeaderProps) {
   const config = block?.config || {};
-  const showDescription = config.showDescription !== false;
-  const showPostCount = config.showPostCount !== false;
-  const textAlign = config.textAlign === "center" || config.textAlign === "right" ? config.textAlign : "left";
-  const headerStyle = config.headerStyle === "card" || config.headerStyle === "spotlight" ? config.headerStyle : "minimal";
+  const configRecord = config as Record<string, unknown>;
+  const device = usePublicViewportStore();
+  const showDescription = getResponsiveBool(configRecord, "showDescription", device, true);
+  const showPostCount = getResponsiveBool(configRecord, "showPostCount", device, true);
+  const rawTextAlign = getResponsiveValue<string>(configRecord, "textAlign", device);
+  const textAlign = rawTextAlign === "center" || rawTextAlign === "right" ? rawTextAlign : "left";
+  const rawHeaderStyle = getResponsiveValue<string>(configRecord, "headerStyle", device);
+  const headerStyle = rawHeaderStyle === "card" || rawHeaderStyle === "spotlight" ? rawHeaderStyle : "minimal";
+  const readResponsiveString = (baseKey: string, fallback: string) => {
+    const value = getResponsiveValue<string>(configRecord, baseKey, device);
+    return typeof value === "string" && value.trim() !== "" ? value : fallback;
+  };
   const titleColorDesktop = typeof config.titleColor === "string" && config.titleColor.trim() !== ""
     ? config.titleColor
     : "var(--archive-widget-title-color, var(--home-widget-title-color, var(--heading-color, #111827)))";
@@ -57,24 +69,12 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
   const countSizeDesktop = toPx(config.metaFontSize, "var(--archive-header-meta-default-size, 0.8125rem)");
   const countSizeTablet = toPx(config.tabletMetaFontSize, countSizeDesktop);
   const countSizeMobile = toPx(config.mobileMetaFontSize, countSizeDesktop);
-  const titleWeight = typeof config.titleFontWeight === "string" && config.titleFontWeight.trim() !== ""
-    ? config.titleFontWeight
-    : "var(--archive-widget-title-weight, var(--home-widget-title-weight, 700))";
-  const titleFont = typeof config.titleFontFamily === "string" && config.titleFontFamily.trim() !== ""
-    ? config.titleFontFamily
-    : "var(--archive-widget-title-font, var(--home-widget-title-font, inherit))";
-  const descriptionWeight = typeof config.descriptionFontWeight === "string" && config.descriptionFontWeight.trim() !== ""
-    ? config.descriptionFontWeight
-    : "var(--archive-header-description-default-weight, 400)";
-  const descriptionFont = typeof config.descriptionFontFamily === "string" && config.descriptionFontFamily.trim() !== ""
-    ? config.descriptionFontFamily
-    : "var(--archive-header-description-default-font, inherit)";
-  const metaWeight = typeof config.metaFontWeight === "string" && config.metaFontWeight.trim() !== ""
-    ? config.metaFontWeight
-    : "var(--archive-header-meta-default-weight, 500)";
-  const metaFont = typeof config.metaFontFamily === "string" && config.metaFontFamily.trim() !== ""
-    ? config.metaFontFamily
-    : "var(--archive-header-meta-default-font, inherit)";
+  const titleWeight = readResponsiveString("titleFontWeight", "var(--archive-widget-title-weight, var(--home-widget-title-weight, 700))");
+  const titleFont = readResponsiveString("titleFontFamily", "var(--archive-widget-title-font, var(--home-widget-title-font, inherit))");
+  const descriptionWeight = readResponsiveString("descriptionFontWeight", "var(--archive-header-description-default-weight, 400)");
+  const descriptionFont = readResponsiveString("descriptionFontFamily", "var(--archive-header-description-default-font, inherit)");
+  const metaWeight = readResponsiveString("metaFontWeight", "var(--archive-header-meta-default-weight, 500)");
+  const metaFont = readResponsiveString("metaFontFamily", "var(--archive-header-meta-default-font, inherit)");
   const accentColorDesktop = typeof config.accentColor === "string" && config.accentColor.trim() !== ""
     ? config.accentColor
     : "var(--accent, #2563eb)";
@@ -105,8 +105,8 @@ export default function ArchiveHeader({ block, title, description, totalPosts }:
   const sharedTitleStyle: React.CSSProperties = {
     color: "var(--archive-header-title-color)",
     fontSize: "var(--archive-header-title-size)",
-    fontWeight: "var(--widget-title-weight, var(--archive-widget-title-weight, var(--home-widget-title-weight)))" as React.CSSProperties["fontWeight"],
-    fontFamily: "var(--widget-title-font, var(--archive-widget-title-font, var(--home-widget-title-font)), sans-serif)",
+    fontWeight: titleWeight as React.CSSProperties["fontWeight"],
+    fontFamily: titleFont,
     lineHeight: "var(--archive-widget-title-line-height, 1.2)",
     letterSpacing: "normal"
   };

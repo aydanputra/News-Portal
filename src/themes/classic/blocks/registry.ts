@@ -1,20 +1,24 @@
 // src/themes/classic/blocks/registry.ts
 
 import type { LucideIcon } from "lucide-react";
+import dynamic from "next/dynamic";
 import { Layout, Maximize, List, PanelRight, Tag, Image as ImageIcon, Grid2x2, Megaphone, Newspaper } from "lucide-react";
-import Hero from "./Hero";
-import Section from "./Section";
-import NewsList from "./NewsList";
-import SidebarWidget from "./SidebarWidget";
-import TagCloud from "./TagCloud";
-import NewsGrid from "@/themes/pranala/blocks/NewsGrid";
-import HeadlineBig from "@/themes/pranala/blocks/HeadlineBig";
-import BulletList from "@/themes/pranala/blocks/BulletList";
-import AdBanner from "@/themes/pranala/blocks/AdBanner";
-import HeroSplit4 from "@/themes/pranala/blocks/HeroSplit4";
-import HeroSlider from "@/themes/pranala/blocks/HeroSlider";
-import NewsGridSlider from "@/themes/pranala/blocks/NewsGridSlider";
-import ImageUrlWidget from "@/components/shared/ImageUrlWidget";
+
+// Komponen blok dimuat lazy (code-split) agar halaman publik hanya mengunduh
+// chunk blok yang benar-benar dirender.
+const Hero = dynamic(() => import("./Hero"));
+const Section = dynamic(() => import("./Section"));
+const NewsList = dynamic(() => import("./NewsList"));
+const SidebarWidget = dynamic(() => import("./SidebarWidget"));
+const TagCloud = dynamic(() => import("./TagCloud"));
+const NewsGrid = dynamic(() => import("@/themes/pranala/blocks/NewsGrid"));
+const HeadlineBig = dynamic(() => import("@/themes/pranala/blocks/HeadlineBig"));
+const BulletList = dynamic(() => import("@/themes/pranala/blocks/BulletList"));
+const AdBanner = dynamic(() => import("@/themes/pranala/blocks/AdBanner"));
+const HeroSplit4 = dynamic(() => import("@/themes/pranala/blocks/HeroSplit4"));
+const HeroSlider = dynamic(() => import("@/themes/pranala/blocks/HeroSlider"));
+const NewsGridSlider = dynamic(() => import("@/themes/pranala/blocks/NewsGridSlider"));
+const ImageUrlWidget = dynamic(() => import("@/components/shared/ImageUrlWidget"));
 
 // Block Definition Interface
 export interface BlockDefinition {

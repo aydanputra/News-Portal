@@ -6,7 +6,6 @@ import { v4 as uuidv4 } from 'uuid';
 import { assertRateLimit, isToolEnabledForRequest } from "@/lib/api-guards";
 import { requireAdmin } from "@/lib/server-auth";
 import { hostIsBlocked } from "@/lib/ssrf";
-import { internalError } from "@/lib/api-error";
 import { detectImageType, IMAGE_EXTENSION_BY_TYPE } from "@/lib/upload-validation";
 
 type DownloadedImage = { url: string; filename: string; size: number; mime: string };
@@ -265,8 +264,8 @@ export async function GET(req: NextRequest) {
                 }
             });
 
-        } catch (error: unknown) {
-            return internalError(error, { route: "GET /api/admin/import/media" });
+        } catch (error: any) {
+            return NextResponse.json({ error: error.message }, { status: 500 });
         }
     }
     
@@ -387,8 +386,9 @@ export async function POST(req: NextRequest) {
 
             return NextResponse.json({ processed: processedCount });
 
-        } catch (error: unknown) {
-            return internalError(error, { route: "POST /api/admin/import/media", stage: "migration" });
+        } catch (error: any) {
+            console.error("Migration error:", error);
+            return NextResponse.json({ error: error.message }, { status: 500 });
         }
     }
 
