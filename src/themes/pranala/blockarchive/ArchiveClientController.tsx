@@ -46,6 +46,7 @@ export default function ArchiveClientController({
   pageSize,
   initialTotalPages,
   basePath,
+  archiveType,
   archiveFilter,
   archiveDisplayCategory,
   customTitle,
@@ -64,6 +65,13 @@ export default function ArchiveClientController({
   const buildQuery = useCallback(
     (page: number) => {
       const params = new URLSearchParams();
+      if (archiveType === "search") {
+        const q =
+          typeof window !== "undefined"
+            ? (new URLSearchParams(window.location.search).get("q") || "").trim()
+            : "";
+        if (q) params.set("q", q);
+      }
       if (archiveFilter.categories?.length) {
         params.set("categories", archiveFilter.categories.join(","));
       }
@@ -75,7 +83,7 @@ export default function ArchiveClientController({
       params.set("sort", "latest");
       return params.toString();
     },
-    [archiveFilter, pageSize],
+    [archiveType, archiveFilter, pageSize],
   );
 
   const applyDisplayCategory = useCallback(

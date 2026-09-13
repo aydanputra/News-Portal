@@ -421,9 +421,9 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const titleFontWeightTablet = normalizeFontWeight(cfg.tabletTitleFontWeight, titleFontWeightDesktop);
   const titleFontWeightMobile = normalizeFontWeight(cfg.mobileTitleFontWeight, titleFontWeightDesktop);
 
-  const titleFsMobile = cfg.mobileTitleFontSize ? `${cfg.mobileTitleFontSize}px` : (cfg.titleFontSize ? `${cfg.titleFontSize}px` : 'var(--home-news-title-size, 1rem)');
-  const titleFsTablet = cfg.tabletTitleFontSize ? `${cfg.tabletTitleFontSize}px` : titleFsMobile;
-  const titleFsDesktop = cfg.titleFontSize ? `${cfg.titleFontSize}px` : titleFsTablet;
+  const titleFsMobile = formatFontSize(cfg.mobileTitleFontSize || cfg.titleFontSize, 'var(--home-news-title-size, 1rem)');
+  const titleFsTablet = formatFontSize(cfg.tabletTitleFontSize || titleFsMobile, titleFsMobile);
+  const titleFsDesktop = formatFontSize(cfg.titleFontSize || titleFsTablet, titleFsTablet);
 
   const titleLhMobile = toNumberOrUndefined(cfg.mobileTitleLineHeight) ?? toNumberOrUndefined(cfg.titleLineHeight) ?? 1.3;
   const titleLhTablet = toNumberOrUndefined(cfg.tabletTitleLineHeight) ?? titleLhMobile;
@@ -440,9 +440,9 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const titleHoverColorTablet = cfg.tabletTitleHoverColor || titleHoverColorMobile;
   const titleHoverColorDesktop = cfg.titleHoverColor || titleHoverColorTablet;
 
-  const metaFsMobile = cfg.mobileMetaFontSize ? `${cfg.mobileMetaFontSize}px` : (cfg.metaFontSize ? `${cfg.metaFontSize}px` : 'var(--home-meta-size, 0.75rem)');
-  const metaFsTablet = cfg.tabletMetaFontSize ? `${cfg.tabletMetaFontSize}px` : metaFsMobile;
-  const metaFsDesktop = cfg.metaFontSize ? `${cfg.metaFontSize}px` : metaFsTablet;
+  const metaFsMobile = formatFontSize(cfg.mobileMetaFontSize || cfg.metaFontSize, 'var(--home-meta-size, 0.75rem)');
+  const metaFsTablet = formatFontSize(cfg.tabletMetaFontSize || metaFsMobile, metaFsMobile);
+  const metaFsDesktop = formatFontSize(cfg.metaFontSize || metaFsTablet, metaFsTablet);
 
   const metaColorMobile = cfg.mobileMetaColor || cfg.metaColor || 'var(--home-meta-color, #9ca3af)';
   const metaColorTablet = cfg.tabletMetaColor || metaColorMobile;
@@ -451,9 +451,9 @@ export default function NewsList({ block, posts, customTitle, accentColor, borde
   const metaFontWeightTablet = normalizeFontWeight(cfg.tabletMetaFontWeight, metaFontWeightMobile);
   const metaFontWeightDesktop = normalizeFontWeight(cfg.metaFontWeight, metaFontWeightTablet);
 
-  const excerptFsMobile = cfg.mobileExcerptFontSize ? `${cfg.mobileExcerptFontSize}px` : (cfg.excerptFontSize ? `${cfg.excerptFontSize}px` : 'var(--home-excerpt-size, 0.875rem)');
-  const excerptFsTablet = cfg.tabletExcerptFontSize ? `${cfg.tabletExcerptFontSize}px` : excerptFsMobile;
-  const excerptFsDesktop = cfg.excerptFontSize ? `${cfg.excerptFontSize}px` : excerptFsTablet;
+  const excerptFsMobile = formatFontSize(cfg.mobileExcerptFontSize || cfg.excerptFontSize, 'var(--home-excerpt-size, 0.875rem)');
+  const excerptFsTablet = formatFontSize(cfg.tabletExcerptFontSize || excerptFsMobile, excerptFsMobile);
+  const excerptFsDesktop = formatFontSize(cfg.excerptFontSize || excerptFsTablet, excerptFsTablet);
   const excerptLhMobile = toNumberOrUndefined(cfg.mobileExcerptLineHeight) ?? toNumberOrUndefined(cfg.excerptLineHeight) ?? 1.625;
   const excerptLhTablet = toNumberOrUndefined(cfg.tabletExcerptLineHeight) ?? excerptLhMobile;
   const excerptLhDesktop = toNumberOrUndefined(cfg.excerptLineHeight) ?? excerptLhTablet;

@@ -5,7 +5,7 @@ import pkg from "../../package.json";
 export const APP_VERSION: string = pkg.version;
 
 // Tanggal rilis versi saat ini. Selaraskan dengan entri teratas di CHANGELOG.md.
-export const APP_RELEASED_AT: string = "2026-09-10";
+export const APP_RELEASED_AT: string = "2026-09-13";
 
 // Ringkasan catatan rilis terbaru (selaras dengan CHANGELOG.md) untuk ditampilkan
 // di dashboard dan Pengaturan → Status Sistem.
@@ -16,6 +16,42 @@ export interface ReleaseNote {
 }
 
 export const APP_CHANGELOG: ReleaseNote[] = [
+  {
+    version: "1.0.11",
+    date: "2026-09-13",
+    notes: [
+      "Widget Gambar: tampilkan gambar link eksternal (tambah referrerPolicy no-referrer)",
+      "Widget Gambar: hilangkan ruang kosong atas-bawah saat object-fit contain tanpa tinggi eksplisit",
+    ],
+  },
+  {
+    version: "1.0.10",
+    date: "2026-09-13",
+    notes: [
+      "Mode gelap admin: aktifkan darkMode \"class\" agar varian dark: mengikuti kelas .dark",
+      "Perbaiki warna status/badge/alert yang tetap terang (tidak terbaca) di Pengaturan saat mode gelap",
+    ],
+  },
+  {
+    version: "1.0.9",
+    date: "2026-09-12",
+    notes: [
+      "Halaman statis: judul & konten terbaca jelas di mode gelap",
+      "Widget grid (News Grid, Grid Slider, Arsip): background konten mengisi penuh kartu, hilangkan bidang gelap di bawah judul",
+      "Background konten grid: bagian atas tetap kotak, bagian bawah mengikuti border radius global",
+    ],
+  },
+  {
+    version: "1.0.8",
+    date: "2026-09-12",
+    notes: [
+      "Tipografi halaman Arsip (kategori/tag/pencarian) kini mengikuti Tipografi Homepage, fallback ke Global",
+      "Perbaiki nilai tipografi tersimpan tertimpa theme config lama sehingga perubahan teks tidak tampil",
+      "Hero slider hasil pencarian menampilkan berita hasil pencarian terkait",
+      "Modal pencarian: posisi di tengah layar desktop, dapat di-scroll di mobile",
+      "Header halaman Arsip terbaca jelas di mode gelap",
+    ],
+  },
   {
     version: "1.0.7",
     date: "2026-09-10",

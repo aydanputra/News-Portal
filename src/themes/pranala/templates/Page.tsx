@@ -93,7 +93,7 @@ export default function PranalaPage({
             compact ? "text-3xl md:text-4xl" : "text-4xl md:text-5xl"
           }`}
           style={{
-            color: headingColor,
+            color: `var(--page-heading-color, ${headingColor})`,
             fontFamily: titleFontFamily,
             fontWeight: titleFontWeight,
             fontSynthesis: titleFontSynthesis,
@@ -110,7 +110,7 @@ export default function PranalaPage({
           content={safeContent}
           className="[&_h1]:text-3xl [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:mt-10 [&_h2]:text-2xl [&_h2]:font-bold [&_h3]:mt-8 [&_h3]:text-xl [&_h3]:font-bold [&_p]:my-5 [&_p]:leading-8 [&_blockquote]:border-l-4 [&_blockquote]:border-[color:var(--accent)] [&_blockquote]:bg-[color:var(--bg-surface)] [&_blockquote]:px-5 [&_blockquote]:py-3 [&_blockquote]:italic [&_img]:rounded-[var(--global-image-radius)] [&_ul]:my-5 [&_ol]:my-5"
           style={{
-            color: contentColor,
+            color: `var(--page-content-color, ${contentColor})`,
             fontFamily: contentFontFamily,
             fontWeight: contentFontWeight,
             fontSynthesis: contentFontSynthesis,

@@ -30,4 +30,15 @@ if (!parsed.success) {
   throw new Error(`[env] Konfigurasi environment tidak valid — ${details}`);
 }
 
+// Fail-fast di production: fitur 2FA, enkripsi kunci AI, dan endpoint cron
+// bergantung pada dua variabel ini. Tanpa keduanya, aplikasi akan gagal saat
+// runtime (membingungkan) alih-alih gagal saat startup (jelas).
+if (process.env.NODE_ENV === "production") {
+  const requiredInProduction = ["MASTER_KEY", "CRON_SECRET"] as const;
+  const missing = requiredInProduction.filter((key) => !parsed.data[key]);
+  if (missing.length > 0) {
+    throw new Error(`[env] Variabel wajib di production tidak diset: ${missing.join(", ")}`);
+  }
+}
+
 export const env = parsed.data;

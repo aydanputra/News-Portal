@@ -8,7 +8,6 @@ export async function GET() {
 
     if (!user) return NextResponse.json({ count: 0 });
 
-    // @ts-ignore
     const count = await prisma.notification.count({
       where: {
         userId: user.id,

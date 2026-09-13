@@ -365,7 +365,7 @@ export default function SettingsPage() {
             </div>
 
             {systemError && (
-              <div className="rounded-xl px-4 py-3 text-sm font-semibold bg-red-50 text-red-700 border border-red-200">
+              <div className="rounded-xl px-4 py-3 text-sm font-semibold bg-red-50 text-red-700 border border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30">
                 {systemError}
               </div>
             )}
@@ -401,7 +401,7 @@ export default function SettingsPage() {
                     {systemVersion?.updateAvailable ? (
                       <span className="font-bold text-[var(--accent)]">Update tersedia</span>
                     ) : (
-                      <span className="font-bold text-emerald-700">Terbaru</span>
+                      <span className="font-bold text-emerald-700 dark:text-emerald-400">Terbaru</span>
                     )}
                   </div>
                   {systemVersion?.changelog?.length ? (
@@ -492,8 +492,8 @@ export default function SettingsPage() {
                 <div
                   className={`mt-4 rounded-xl border px-4 py-3 text-sm font-semibold ${
                     systemToolsMessage.type === "success"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                      : "border-red-200 bg-red-50 text-red-700"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400"
+                      : "border-red-200 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400"
                   }`}
                 >
                   {systemToolsMessage.text}
@@ -791,8 +791,8 @@ export default function SettingsPage() {
                           <div
                             className={`px-3 py-1 rounded-full text-xs font-semibold border ${
                               aiApiKeyConfigured
-                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                                : "bg-amber-500/10 text-amber-600 border-amber-500/30"
+                                ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 dark:text-emerald-400"
+                                : "bg-amber-500/10 text-amber-600 border-amber-500/30 dark:text-amber-400"
                             }`}
                           >
                             {aiApiKeyConfigured ? "API Key Terpasang" : "API Key Belum Ada"}
@@ -1324,7 +1324,7 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => setLogoUrl("")}
-                            className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                            className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-500/30 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10"
                           >
                             Hapus
                           </button>
@@ -1369,7 +1369,7 @@ export default function SettingsPage() {
                           <button
                             type="button"
                             onClick={() => setFaviconUrl("")}
-                            className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                            className="h-9 rounded-lg border border-red-200 bg-white px-3 text-sm font-semibold text-red-600 transition hover:bg-red-50 dark:border-red-500/30 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10"
                           >
                             Hapus
                           </button>

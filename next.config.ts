@@ -4,9 +4,6 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: false,
-  experimental: {
-    proxyClientMaxBodySize: "32mb",
-  } as NextConfig["experimental"] & { proxyClientMaxBodySize: string },
   images: {
     formats: ['image/avif', 'image/webp'],
     qualities: [75, 90],

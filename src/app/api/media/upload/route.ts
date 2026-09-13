@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import sharp from 'sharp';
 import { storage } from "@/lib/storage";
 import { assertRateLimit } from "@/lib/api-guards";
+import { internalError } from "@/lib/api-error";
 import { sanitizePlainText } from "@/lib/sanitizer";
 import {
   detectImageType,
@@ -153,18 +154,16 @@ export async function POST(request: Request) {
         ...media,
         altText: uploadAltText,
       });
-    } catch (dbError: any) {
-        console.error("Database save failed:", dbError);
+    } catch (dbError: unknown) {
         try {
           await storage.delete(key);
-        } catch (error) {
-          console.error("Cleanup uploaded file failed:", error);
+        } catch (cleanupError) {
+          console.error("Cleanup uploaded file failed:", cleanupError);
         }
-        return NextResponse.json({ error: "Gagal menyimpan data ke database: " + dbError.message }, { status: 500 });
+        return internalError(dbError, { route: "POST /api/media/upload", stage: "db-save" });
     }
 
-  } catch (error: any) {
-    console.error("Upload error:", error);
-    return NextResponse.json({ error: "Internal Server Error: " + error.message }, { status: 500 });
+  } catch (error: unknown) {
+    return internalError(error, { route: "POST /api/media/upload" });
   }
 }

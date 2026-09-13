@@ -134,7 +134,6 @@ export async function GET(request: Request) {
         {
           OR: [
             { title: { contains: query, mode: "insensitive" as const } },
-            { excerpt: { contains: query, mode: "insensitive" as const } },
           ],
         },
       ];

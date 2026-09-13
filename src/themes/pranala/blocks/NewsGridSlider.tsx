@@ -796,8 +796,8 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
               const dateIso = dateObj && !Number.isNaN(dateObj.getTime()) ? dateObj.toISOString() : "";
               const authorName = getAuthorName(post);
               return (
-                <article key={`${post.id || `${block.id}-${idx}`}-${idx}`} className="news-grid-slider-item border border-[var(--border)] overflow-hidden shrink-0" style={{ width: `calc((100% - (${gap} * ${Math.max(perView - 1, 0)})) / ${perView})`, borderRadius: cardRadius, backgroundColor: cardBg }}>
-                  <Link href={postLink} className="block">
+                <article key={`${post.id || `${block.id}-${idx}`}-${idx}`} className="news-grid-slider-item border border-[var(--border)] overflow-hidden shrink-0" style={{ width: `calc((100% - (${gap} * ${Math.max(perView - 1, 0)})) / ${perView})`, borderRadius: cardRadius, backgroundColor: cardBg, display: "flex", flexDirection: "column" }}>
+                  <Link href={postLink} className="block" style={{ flexShrink: 0 }}>
                     <div className="news-grid-slider-thumb relative bg-[color:var(--bg-surface,#f9fafb)]" style={{ height: imageH }}>
                       {imageUrl ? (
                         <Image src={imageUrl} alt={post.title} fill className="object-cover hover:scale-105 transition-transform duration-500" sizes="(max-width: 1024px) 50vw, 33vw" />
@@ -832,7 +832,7 @@ export default function NewsGridSlider({ block, posts = [], customTitle, preview
                   </Link>
                   <div
                     className="news-grid-slider-content"
-                    style={{ padding: contentPadding, backgroundColor: effectiveContentBg, ...contentThemeVars }}
+                    style={{ padding: contentPadding, backgroundColor: effectiveContentBg, flex: "1 1 auto", ...contentThemeVars }}
                   >
                     <h4
                       className="news-grid-slider-title-wrap"

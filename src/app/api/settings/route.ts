@@ -11,7 +11,7 @@ import { env } from "@/lib/env";
 import { internalError } from "@/lib/api-error";
 import {
   mergeThemeConfigWithSettings,
-  denormalizeSettingFonts,
+  normalizeDeprecatedSettingFonts,
   THEME_GLOBAL_STYLE_SYNC_KEYS,
 } from "@/lib/settings";
 
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
     if (requestedThemeId && themeConfig && themeConfig.config) {
       globalSetting = mergeThemeConfigWithSettings(globalSetting, themeConfig.config);
     }
-    globalSetting = denormalizeSettingFonts(globalSetting);
+    globalSetting = normalizeDeprecatedSettingFonts(globalSetting);
 
     // Get Global Styles
     const globalStyles = buildGlobalStyles(globalSetting as GlobalSettings);
@@ -284,10 +284,10 @@ export async function PUT(request: Request) {
 
     const requestBody = await request.json();
     const { themeId, ...rawData } = requestBody;
-    const existingSetting = denormalizeSettingFonts(
+    const existingSetting = normalizeDeprecatedSettingFonts(
       await prisma.setting.findUnique({ where: { id: "default" } }),
     ) || {};
-    const data: SettingsDraft = denormalizeSettingFonts({
+    const data: SettingsDraft = normalizeDeprecatedSettingFonts({
       ...existingSetting,
       ...rawData,
     });

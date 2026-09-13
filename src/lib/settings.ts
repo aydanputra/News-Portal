@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { normalizeDeprecatedFontChoice, denormalizeDeprecatedFontChoice } from "@/lib/font-utils";
+import { normalizeDeprecatedFontChoice } from "@/lib/font-utils";
 import { unstable_cache } from "next/cache";
 
 const THEME_GLOBAL_ONLY_KEYS = [
@@ -81,6 +81,53 @@ export const THEME_GLOBAL_STYLE_SYNC_KEYS = [
   "postInlineRelatedTitleColor",
   "postInlineRelatedTextColor",
   "postInlineRelatedHoverColor",
+  // Typography - Homepage
+  "homeWidgetTitleFontSize",
+  "homeWidgetTitleFontWeight",
+  "homeWidgetTitleLineHeight",
+  "homeWidgetTitleFont",
+  "homeNewsTitleFontSize",
+  "homeNewsTitleFontWeight",
+  "homeNewsTitleLineHeight",
+  "homeNewsTitleFont",
+  "homeExcerptFontSize",
+  "homeExcerptFontWeight",
+  "homeExcerptLineHeight",
+  "homeExcerptFont",
+  "homeMetaFontSize",
+  "homeMetaFontWeight",
+  "homeMetaLineHeight",
+  "homeMetaFont",
+  // Typography - Global (Fallback)
+  "globalWidgetTitleFontSize",
+  "globalWidgetTitleFontWeight",
+  "globalWidgetTitleLineHeight",
+  "globalWidgetTitleFont",
+  "globalNewsTitleFontSize",
+  "globalNewsTitleFontWeight",
+  "globalNewsTitleLineHeight",
+  "globalNewsTitleFont",
+  "globalMetaFontSize",
+  "globalMetaFontWeight",
+  "globalMetaLineHeight",
+  "globalMetaFont",
+  "globalExcerptFontSize",
+  "globalExcerptFontWeight",
+  "globalExcerptFont",
+  "globalContentFontSize",
+  "globalContentFontWeight",
+  "globalContentLineHeight",
+  "globalContentFont",
+  // Typography - Archive
+  "archiveTitleFontSize",
+  "archiveTitleFontWeight",
+  "archiveTitleFont",
+  "archiveExcerptFontSize",
+  "archiveExcerptFontWeight",
+  "archiveExcerptFont",
+  "archiveMetaFontSize",
+  "archiveMetaFontWeight",
+  "archiveMetaFont",
 ] as const;
 
 const THEME_SETTING_PRESERVE_KEYS = [
@@ -111,30 +158,31 @@ export const FONT_SETTING_KEYS = [
   "globalContentFont",
 ] as const;
 
+function normalizeAdminFontChoice(font: unknown): string {
+  if (typeof font !== "string") return "Inter";
+  const value = font
+    .replace(/var\(--font-(poppins|inter|sora|merriweather)\)/gi, (_, family: string) => family)
+    .trim();
+  if (!value) return "Inter";
+
+  return value
+    .split(",")
+    .map((family) => family.trim().replace(/^['"]|['"]$/g, ""))
+    .filter((family) => family && !["helvetica", "helvetica neue"].includes(family.toLowerCase()))
+    .join(", ") || "Inter";
+}
+
 export function normalizeDeprecatedSettingFonts(setting: any) {
   if (!setting || typeof setting !== "object") return setting;
 
   const normalized = { ...setting };
   for (const key of FONT_SETTING_KEYS) {
     if (typeof normalized[key] === "string") {
-      normalized[key] = normalizeDeprecatedFontChoice(normalized[key], "Inter");
+      normalized[key] = normalizeAdminFontChoice(normalized[key]);
     }
   }
 
   return normalized;
-}
-
-export function denormalizeSettingFonts(setting: any) {
-  if (!setting || typeof setting !== "object") return setting;
-
-  const denormalized = { ...setting };
-  for (const key of FONT_SETTING_KEYS) {
-    if (typeof denormalized[key] === "string") {
-      denormalized[key] = denormalizeDeprecatedFontChoice(denormalized[key]);
-    }
-  }
-
-  return denormalized;
 }
 
 export function mergeThemeConfigWithSettings(baseSetting: any, themeConfig: unknown) {

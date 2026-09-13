@@ -14,6 +14,7 @@ import { unstable_cache } from "next/cache";
 import { cache, type ComponentType } from "react";
 import { getCachedCategories } from "@/lib/data";
 import { toPublicPostPreviewList } from "@/lib/post-preview";
+import { normalizeRedirectPath } from "@/lib/redirects";
 import { collectWidgetsRecursive, getOrder, hasId, type BuilderBlock } from "@/lib/block-utils";
 
 export const revalidate = 600;
@@ -170,6 +171,31 @@ const getPostRedirectTarget = cache(async (slug: string, categorySlug: string) =
   );
 
   return cached();
+});
+
+const getRedirectRuleByPath = cache(async (path: string) => {
+  const normalizedPath = normalizeRedirectPath(path);
+  const cached = unstable_cache(
+    async () => {
+      return await prisma.redirectRule.findUnique({
+        where: { oldPath: normalizedPath },
+        select: { id: true, newPath: true, statusCode: true, isActive: true },
+      });
+    },
+    [`redirect:${normalizedPath}`],
+    { tags: ["redirect-rule"], revalidate: 300 },
+  );
+  return cached();
+});
+
+// Catat hit redirect (fire-and-forget). Di-dedupe per request via React cache().
+const recordRedirectHit = cache(async (id: string) => {
+  await prisma.redirectRule
+    .update({
+      where: { id },
+      data: { hitCount: { increment: 1 }, lastHitAt: new Date() },
+    })
+    .catch(() => null);
 });
 
 const getHeaderFooterBlocks = cache(async (activeTheme: string) => {
@@ -819,6 +845,11 @@ export default async function CategoryPostPage(props: { params: Promise<{ slug: 
     const redirectTarget = await getPostRedirectTarget(postSlug, categorySlug);
     if (redirectTarget) {
       permanentRedirect(`/${redirectTarget.categorySlug}/${redirectTarget.postSlug}`);
+    }
+    const redirectRule = await getRedirectRuleByPath(`/${categorySlug}/${postSlug}`);
+    if (redirectRule?.isActive && redirectRule.newPath) {
+      void recordRedirectHit(redirectRule.id);
+      permanentRedirect(redirectRule.newPath);
     }
     notFound();
   }

@@ -795,9 +795,9 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
               <article
                 key={post.id || `${block.id}-${idx}`}
                 className="news-grid-item overflow-hidden border border-[color:var(--border)]"
-                style={{ borderRadius: currentCardRadius, backgroundColor: currentCardBg }}
+                style={{ borderRadius: currentCardRadius, backgroundColor: currentCardBg, display: "flex", flexDirection: "column" }}
               >
-                <Link href={postLink} className="news-grid-thumb relative block overflow-hidden bg-[color:var(--bg-surface,#f9fafb)]" style={{ width: currentImageWidth, height: currentImageHeight }}>
+                <Link href={postLink} className="news-grid-thumb relative block overflow-hidden bg-[color:var(--bg-surface,#f9fafb)]" style={{ width: currentImageWidth, height: currentImageHeight, flexShrink: 0 }}>
                   {imageUrl ? (
                     <Image src={imageUrl} alt={post.title} fill className="object-cover hover:scale-105 transition-transform duration-500" sizes="(max-width: 768px) 100vw, 33vw" />
                   ) : (
@@ -833,7 +833,11 @@ export default function NewsGrid({ block, posts, customTitle }: NewsGridProps) {
                   style={{
                     padding: currentContentPadding,
                     backgroundColor: effectiveContentBg,
-                    borderRadius: currentContentRadius,
+                    borderTopLeftRadius: "0",
+                    borderTopRightRadius: "0",
+                    borderBottomLeftRadius: currentContentRadius,
+                    borderBottomRightRadius: currentContentRadius,
+                    flex: "1 1 auto",
                     ...contentThemeVars,
                   }}
                 >

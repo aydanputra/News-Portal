@@ -10,8 +10,14 @@ interface ArchivePostGridProps {
 }
 
 const toPx = (value: unknown, fallback: string) => {
+  if (value === undefined || value === null) return fallback;
   if (typeof value === "number" && Number.isFinite(value)) return `${value}px`;
-  if (typeof value === "string" && value.trim() !== "" && /^-?\d+(\.\d+)?$/.test(value.trim())) return `${value.trim()}px`;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return fallback;
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) return `${trimmed}px`;
+    return trimmed;
+  }
   return fallback;
 };
 
@@ -133,10 +139,12 @@ export default function ArchivePostGrid({ block, posts }: ArchivePostGridProps) 
             className={`overflow-hidden ${useBox ? "border border-[var(--border,#e5e7eb)]" : ""}`}
             style={{
               borderRadius: "var(--global-image-radius, var(--home-main-box-radius, 0.75rem))",
+              display: "flex",
+              flexDirection: "column",
               ...(useBox ? { backgroundColor: "var(--archive-grid-box-color)" } : {}),
             }}
           >
-            <Link href={href} className="block relative aspect-[16/9] overflow-hidden">
+            <Link href={href} className="block relative aspect-[16/9] overflow-hidden" style={{ flexShrink: 0 }}>
               <Image src={imageUrl} alt={post.title || "Post image"} fill className="object-cover" />
               {isVideo && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
@@ -152,6 +160,7 @@ export default function ArchivePostGrid({ block, posts }: ArchivePostGridProps) 
               className="p-4"
               style={{
                 backgroundColor: isPublicDarkMode ? "#ffffff" : "transparent",
+                flex: "1 1 auto",
                 "--home-news-title-color": isPublicDarkMode ? "#0f172a" : titleColorDesktop,
                 "--home-meta-color": isPublicDarkMode ? "#64748b" : metaColorDesktop,
                 "--home-excerpt-color": isPublicDarkMode ? "#334155" : excerptColorDesktop,

@@ -85,37 +85,55 @@ export default function ImageUrlWidget({ config, block, title = "", customTitle 
   const shadowStyle = showShadow ? "0 10px 30px rgba(15, 23, 42, 0.14)" : undefined;
   const isExternal = /^https?:\/\//i.test(imageUrl);
   const isApiImage = imageUrl.startsWith("/api/");
+  // Pakai kotak tetap (perlu object-fit) hanya saat gambar dipotong (cover/fill)
+  // atau tinggi eksplisit diberikan. Untuk "contain" tanpa tinggi eksplisit,
+  // render sesuai rasio asli gambar agar tidak ada ruang kosong atas/bawah.
+  const usesFixedBox = Boolean(imageHeight) || objectFit === "cover" || objectFit === "fill";
   const containerStyle: React.CSSProperties = {
     position: "relative",
     width: imageWidth ?? "100%",
-    height: imageHeight,
-    aspectRatio: imageHeight ? undefined : "16 / 9",
+    height: usesFixedBox ? imageHeight : undefined,
+    aspectRatio: usesFixedBox && !imageHeight ? "16 / 9" : undefined,
     maxWidth: "100%",
     overflow: "hidden",
     borderRadius,
     boxShadow: shadowStyle,
   };
-  const image = isExternal ? (
+  const image = usesFixedBox ? (
+    isExternal ? (
+      <div className="inline-block max-w-full align-top" style={containerStyle}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={altText}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          className="absolute inset-0 h-full w-full"
+          style={{ objectFit }}
+        />
+      </div>
+    ) : (
+      <div className="inline-block max-w-full align-top" style={containerStyle}>
+        <Image
+          src={imageUrl}
+          alt={altText}
+          fill
+          sizes="(max-width: 768px) 100vw, 50vw"
+          style={{ objectFit }}
+          unoptimized={isApiImage}
+          className="h-full w-full"
+        />
+      </div>
+    )
+  ) : (
     <div className="inline-block max-w-full align-top" style={containerStyle}>
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={imageUrl}
         alt={altText}
         loading="lazy"
-        className="absolute inset-0 h-full w-full"
-        style={{ objectFit }}
-      />
-    </div>
-  ) : (
-    <div className="inline-block max-w-full align-top" style={containerStyle}>
-      <Image
-        src={imageUrl}
-        alt={altText}
-        fill
-        sizes="(max-width: 768px) 100vw, 50vw"
-        style={{ objectFit }}
-        unoptimized={isApiImage}
-        className="h-full w-full"
+        referrerPolicy="no-referrer"
+        className="block h-auto w-full"
       />
     </div>
   );

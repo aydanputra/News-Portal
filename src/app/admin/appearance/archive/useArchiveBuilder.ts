@@ -319,6 +319,22 @@ export function useArchiveBuilder() {
   const [homeHoverColor, setHomeHoverColor] = useState("#2563eb");
   const [homeExcerptColor, setHomeExcerptColor] = useState("#64748b");
   const [homeMetaColor, setHomeMetaColor] = useState("#94a3b8");
+  const [homeWidgetTitleFontSize, setHomeWidgetTitleFontSize] = useState("24px");
+  const [homeWidgetTitleFontWeight, setHomeWidgetTitleFontWeight] = useState("700");
+  const [homeWidgetTitleLineHeight, setHomeWidgetTitleLineHeight] = useState("1.3");
+  const [homeWidgetTitleFont, setHomeWidgetTitleFont] = useState("Inter");
+  const [homeNewsTitleFontSize, setHomeNewsTitleFontSize] = useState("18px");
+  const [homeNewsTitleFontWeight, setHomeNewsTitleFontWeight] = useState("600");
+  const [homeNewsTitleLineHeight, setHomeNewsTitleLineHeight] = useState("1.35");
+  const [homeNewsTitleFont, setHomeNewsTitleFont] = useState("Inter");
+  const [homeExcerptFontSize, setHomeExcerptFontSize] = useState("14px");
+  const [homeExcerptFontWeight, setHomeExcerptFontWeight] = useState("400");
+  const [homeExcerptLineHeight, setHomeExcerptLineHeight] = useState("1.6");
+  const [homeExcerptFont, setHomeExcerptFont] = useState("Inter");
+  const [homeMetaFontSize, setHomeMetaFontSize] = useState("12px");
+  const [homeMetaFontWeight, setHomeMetaFontWeight] = useState("500");
+  const [homeMetaLineHeight, setHomeMetaLineHeight] = useState("1.4");
+  const [homeMetaFont, setHomeMetaFont] = useState("Inter");
   const [headingFont, setHeadingFont] = useState("Inter");
   const [bodyFont, setBodyFont] = useState("Inter");
   const [globalBorderRadius, setGlobalBorderRadius] = useState("0.5rem");
@@ -482,6 +498,22 @@ export function useArchiveBuilder() {
                 setHomeHoverColor(settingsData.homeHoverColor || settingsData.globalAccentColor || settingsData.accentColor || "#2563eb");
                 setHomeExcerptColor(settingsData.homeExcerptColor || settingsData.excerptColor || "#4b5563");
                 setHomeMetaColor(settingsData.homeMetaColor || settingsData.metaColor || "#9ca3af");
+                setHomeWidgetTitleFontSize(settingsData.homeWidgetTitleFontSize || "24px");
+                setHomeWidgetTitleFontWeight(settingsData.homeWidgetTitleFontWeight || "700");
+                setHomeWidgetTitleLineHeight(settingsData.homeWidgetTitleLineHeight || "1.3");
+                setHomeWidgetTitleFont(settingsData.homeWidgetTitleFont || "Inter");
+                setHomeNewsTitleFontSize(settingsData.homeNewsTitleFontSize || "18px");
+                setHomeNewsTitleFontWeight(settingsData.homeNewsTitleFontWeight || "600");
+                setHomeNewsTitleLineHeight(settingsData.homeNewsTitleLineHeight || "1.35");
+                setHomeNewsTitleFont(settingsData.homeNewsTitleFont || "Inter");
+                setHomeExcerptFontSize(settingsData.homeExcerptFontSize || "14px");
+                setHomeExcerptFontWeight(settingsData.homeExcerptFontWeight || "400");
+                setHomeExcerptLineHeight(settingsData.homeExcerptLineHeight || "1.6");
+                setHomeExcerptFont(settingsData.homeExcerptFont || "Inter");
+                setHomeMetaFontSize(settingsData.homeMetaFontSize || "12px");
+                setHomeMetaFontWeight(settingsData.homeMetaFontWeight || "500");
+                setHomeMetaLineHeight(settingsData.homeMetaLineHeight || "1.4");
+                setHomeMetaFont(settingsData.homeMetaFont || "Inter");
                 setHeadingFont(settingsData.headingFont || "Inter");
                 setBodyFont(settingsData.bodyFont || "Inter");
                 setGlobalBorderRadius(settingsData.globalBorderRadius || "0.5rem");
@@ -1402,6 +1434,22 @@ export function useArchiveBuilder() {
       homeHoverColor,
       homeExcerptColor,
       homeMetaColor,
+      homeWidgetTitleFontSize,
+      homeWidgetTitleFontWeight,
+      homeWidgetTitleLineHeight,
+      homeWidgetTitleFont,
+      homeNewsTitleFontSize,
+      homeNewsTitleFontWeight,
+      homeNewsTitleLineHeight,
+      homeNewsTitleFont,
+      homeExcerptFontSize,
+      homeExcerptFontWeight,
+      homeExcerptLineHeight,
+      homeExcerptFont,
+      homeMetaFontSize,
+      homeMetaFontWeight,
+      homeMetaLineHeight,
+      homeMetaFont,
       headingFont,
       bodyFont,
       globalBorderRadius,

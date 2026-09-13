@@ -154,6 +154,13 @@ html.public-dark .public-theme {
   --home-hover-color: var(--accent) !important;
   --home-excerpt-color: #cbd5e1 !important;
   --home-meta-color: #94a3b8 !important;
+  --heading-color: #f8fafc !important;
+  --page-heading-color: #f8fafc !important;
+  --page-content-color: #e2e8f0 !important;
+  --archive-widget-title-color: #e5e7eb !important;
+  --archive-news-title-color: #f8fafc !important;
+  --archive-excerpt-color: #cbd5e1 !important;
+  --archive-meta-color: #94a3b8 !important;
   --global-bg-color: var(--bg-color) !important;
   --bg-elevated: #1e293b !important;
   --bg-surface: #334155 !important;
@@ -654,6 +661,23 @@ html.public-dark .public-theme .post-content-body .prose > *:not(.inline-related
 html.public-dark .public-theme .post-content-body .prose > *:not(.inline-related-root) h5,
 html.public-dark .public-theme .post-content-body .prose > *:not(.inline-related-root) h6 {
   color: var(--post-content-widget-heading-color, var(--fg-primary)) !important;
+}
+
+html.public-dark .public-theme .post-content-fix.prose h1,
+html.public-dark .public-theme .post-content-fix.prose h2,
+html.public-dark .public-theme .post-content-fix.prose h3,
+html.public-dark .public-theme .post-content-fix.prose h4,
+html.public-dark .public-theme .post-content-fix.prose h5,
+html.public-dark .public-theme .post-content-fix.prose h6 {
+  color: var(--page-heading-color, var(--fg-primary)) !important;
+}
+
+html.public-dark .public-theme .post-content-fix.prose {
+  color: var(--page-content-color, var(--fg-secondary)) !important;
+}
+
+html.public-dark .public-theme .post-content-fix.prose :where(p, span, div, li, blockquote, figcaption, strong, em, u, s, mark, td, th, a, code, pre, small, sub, sup, b, i, time, kbd, samp, del, ins) {
+  color: inherit !important;
 }
 
 .public-theme .responsive-block-frame {

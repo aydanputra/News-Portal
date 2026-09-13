@@ -175,7 +175,6 @@ async function getData(query: string, page: number) {
           {
             OR: [
               { title: { contains: normalizedQuery, mode: "insensitive" as const } },
-              { excerpt: { contains: normalizedQuery, mode: "insensitive" as const } },
             ],
           },
         ],
@@ -233,6 +232,14 @@ async function getData(query: string, page: number) {
 
   const processWidgetData = async (widget: any) => {
     const config = (widget.config as Record<string, any>) || {};
+
+    // Hero slider di halaman pencarian wajib menampilkan hasil pencarian,
+    // bukan daftar berita umum. Data pencarian sudah berupa preview post
+    // (normalizedPosts) dan slider melakukan slice offset/limit sendiri.
+    if (widget.type === "news_hero_slider") {
+      blockData[widget.id] = normalizedPosts;
+      return;
+    }
 
     if (["classic_hero", "headline_2", "news_grid", "news_list", "news_list_highlight", "news_bullet_list", "news_grid_slider", "news_headline_big", "news_hero_slider", "news_hero_split_4", "hero", "news_slider", "sidebar_widget", "tag_cloud"].includes(widget.type)) {
       const baseLimit = Number(config.limit || config.count) || 5;
@@ -353,7 +360,7 @@ export default async function SearchPage({
   const [data, menusByLocation] = await Promise.all([getData(query, page), getPublicMenusByLocation()]);
   const ArchiveComponent: any = await getThemeArchiveComponent(data.activeTheme);
 
-  const title = "Pencarian";
+  const title = query ? `Pencarian: ${query}` : "Pencarian";
   const description = query ? `Hasil pencarian untuk "${query}"` : "Masukkan kata kunci untuk mencari artikel.";
   const basePath = buildCanonicalPath("/search", { q: query || undefined });
   const trackingPath = buildCanonicalPath("/search", {

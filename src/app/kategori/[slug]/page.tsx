@@ -96,25 +96,39 @@ const getCategoryBySlug = cache(async (slug: string) => {
   return cached();
 });
 
-const getDescendantCategoryIds = cache(async (rootId: string) => {
-  const edges = await getAllCategoryEdges();
-  const childrenMap = new Map<string, string[]>();
-  edges.forEach((c: { id: string; parentId: string | null }) => {
-    if (!c.parentId) return;
-    const arr = childrenMap.get(c.parentId) || [];
-    arr.push(c.id);
-    childrenMap.set(c.parentId, arr);
-  });
+const getCategoryArchiveScope = cache(async (rootId: string) => {
+  const cached = unstable_cache(
+    async () => {
+      const edges = await getAllCategoryEdges();
+      const childrenMap = new Map<string, string[]>();
+      edges.forEach((c: { id: string; parentId: string | null }) => {
+        if (!c.parentId) return;
+        const arr = childrenMap.get(c.parentId) || [];
+        arr.push(c.id);
+        childrenMap.set(c.parentId, arr);
+      });
 
-  const categoryIds: string[] = [];
-  const stack = [rootId];
-  while (stack.length > 0) {
-    const id = stack.pop()!;
-    categoryIds.push(id);
-    const children = childrenMap.get(id) || [];
-    for (const childId of children) stack.push(childId);
-  }
-  return categoryIds;
+      const categoryIds: string[] = [];
+      const stack = [rootId];
+      while (stack.length > 0) {
+        const id = stack.pop()!;
+        categoryIds.push(id);
+        const children = childrenMap.get(id) || [];
+        for (const childId of children) stack.push(childId);
+      }
+
+      const categoryIdSet = new Set(categoryIds);
+      const categorySlugs = edges
+        .filter((edge) => categoryIdSet.has(edge.id))
+        .map((edge) => (typeof edge.slug === "string" ? edge.slug.trim() : ""))
+        .filter(Boolean);
+
+      return { categoryIds, categorySlugs };
+    },
+    [`category-archive-scope:${rootId}`],
+    { tags: ["categories"], revalidate: 3600 },
+  );
+  return cached();
 });
 
 const getTagCloud = cache(async (take: number) => {
@@ -237,13 +251,7 @@ async function getData(slug: string) {
 
   if (!category) return null;
 
-  const categoryIds = await getDescendantCategoryIds(category.id);
-  const categoryIdSet = new Set(categoryIds);
-  const categoryEdges = await getAllCategoryEdges();
-  const archiveCategorySlugs = categoryEdges
-    .filter((edge) => categoryIdSet.has(edge.id))
-    .map((edge) => (typeof edge.slug === "string" ? edge.slug.trim() : ""))
-    .filter(Boolean);
+  const { categoryIds, categorySlugs: archiveCategorySlugs } = await getCategoryArchiveScope(category.id);
   const activeTheme = (setting as any)?.activeTheme || "classic";
   const [{ headerConfig, footerConfig }, archiveBlocks, sourceBlocksByLocation, categories] = await Promise.all([
     getHeaderFooterBlocks(activeTheme),
@@ -287,13 +295,13 @@ async function getData(slug: string) {
     ]
   };
   const safePage = 1;
-  const cachedCategoryArchive = unstable_cache(
+    const cachedCategoryArchive = unstable_cache(
     async () => {
       const totalPosts = await prisma.post.count({ where });
       const totalPages = Math.max(1, Math.ceil(totalPosts / pageSize));
       const currentPage = Math.min(safePage, totalPages);
       const posts = await prisma.post.findMany({
-        where,
+        where: where,
         select: {
           id: true,
           title: true,
